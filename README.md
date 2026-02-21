@@ -1,4 +1,4 @@
-# Expande Tu Futuro Web 🚀
+# The matrix Lab 🚀
 
 Aplicación web de trading minimalista y profesional diseñada para el análisis técnico rápido.
 

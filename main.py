@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="Expande Tu Futuro Web")
+app = FastAPI(title="The Matrix Lab")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ─────────────────────────────────────────────
@@ -15,6 +15,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 1mo → vela mensual  → descarga max
 # ─────────────────────────────────────────────
 INTERVAL_MAP = {
+     "4h":  ("4h",  "1y"), 
     "1d":  ("1d",  "max"),
     "1wk": ("1wk", "max"),
     "1mo": ("1mo", "max"),

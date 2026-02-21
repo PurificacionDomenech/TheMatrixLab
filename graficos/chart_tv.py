@@ -10,7 +10,7 @@ from indicadores.etf import calcular_medias, calcular_supertrend
 def mostrar_grafico(ticker):
 
     # DESCARGA DE DATOS
-    data = yf.download(ticker, period="3y", interval="1d")
+    data = yf.download(ticker, period="3y", interval="4h")
     data = data.copy()
     data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
 
