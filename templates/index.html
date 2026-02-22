@@ -280,6 +280,7 @@ body{font-family:'Inter',sans-serif;background:#07070f;color:#e0e0e0;min-height:
 <div id="toasts"></div>
 
 <script>
+  const PRIORITARIOS = ["US30", "XAUUSD", "NAS100"];
 const DISPLAY_NAMES = {
   'BTC-USD': 'BTC · Bitcoin',
   'ETH-USD': 'ETH · Ethereum',
@@ -375,14 +376,25 @@ window.onload=()=>{
 function favId(t){return 'f_'+t.replace(/[^a-z0-9]/gi,'_');}
 
 function buildFavGrid(){
-  const tbody=document.getElementById('favItems');
-  tbody.innerHTML='';
-  ALL_ASSETS.forEach(f=>{
-    const id=favId(f.ticker), isW=watchlist.has(f.ticker);
-    const tr=document.createElement('tr');
-    tr.id='fc-'+id; tr.className='asset-row';
-    tr.onclick=e=>{if(e.target.closest('.fav-star'))return;loadSymbol(f.ticker);};
-    tr.innerHTML=`
+  const tbody = document.getElementById('favItems');
+  tbody.innerHTML = '';
+
+  // 1. Prioritarios primero
+  const pri = ALL_ASSETS.filter(f => PRIORITARIOS.includes(f.ticker));
+
+  // 2. Luego el resto
+  const otros = ALL_ASSETS.filter(f => !PRIORITARIOS.includes(f.ticker));
+
+  // 3. Unimos en el orden correcto
+  const ordenados = [...pri, ...otros];
+
+  ordenados.forEach(f => {
+    const id = favId(f.ticker), isW = watchlist.has(f.ticker);
+    const tr = document.createElement('tr');
+    tr.id = 'fc-' + id;
+    tr.className = 'asset-row';
+    tr.onclick = e => { if (e.target.closest('.fav-star')) return; loadSymbol(f.ticker); };
+    tr.innerHTML = `
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="fav-star ${isW?'watching':'idle'}" id="star-${id}"
@@ -390,7 +402,7 @@ function buildFavGrid(){
           <div>
             <div style="font-size:12px;font-weight:700;color:#e0e0e0">${f.ticker}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.3)">${f.cat} ${f.name}</div>
-           <canvas id="spark-${id}" width="80" height="22"
+            <canvas id="spark-${id}" width="80" height="22"
               style="display:block;margin-top:3px;max-width:60px"></canvas>
           </div>
         </div>
@@ -422,7 +434,6 @@ function buildFavGrid(){
     tbody.appendChild(tr);
   });
 }
-
 function refreshStars(){
   ALL_ASSETS.forEach(f=>{
     const s=document.getElementById('star-'+favId(f.ticker));
