@@ -14,24 +14,25 @@ INTERVAL_MAP = {
     "1mo": ("1mo", "max"),
 }
 
-
 def clean_df(df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return df
 
-
 def calcular_indicadores(df):
+    # NUEVAS SMAs
     df["SMA20"]  = df["Close"].rolling(20).mean()
-    df["SMA50"]  = df["Close"].rolling(50).mean()
-    df["SMA100"] = df["Close"].rolling(100).mean()
+    df["SMA80"]  = df["Close"].rolling(80).mean()
     df["SMA200"] = df["Close"].rolling(200).mean()
+    df["SMA800"] = df["Close"].rolling(800).mean()
 
+    # RSI
     delta = df["Close"].diff()
     gain  = delta.where(delta > 0, 0).rolling(14).mean()
     loss  = (-delta.where(delta < 0, 0)).rolling(14).mean()
     df["RSI"] = 100 - (100 / (1 + gain / loss))
 
+    # SuperTrend
     df["TR"] = pd.concat([
         df["High"] - df["Low"],
         (df["High"] - df["Close"].shift()).abs(),
@@ -60,7 +61,6 @@ def calcular_indicadores(df):
 
     return df
 
-
 def detectar_alertas(df, ticker=""):
     alertas = []
     n = len(df) - 1
@@ -69,59 +69,60 @@ def detectar_alertas(df, ticker=""):
 
     precio_now  = float(df["Close"].iloc[n])
     precio_prev = float(df["Close"].iloc[n - 1])
-    prefix = "[" + ticker + "] " if ticker else ""
+    prefix = f"[{ticker}] " if ticker else ""
 
+    # NUEVAS SMAs
     smas = {
         "SMA20":  (df["SMA20"].iloc[n],  df["SMA20"].iloc[n-1]),
-        "SMA50":  (df["SMA50"].iloc[n],  df["SMA50"].iloc[n-1]),
-        "SMA100": (df["SMA100"].iloc[n], df["SMA100"].iloc[n-1]),
+        "SMA80":  (df["SMA80"].iloc[n],  df["SMA80"].iloc[n-1]),
         "SMA200": (df["SMA200"].iloc[n], df["SMA200"].iloc[n-1]),
+        "SMA800": (df["SMA800"].iloc[n], df["SMA800"].iloc[n-1]),
     }
 
+    # Precio tocando o cruzando SMAs
     for nombre, (sma_now, sma_prev) in smas.items():
         if not (pd.notna(sma_now) and pd.notna(sma_prev)):
             continue
+
         if precio_prev < sma_prev and precio_now >= sma_now:
             alertas.append({"nivel": "bullish",
-                "msg": prefix + "Precio cruza " + nombre + " al alza $" + str(round(precio_now, 2))})
+                "msg": prefix + f"Precio cruza {nombre} al alza ${precio_now:.2f}"})
         elif precio_prev > sma_prev and precio_now <= sma_now:
             alertas.append({"nivel": "bearish",
-                "msg": prefix + "Precio cruza " + nombre + " a la baja $" + str(round(precio_now, 2))})
+                "msg": prefix + f"Precio cruza {nombre} a la baja ${precio_now:.2f}"})
         elif sma_now > 0 and abs(precio_now - sma_now) / sma_now * 100 <= 0.4:
             alertas.append({"nivel": "info",
-                "msg": prefix + "Precio tocando " + nombre + " $" + str(round(precio_now, 2))})
+                "msg": prefix + f"Precio tocando {nombre} ${precio_now:.2f}"})
 
-    s100_n, s100_p = smas["SMA100"]
-    s200_n, s200_p = smas["SMA200"]
-    if pd.notna(s100_n) and pd.notna(s200_n) and pd.notna(s100_p) and pd.notna(s200_p):
-        if s100_p < s200_p and s100_n >= s200_n:
-            alertas.append({"nivel": "bullish", "msg": prefix + "Golden Cross SMA100/200"})
-        elif s100_p > s200_p and s100_n <= s200_n:
-            alertas.append({"nivel": "bearish", "msg": prefix + "Death Cross SMA100/200"})
-
+    # Cruce rápido 20/80
     s20_n, s20_p = smas["SMA20"]
-    s50_n, s50_p = smas["SMA50"]
-    if pd.notna(s20_n) and pd.notna(s50_n) and pd.notna(s20_p) and pd.notna(s50_p):
-        if s20_p < s50_p and s20_n >= s50_n:
-            alertas.append({"nivel": "bullish", "msg": prefix + "SMA20 cruza sobre SMA50"})
-        elif s20_p > s50_p and s20_n <= s50_n:
-            alertas.append({"nivel": "bearish", "msg": prefix + "SMA20 cruza bajo SMA50"})
+    s80_n, s80_p = smas["SMA80"]
+    if pd.notna(s20_n) and pd.notna(s80_n):
+        if s20_p < s80_p and s20_n >= s80_n:
+            alertas.append({"nivel": "bullish", "msg": prefix + "Golden Cross SMA20/80"})
+        elif s20_p > s80_p and s20_n <= s80_n:
+            alertas.append({"nivel": "bearish", "msg": prefix + "Death Cross SMA20/80"})
+
+    # Cruce macro 200/800
+    s200_n, s200_p = smas["SMA200"]
+    s800_n, s800_p = smas["SMA800"]
+    if pd.notna(s200_n) and pd.notna(s800_n):
+        if s200_p < s800_p and s200_n >= s800_n:
+            alertas.append({"nivel": "bullish", "msg": prefix + "Golden Cross SMA200/800"})
+        elif s200_p > s800_p and s200_n <= s800_n:
+            alertas.append({"nivel": "bearish", "msg": prefix + "Death Cross SMA200/800"})
 
     return alertas
-
 
 def safe(v):
     return float(v) if pd.notna(v) else None
 
-
 def ts_ms(idx):
     return [int(t.timestamp() * 1000) for t in idx]
-
 
 @app.get("/")
 async def index():
     return FileResponse("templates/index.html")
-
 
 @app.get("/api/chart/{ticker}")
 async def get_chart(ticker: str, interval: str = "1d"):
@@ -130,69 +131,70 @@ async def get_chart(ticker: str, interval: str = "1d"):
         df = yf.download(ticker.upper(), period=yf_period, interval=yf_interval, progress=False)
         if df.empty:
             return {"error": "Simbolo no encontrado: " + ticker}
+
         df = clean_df(df)
         df = calcular_indicadores(df)
 
         timestamps = ts_ms(df.index)
-        candles = []
-        for i in range(len(df)):
-            candles.append({
+        candles = [
+            {
                 "x": timestamps[i],
                 "o": safe(df["Open"].iloc[i]),
                 "h": safe(df["High"].iloc[i]),
                 "l": safe(df["Low"].iloc[i]),
                 "c": safe(df["Close"].iloc[i]),
-            })
+            }
+            for i in range(len(df))
+        ]
 
         def sma_series(col):
-            out = []
-            for i in range(len(df)):
-                v = df[col].iloc[i]
-                if pd.notna(v):
-                    out.append({"x": timestamps[i], "y": float(v)})
-            return out
+            return [
+                {"x": timestamps[i], "y": float(df[col].iloc[i])}
+                for i in range(len(df))
+                if pd.notna(df[col].iloc[i])
+            ]
 
-        rsi_vals  = df["RSI"].values
-        close_vals = df["Close"].values
-
+        # RSI markers
         rsi_os = []
         rsi_ob = []
         for i in range(len(df)):
-            if pd.notna(rsi_vals[i]):
-                if rsi_vals[i] < 30:
-                    rsi_os.append({"x": timestamps[i], "y": float(close_vals[i])})
-                elif rsi_vals[i] > 70:
-                    rsi_ob.append({"x": timestamps[i], "y": float(close_vals[i])})
+            r = df["RSI"].iloc[i]
+            if pd.notna(r):
+                if r < 30:
+                    rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
+                elif r > 70:
+                    rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
 
-        st_buy  = []
+        # SuperTrend
+        st_buy = []
         st_sell = []
         for i in range(len(df)):
-            st_v = df["ST"].iloc[i]
-            dr_v = df["Dir"].iloc[i]
-            if pd.notna(st_v):
-                if dr_v == 1:
-                    st_buy.append({"x": timestamps[i], "y": float(st_v)})
-                elif dr_v == -1:
-                    st_sell.append({"x": timestamps[i], "y": float(st_v)})
+            st = df["ST"].iloc[i]
+            dr = df["Dir"].iloc[i]
+            if pd.notna(st):
+                if dr == 1:
+                    st_buy.append({"x": timestamps[i], "y": float(st)})
+                else:
+                    st_sell.append({"x": timestamps[i], "y": float(st)})
 
         last  = float(df["Close"].iloc[-1])
         first = float(df["Close"].iloc[0])
         rsi_series = df["RSI"].dropna()
         rsi_c = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50
 
-        alertas = detectar_alertas(df)
+        alertas = detectar_alertas(df, ticker=ticker.upper())
 
         return {
             "chart": {
-                "candles":  candles,
-                "sma20":    sma_series("SMA20"),
-                "sma50":    sma_series("SMA50"),
-                "sma100":   sma_series("SMA100"),
-                "sma200":   sma_series("SMA200"),
-                "rsi_os":   rsi_os,
-                "rsi_ob":   rsi_ob,
-                "st_buy":   st_buy,
-                "st_sell":  st_sell,
+                "candles": candles,
+                "sma20":  sma_series("SMA20"),
+                "sma80":  sma_series("SMA80"),
+                "sma200": sma_series("SMA200"),
+                "sma800": sma_series("SMA800"),
+                "rsi_os": rsi_os,
+                "rsi_ob": rsi_ob,
+                "st_buy": st_buy,
+                "st_sell": st_sell,
             },
             "last_price":  last,
             "change":      last - first,
@@ -204,13 +206,13 @@ async def get_chart(ticker: str, interval: str = "1d"):
     except Exception as e:
         return {"error": str(e)}
 
-
 @app.get("/api/row/{ticker}")
 async def get_row(ticker: str):
     try:
         df = yf.download(ticker.upper(), period="1y", interval="1d", progress=False)
         if df.empty:
             return {"error": "not found"}
+
         df = clean_df(df)
         df = calcular_indicadores(df)
 
@@ -233,15 +235,14 @@ async def get_row(ticker: str):
             "change_pct": round((last - first) / first * 100, 2),
             "rsi":        round(rsi, 1) if rsi is not None else None,
             "sma20":      last_val("SMA20"),
-            "sma50":      last_val("SMA50"),
-            "sma100":     last_val("SMA100"),
+            "sma80":      last_val("SMA80"),
             "sma200":     last_val("SMA200"),
+            "sma800":     last_val("SMA800"),
             "st_dir":     st_dir,
         }
 
     except Exception as e:
         return {"error": str(e)}
-
 
 @app.get("/api/watch")
 async def watch_favorites(tickers: str = ""):
@@ -260,7 +261,6 @@ async def watch_favorites(tickers: str = ""):
             pass
     return {"alertas": all_alertas}
 
-
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
     try:
@@ -273,7 +273,6 @@ async def sparkline(ticker: str):
         return {"closes": [float(c) for c in closes], "pct": round(pct, 2)}
     except Exception:
         return {"closes": [], "pct": 0}
-
 
 if __name__ == "__main__":
     import uvicorn
