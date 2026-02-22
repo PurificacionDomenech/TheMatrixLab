@@ -189,7 +189,7 @@ body{font-family:'Inter',sans-serif;background:#07070f;color:#e0e0e0;min-height:
         </div>
       <div id="watchBody" class="acc-body closed">
           <div id="watchEmpty" style="font-size:10px;line-height:1.6;color:rgba(255,255,255,.2)">
-            Marca ★ en cualquier activo para añadirlo. Alertas cuando precio toca SMA o cruzan SMA100/SMA200.
+            Marca ★ en cualquier activo para añadirlo. Alertas cuando precio toca SMA o cruzan SMA80/SMA800.
           </div>
           <div id="watch-alerts-list"></div>
           <div id="watchCount" style="font-size:10px;margin-top:6px;color:rgba(255,0,127,.5);font-weight:600"></div>
@@ -202,9 +202,9 @@ body{font-family:'Inter',sans-serif;background:#07070f;color:#e0e0e0;min-height:
       <div id="ind-bar">
         <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700;margin-right:2px">Ind:</span>
         <button class="btn-ind" id="tog-sma20"  style="background:rgba(0,255,255,.1);color:#00ffff;border-color:rgba(0,255,255,.3)"      onclick="toggleInd('sma20')">SMA20</button>
-        <button class="btn-ind" id="tog-sma50"  style="background:rgba(255,255,0,.1);color:#ffff00;border-color:rgba(255,255,0,.3)"      onclick="toggleInd('sma50')">SMA50</button>
-        <button class="btn-ind" id="tog-sma100" style="background:rgba(255,200,100,.1);color:#ffc864;border-color:rgba(255,200,100,.3)"  onclick="toggleInd('sma100')">SMA100</button>
-        <button class="btn-ind" id="tog-sma200" style="background:rgba(200,150,220,.1);color:#c896dc;border-color:rgba(200,150,220,.3)"  onclick="toggleInd('sma200')">SMA200</button>
+        <button class="btn-ind" id="tog-sma80"  style="background:rgba(255,255,0,.1);color:#ffff00;border-color:rgba(255,255,0,.3)"      onclick="toggleInd('sma80')">SMA80</button>
+        <button class="btn-ind" id="tog-sma200" style="background:rgba(255,200,100,.1);color:#ffc864;border-color:rgba(255,200,100,.3)"  onclick="toggleInd('sma200')">SMA200</button>
+        <button class="btn-ind" id="tog-sma800" style="background:rgba(200,150,220,.1);color:#c896dc;border-color:rgba(200,150,220,.3)"  onclick="toggleInd('sma800')">SMA800</button>
         <button class="btn-ind off" id="tog-st" style="background:rgba(0,255,100,.1);color:#00e676;border-color:rgba(0,255,100,.3)"      onclick="toggleInd('st')">SuperT</button>
         <button class="btn-ind off" id="tog-rsi"style="background:rgba(255,0,127,.1);color:#ff69b4;border-color:rgba(255,0,127,.3)"      onclick="toggleInd('rsi')">RSI</button>
         <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
@@ -266,7 +266,8 @@ body{font-family:'Inter',sans-serif;background:#07070f;color:#e0e0e0;min-height:
               <th class="r">Cambio %</th>
               <th class="c">RSI 14</th>
               <th class="c">Medias móviles</th>
-              <th class="c">Cruce 100/200</th>
+              <th class="c">Cruce 20/80</th>
+              <th class="c">Cruce 200/800</th>
               <th class="c">Estado</th>
             </tr>
           </thead>
@@ -353,7 +354,7 @@ const ALL_ASSETS = [
 
 let currentSymbol  = '^NDX';
 let favsOpen       = false;
-let indVisible     = {sma20:true,sma50:true,sma100:true,sma200:true,st:false,rsi:false};
+let indVisible     = {sma20:true,sma80:true,sma200:true,sma800:true,st:false,rsi:false};
 let lastData       = null;
 let watchlist      = new Set();
 let alertsByTicker = {};
@@ -490,9 +491,9 @@ async function loadRowData(ticker){
       const THRESH=0.6; // % para "cerca"
       const defs=[
         {v:d.sma20,  label:'SMA20'},
-        {v:d.sma50,  label:'SMA50'},
-        {v:d.sma100, label:'SMA100'},
+        {v:d.sma80,  label:'SMA80'},
         {v:d.sma200, label:'SMA200'},
+        {v:d.sma800, label:'SMA800'},
       ];
       const near=defs.filter(s=>s.v&&Math.abs(d.price-s.v)/s.v*100<=THRESH);
       if(near.length===0){
@@ -512,11 +513,11 @@ async function loadRowData(ticker){
     // Cruce 100/200 — triángulo en español (tooltip explica)
     const crEl=document.getElementById(`tcr-${id}`);
     if(crEl){
-      if(d.sma100&&d.sma200){
-        if(d.sma100>d.sma200)
-          crEl.innerHTML='<span style="color:#00e676;font-size:16px" title="Cruce Dorado — SMA100 sobre SMA200">▲</span>';
+      if(d.sma20&&d.sma80){
+        if(d.sma20>d.sma80)
+          crEl.innerHTML='<span style="color:#00e676;font-size:16px" title="Cruce Dorado — SMA20 sobre SMA80">▲</span>';
         else
-          crEl.innerHTML='<span style="color:#ff4444;font-size:16px" title="Cruce de la Muerte — SMA100 bajo SMA200">▼</span>';
+          crEl.innerHTML='<span style="color:#ff4444;font-size:16px" title="Cruce de la Muerte — SMA20 bajo SMA80">▼</span>';
       } else crEl.innerText='—';
     }
 
@@ -551,14 +552,15 @@ function calcularEstado(d){
   }
 
   // Toca SMA — cuanto más larga la media, más fuerte el soporte
-  // SMA200 es soporte histórico brutal, SMA20 es menor
-  if(d.sma200 && Math.abs(d.price-d.sma200)/d.sma200*100 <= 0.8) puntos += 4;
-  else if(d.sma100 && Math.abs(d.price-d.sma100)/d.sma100*100 <= 0.8) puntos += 3;
-  else if(d.sma50 && Math.abs(d.price-d.sma50)/d.sma50*100 <= 0.8)  puntos += 2;
-  else if(d.sma20 && Math.abs(d.price-d.sma20)/d.sma20*100 <= 0.8)  puntos += 1;
+  // SMA80 /800 es soporte histórico brutal, SMA20 / 200es menor
+  if(d.sma800 && Math.abs(d.price-d.sma800)/d.sma800*100 <= 0.8) puntos += 4;
+  else if(d.sma80 && Math.abs(d.price-d.sma80)/d.sma80*100 <= 0.8) puntos += 4;
+  else if(d.sma200 && Math.abs(d.price-d.sma200)/d.sma200*100 <= 0.8)  puntos += 2;
+  else if(d.sma20 && Math.abs(d.price-d.sma20)/d.sma20*100 <= 0.8)  puntos += 2;
 
-  // Precio por DEBAJO de SMA200 = activo deprimido = potencial de recuperación
-  if(d.sma200 && d.price < d.sma200) puntos += 1;
+  // Precio por DEBAJO de SMA800 = activo deprimido = potencial de recuperación
+  if(d.sma800 && d.price < d.sma800) puntos += 1;
+  if(d.sma80 && d.price < d.sma80) puntos += 1;
 
   if(puntos >= 5) return '<span class="badge favorable">Favorable</span>';
   if(puntos >= 3) return '<span class="badge interesante">Interesante</span>';
@@ -695,9 +697,9 @@ function renderPlotly(apiData){
   const xy=arr=>({xs:arr.map(p=>new Date(p.x)),ys:arr.map(p=>p.y)});
 
   [{key:'sma20',data:cd.sma20,col:'rgba(0,255,255,.85)',  w:1.2,name:'SMA 20'},
-   {key:'sma50',data:cd.sma50,col:'rgba(255,255,0,.85)',  w:1.5,name:'SMA 50'},
-   {key:'sma100',data:cd.sma100,col:'rgba(255,200,100,.85)',w:1.8,name:'SMA 100'},
-   {key:'sma200',data:cd.sma200,col:'rgba(200,150,220,.9)', w:2.2,name:'SMA 200'},
+   {key:'sma80',data:cd.sma80,col:'rgba(255,255,0,.85)',  w:1.5,name:'SMA 80'},
+   {key:'sma200',data:cd.sma200,col:'rgba(255,200,100,.85)',w:1.8,name:'SMA 200'},
+   {key:'sma800',data:cd.sma800,col:'rgba(200,150,220,.9)', w:2.2,name:'SMA 800'},
   ].forEach(s=>{
     if(!indVisible[s.key])return;
     const{xs,ys}=xy(s.data);
