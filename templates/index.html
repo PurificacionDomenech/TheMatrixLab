@@ -485,42 +485,56 @@ async function loadRowData(ticker){
       else{rsiEl.style.background='rgba(255,255,255,.06)';rsiEl.style.color='rgba(255,255,255,.5)';}
     }
 
-    // Medias móviles: UNA columna — muestra cuáles SMAs está tocando/cerca
-    const smaCell=document.getElementById(`tsma-${id}`);
-    if(smaCell){
-      const THRESH=0.6; // % para "cerca"
-      const defs=[
-        {v:d.sma20,  label:'SMA20'},
-        {v:d.sma80,  label:'SMA80'},
-        {v:d.sma200, label:'SMA200'},
-        {v:d.sma800, label:'SMA800'},
-      ];
-      const near=defs.filter(s=>s.v&&Math.abs(d.price-s.v)/s.v*100<=THRESH);
-      if(near.length===0){
-        smaCell.innerHTML='<span style="font-size:10px;color:rgba(255,255,255,.12)">—</span>';
-      } else {
-        smaCell.innerHTML=near.map(s=>{
-          const pct=((d.price-s.v)/s.v*100).toFixed(2);
-          const touching=Math.abs(parseFloat(pct))<=0.15;
-          const col=touching?'#ff9800':'#ffa500';
-          const bg=touching?'rgba(255,152,0,.28)':'rgba(255,165,0,.11)';
-          const icon=touching?'●':'~';
-          return `<span class="sma-pill" style="background:${bg};color:${col}" title="${s.label}: $${s.v.toFixed(2)} (${pct}%)">${icon} ${s.label}</span>`;
-        }).join('');
-      }
-    }
+// Medias móviles: UNA columna — muestra cuáles SMAs está tocando/cerca
+const smaCell = document.getElementById(`tsma-${id}`);
+if (smaCell) {
+  const THRESH = 0.6; // % para "cerca"
+  const defs = [
+    { v: d.sma20,  label: 'SMA20' },
+    { v: d.sma80,  label: 'SMA80' },
+    { v: d.sma200, label: 'SMA200' },
+    { v: d.sma800, label: 'SMA800' },
+  ];
 
-    // Cruce 100/200 — triángulo en español (tooltip explica)
-    const crEl=document.getElementById(`tcr-${id}`);
-    if(crEl){
-      if(d.sma20&&d.sma80){
-        if(d.sma20>d.sma80)
-          crEl.innerHTML='<span style="color:#00e676;font-size:16px" title="Cruce Dorado — SMA20 sobre SMA80">▲</span>';
-        else
-          crEl.innerHTML='<span style="color:#ff4444;font-size:16px" title="Cruce de la Muerte — SMA20 bajo SMA80">▼</span>';
-      } else crEl.innerText='—';
-    }
+  const near = defs.filter(s => s.v && Math.abs(d.price - s.v) / s.v * 100 <= THRESH);
 
+  if (near.length === 0) {
+    smaCell.innerHTML = '<span style="font-size:10px;color:rgba(255,255,255,.12)">—</span>';
+  } else {
+    smaCell.innerHTML = near.map(s => {
+      const pct = ((d.price - s.v) / s.v * 100).toFixed(2);
+      const touching = Math.abs(parseFloat(pct)) <= 0.15;
+      const col = touching ? '#ff9800' : '#ffa500';
+      const bg  = touching ? 'rgba(255,152,0,.28)' : 'rgba(255,165,0,.11)';
+      const icon = touching ? '●' : '~';
+      return `<span class="sma-pill" style="background:${bg};color:${col}" title="${s.label}: $${s.v.toFixed(2)} (${pct}%)">${icon} ${s.label}</span>`;
+    }).join('');
+  }
+}
+// Cruces importantes
+const crEl = document.getElementById(`tcr-${id}`);
+if (crEl) {
+  let html = '';
+
+  // Cruce rápido 20/80
+  if (d.sma20 && d.sma80) {
+    if (d.sma20 > d.sma80)
+      html += '<span style="color:#00e676;font-size:16px" title="Cruce Dorado — SMA20 sobre SMA80">▲20/80</span> ';
+    else
+      html += '<span style="color:#ff4444;font-size:16px" title="Cruce de la Muerte — SMA20 bajo SMA80">▼20/80</span> ';
+  }
+
+  // Cruce macro 200/800
+  if (d.sma200 && d.sma800) {
+    if (d.sma200 > d.sma800)
+      html += '<span style="color:#00e676;font-size:16px" title="Cruce Macro — SMA200 sobre SMA800">▲200/800</span>';
+    else
+      html += '<span style="color:#ff4444;font-size:16px" title="Cruce Macro — SMA200 bajo SMA800">▼200/800</span>';
+  }
+
+  crEl.innerHTML = html || '—';
+}
+ 
     // Estado
     const esEl=document.getElementById(`tes-${id}`);
     if(esEl) esEl.innerHTML=calcularEstado(d);
@@ -534,37 +548,32 @@ async function loadRowData(ticker){
     }
   }catch(e){}
 }
-function calcularEstado(d){
-  // Filosofía: comprar BARATO en soporte, NO cuando está caro y sobrecomprado
-  
-  // Veto inmediato: RSI > 68 = sobrecomprado, no es momento
-  if(d.rsi!=null && d.rsi>68)
+function calcularEstado(d) {
+  if (d.rsi != null && d.rsi > 68)
     return '<span class="badge no_favorable">No ahora</span>';
 
   let puntos = 0;
 
-  // RSI — cuanto más bajo mejor (más barato está)
-  if(d.rsi!=null){
-    if(d.rsi < 30) puntos += 3;       // muy sobrevendido: señal fuerte
-    else if(d.rsi < 40) puntos += 2;  // sobrevendido moderado
-    else if(d.rsi < 50) puntos += 1;  // neutral-bajo, aceptable
-    // RSI 50-68: 0 puntos (ni frío ni calor)
+  // RSI
+  if (d.rsi != null) {
+    if (d.rsi < 30) puntos += 3;
+    else if (d.rsi < 40) puntos += 2;
+    else if (d.rsi < 50) puntos += 1;
   }
 
-  // Toca SMA — cuanto más larga la media, más fuerte el soporte
-  // SMA80 /800 es soporte histórico brutal, SMA20 / 200es menor
-  if(d.sma800 && Math.abs(d.price-d.sma800)/d.sma800*100 <= 0.8) puntos += 4;
-  else if(d.sma80 && Math.abs(d.price-d.sma80)/d.sma80*100 <= 0.8) puntos += 4;
-  else if(d.sma200 && Math.abs(d.price-d.sma200)/d.sma200*100 <= 0.8)  puntos += 2;
-  else if(d.sma20 && Math.abs(d.price-d.sma20)/d.sma20*100 <= 0.8)  puntos += 2;
+  // Soportes (80 y 800 pesan más)
+  if (d.sma800 && Math.abs(d.price - d.sma800) / d.sma800 * 100 <= 0.8) puntos += 4;
+  else if (d.sma80 && Math.abs(d.price - d.sma80) / d.sma80 * 100 <= 0.8) puntos += 3;
+  else if (d.sma200 && Math.abs(d.price - d.sma200) / d.sma200 * 100 <= 0.8) puntos += 2;
+  else if (d.sma20 && Math.abs(d.price - d.sma20) / d.sma20 * 100 <= 0.8) puntos += 1;
 
-  // Precio por DEBAJO de SMA800 = activo deprimido = potencial de recuperación
-  if(d.sma800 && d.price < d.sma800) puntos += 1;
-  if(d.sma80 && d.price < d.sma80) puntos += 1;
+  // Precio por debajo de medias largas
+  if (d.sma800 && d.price < d.sma800) puntos += 1;
+  if (d.sma80  && d.price < d.sma80)  puntos += 1;
 
-  if(puntos >= 5) return '<span class="badge favorable">Favorable</span>';
-  if(puntos >= 3) return '<span class="badge interesante">Interesante</span>';
-  if(puntos >= 2) return '<span class="badge considerar">Considerar</span>';
+  if (puntos >= 6) return '<span class="badge favorable">Favorable</span>';
+  if (puntos >= 4) return '<span class="badge interesante">Interesante</span>';
+  if (puntos >= 2) return '<span class="badge considerar">Considerar</span>';
   return '<span class="badge no_favorable">No ahora</span>';
 }
 
@@ -694,18 +703,32 @@ function renderPlotly(apiData){
     fill:'tozeroy',fillcolor:'rgba(255,255,255,.25)',
     hovertemplate:'<b>%{x|%d %b %Y}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
 
-  const xy=arr=>({xs:arr.map(p=>new Date(p.x)),ys:arr.map(p=>p.y)});
+const xy = arr => {
+  if (!Array.isArray(arr)) return { xs: [], ys: [] };
+  return {
+    xs: arr.map(p => new Date(p.x)),
+    ys: arr.map(p => p.y)
+  };
+};
 
-  [{key:'sma20',data:cd.sma20,col:'rgba(0,255,255,.85)',  w:1.2,name:'SMA 20'},
-   {key:'sma80',data:cd.sma80,col:'rgba(255,255,0,.85)',  w:1.5,name:'SMA 80'},
-   {key:'sma200',data:cd.sma200,col:'rgba(255,200,100,.85)',w:1.8,name:'SMA 200'},
-   {key:'sma800',data:cd.sma800,col:'rgba(200,150,220,.9)', w:2.2,name:'SMA 800'},
-  ].forEach(s=>{
-    if(!indVisible[s.key])return;
-    const{xs,ys}=xy(s.data);
-    traces.push({x:xs,y:ys,type:'scatter',mode:'lines',name:s.name,
-      line:{color:s.col,width:s.w},hovertemplate:`<b>${s.name}</b>: $%{y:,.2f}<extra></extra>`});
+[
+  { key:'sma20',  data:cd.sma20,  col:'rgba(0,255,255,.85)',  w:1.2, name:'SMA 20' },
+  { key:'sma80',  data:cd.sma80,  col:'rgba(255,255,0,.85)',  w:1.5, name:'SMA 80' },
+  { key:'sma200', data:cd.sma200, col:'rgba(255,200,100,.85)',w:1.8, name:'SMA 200' },
+  { key:'sma800', data:cd.sma800, col:'rgba(200,150,220,.9)', w:2.2, name:'SMA 800' },
+].forEach(s => {
+  if (!indVisible[s.key]) return;
+  const { xs, ys } = xy(s.data);
+  traces.push({
+    x: xs,
+    y: ys,
+    type: 'scatter',
+    mode: 'lines',
+    name: s.name,
+    line: { color: s.col, width: s.w },
+    hovertemplate: `<b>${s.name}</b>: $%{y:,.2f}<extra></extra>`
   });
+});
 
   if(indVisible.st){
     const stB=xy(cd.st_buy),stS=xy(cd.st_sell);
