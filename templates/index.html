@@ -199,10 +199,6 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
             style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
             ★ Matrix Niveles Neo
           </button>
-          <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/zQDMj0ly/','_blank')"
-            style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
-            ★ Indicador TV 2
-          </button>
         </div>
       </div>
 
@@ -219,6 +215,7 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
           <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
             <button class="btn-ind" onclick="zoomChart(1.2)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">+</button>
             <button class="btn-ind" onclick="zoomChart(0.8)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">-</button>
+            <button class="btn-ind" onclick="resetZoom5d()" style="background:rgba(255,0,127,.08);color:#ff69b4;border-color:rgba(255,0,127,.25);padding:4px 10px;font-size:10px">↺ Reset</button>
             <span style="font-size:9px;color:rgba(255,255,255,.2);white-space:nowrap">Doble clic reset</span>
           </div>
         </div>
@@ -631,8 +628,12 @@ function renderPlotly(apiData){
   const yFmt=last>500?',.0f':last>1?',.2f':',.4f';
   const traces=[],shapes=[];
 
+  // Sombra del precio: dos trazas superpuestas — área sólida + línea brillante
+  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',
+    fill:'tozeroy',fillcolor:'rgba(255,255,255,.10)',hoverinfo:'skip',showlegend:false});
   traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',
-    line:{color:'rgba(255,255,255,.9)',width:1.2},fill:'tozeroy',fillcolor:'rgba(255,255,255,.04)',
+    line:{color:'rgba(255,255,255,.95)',width:1.8},
+    fill:'tozeroy',fillcolor:'rgba(255,255,255,.055)',
     hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
 
   traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),
@@ -712,7 +713,7 @@ function renderPlotly(apiData){
   if(savedXRange){layout.xaxis.range=savedXRange;}
   else{
     const ld=dates[dates.length-1];
-    if(ld)layout.xaxis.range=[new Date(ld.getTime()-90*24*60*60*1000).toISOString(),ld.toISOString()];
+    if(ld)layout.xaxis.range=[new Date(ld.getTime()-5*24*60*60*1000).toISOString(),ld.toISOString()];
   }
 
   Plotly.react('plotDiv',traces,layout,{responsive:true,scrollZoom:true,displayModeBar:false,doubleClick:'reset'});
@@ -789,6 +790,15 @@ function zoomChart(factor){
   const s=new Date(xr[0]).getTime(),e=new Date(xr[1]).getTime();
   const center=(s+e)/2,half=((e-s)/2)/factor;
   savedXRange=[new Date(center-half).toISOString(),new Date(center+half).toISOString()];
+  Plotly.relayout('plotDiv',{'xaxis.range':savedXRange});
+}
+
+function resetZoom5d(){
+  if(!lastData)return;
+  const dates=lastData.chart.candles.map(c=>new Date(c.x));
+  const ld=dates[dates.length-1];
+  if(!ld)return;
+  savedXRange=[new Date(ld.getTime()-5*24*60*60*1000).toISOString(),ld.toISOString()];
   Plotly.relayout('plotDiv',{'xaxis.range':savedXRange});
 }
 
