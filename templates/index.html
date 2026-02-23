@@ -12,61 +12,37 @@ html{-webkit-text-size-adjust:100%}
 body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:100vh;overflow-x:hidden}
 .mono{font-family:'Space Mono',monospace}
 .card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px}
-
 #app{width:100%;max-width:1600px;margin:0 auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
-
-/* HEADER */
 #hdr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-#hdr-logo{width:30px;height:30px;border-radius:9px;background:#ff007f;box-shadow:0 0 14px rgba(255,0,127,.4);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#hdr-logo{width:30px;height:30px;border-radius:9px;background:#ff007f;box-shadow:0 0 14px rgba(255,0,127,.4);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 #hdr-title{font-size:14px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
-#hdr-badge{font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(255,0,127,.12);color:#ff69b4;
-  border:1px solid rgba(255,0,127,.25);font-weight:700;letter-spacing:.08em;white-space:nowrap}
+#hdr-badge{font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(255,0,127,.12);color:#ff69b4;border:1px solid rgba(255,0,127,.25);font-weight:700;letter-spacing:.08em;white-space:nowrap}
 #hdr-search{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
-#symbolInput{flex:1;min-width:0;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:9px;
-  padding:8px 12px;font-size:13px;color:#e0e0e0;font-family:'Syne',sans-serif;transition:border-color .2s}
+#symbolInput{flex:1;min-width:0;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:8px 12px;font-size:13px;color:#e0e0e0;font-family:'Syne',sans-serif;transition:border-color .2s}
 #symbolInput:focus{outline:none;border-color:rgba(255,0,127,.5)}
-#btnSearch{padding:8px 14px;border-radius:9px;background:#ff007f;color:#fff;font-size:13px;font-weight:700;
-  border:none;cursor:pointer;font-family:'Syne',sans-serif;white-space:nowrap;flex-shrink:0}
-
-/* LAYOUT */
+#btnSearch{padding:8px 14px;border-radius:9px;background:#ff007f;color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'Syne',sans-serif;white-space:nowrap;flex-shrink:0}
 #main{display:flex;flex-direction:column;gap:10px;width:100%}
-@media(min-width:900px){
-  #main{display:grid;grid-template-columns:170px 1fr;align-items:flex-start}
-}
-
-/* SIDEBAR */
+@media(min-width:900px){#main{display:grid;grid-template-columns:170px 1fr;align-items:flex-start}}
 #sidebar{display:flex;flex-direction:column;gap:8px}
 #price-widget{padding:13px}
 #dispSym{font-size:10px;font-weight:800;letter-spacing:.12em;color:#ff007f;margin-bottom:2px}
 #dispPrice{font-size:20px;font-weight:700;line-height:1.2;color:#fff}
 #dispChange{font-size:11px;margin-top:4px;font-weight:600}
-#emaInfo{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
-  font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.06em}
+#emaInfo{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.06em}
 #rsiRow{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
-#rsiBar{height:5px;border-radius:3px;position:relative;margin-top:5px;
-  background:linear-gradient(to right,rgba(0,230,118,.4) 0%,rgba(0,230,118,.4) 30%,
-    rgba(255,255,255,.06) 30%,rgba(255,255,255,.06) 70%,rgba(255,68,68,.4) 70%,rgba(255,68,68,.4) 100%)}
-#rsiCursor{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;background:#fff;
-  box-shadow:0 0 5px rgba(255,255,255,.5);transform:translate(-50%,-50%);transition:left .4s;left:50%}
-
-/* Fractal info widget */
+#rsiBar{height:5px;border-radius:3px;position:relative;margin-top:5px;background:linear-gradient(to right,rgba(0,230,118,.4) 0%,rgba(0,230,118,.4) 30%,rgba(255,255,255,.06) 30%,rgba(255,255,255,.06) 70%,rgba(255,68,68,.4) 70%,rgba(255,68,68,.4) 100%)}
+#rsiCursor{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 5px rgba(255,255,255,.5);transform:translate(-50%,-50%);transition:left .4s;left:50%}
 #fractal-widget{padding:11px}
-#fractal-widget .fw-title{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(255,255,255,.2);margin-bottom:7px}
-.frac-row{display:flex;justify-content:space-between;align-items:center;
-  padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px}
+#fractal-widget .fw-title{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2);margin-bottom:7px}
+.frac-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px}
 .frac-row:last-child{border-bottom:none}
 .frac-tag{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
 .frac-tag.major{background:rgba(255,255,255,.08);color:#fff}
 .frac-tag.minor{background:rgba(197,184,4,.12);color:#c5b804}
-
 #watch-panel{padding:11px}
 #watch-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
 #watch-alerts-list{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto}
-@media(max-width:899px){
-  #watch-alerts-list{max-height:none;overflow-y:visible}
-}
+@media(max-width:899px){#watch-alerts-list{max-height:none;overflow-y:visible}}
 .w-alerta{padding:6px 9px;border-radius:8px;font-size:10px;font-weight:500;line-height:1.45;cursor:pointer;transition:filter .15s}
 .w-alerta:hover{filter:brightness(1.3)}
 .w-alerta .w-ticker{font-weight:800;font-size:10px;margin-right:4px}
@@ -78,20 +54,11 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 .alerta-item.bullish{background:rgba(0,230,118,.07);color:#00e676}
 .alerta-item.bearish{background:rgba(255,68,68,.07);color:#ff5252}
 .alerta-item.info{background:rgba(255,0,127,.07);color:#ff69b4}
-
 /* CHART */
 #chart-card{padding:13px;display:flex;flex-direction:column;gap:9px;position:relative}
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-  <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em">Gráfico 4H</span>
-  <button onclick="toggleChart()" id="btnToggleChart"
-    style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
-    background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);cursor:pointer;font-family:'Syne',sans-serif">
-    ▼ Abrir gráfico
-  </button>
-</div>
+#tv-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.05)}
 #ind-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.btn-ind{padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;
-  transition:all .15s;border:1px solid transparent;font-family:'Syne',sans-serif;white-space:nowrap}
+.btn-ind{padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;border:1px solid transparent;font-family:'Syne',sans-serif;white-space:nowrap}
 .btn-ind.off{opacity:.25;filter:grayscale(.7)}
 #plotDiv{width:100%;height:min(120vw,600px)}
 #rsiWrap{display:none}
@@ -99,42 +66,25 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 @media(min-width:900px){
   #plotDiv{height:750px}
   #rsiDiv{height:180px}
-  #favBody .table-wrap::-webkit-scrollbar{
-    height:6px;
-  }
-  #favBody .table-wrap::-webkit-scrollbar-track{
-    background:rgba(255,255,255,.04);
-    border-radius:3px;
-  }
-  #favBody .table-wrap::-webkit-scrollbar-thumb{
-    background:rgba(255,255,255,.15);
-    border-radius:3px;
-  }
-  #favBody .table-wrap::-webkit-scrollbar-thumb:hover{
-    background:rgba(255,255,255,.3);
-  }
+  #favBody .table-wrap::-webkit-scrollbar{height:6px}
+  #favBody .table-wrap::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:3px}
+  #favBody .table-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+  #favBody .table-wrap::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3)}
 }
-#loadWrap{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
-  flex-direction:column;gap:12px;color:rgba(255,255,255,.3);background:rgba(7,7,15,.75);z-index:10;border-radius:14px}
-.spin{width:32px;height:32px;border:3px solid rgba(255,0,127,.15);border-top-color:#ff007f;
-  border-radius:50%;animation:spin .7s linear infinite}
+#loadWrap{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:rgba(255,255,255,.3);background:rgba(7,7,15,.75);z-index:10;border-radius:14px}
+.spin{width:32px;height:32px;border:3px solid rgba(255,0,127,.15);border-top-color:#ff007f;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
 /* TABLA */
 #favs-panel{overflow:hidden}
-#favs-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;
-  background:none;border:none;width:100%;color:inherit;font-family:'Syne',sans-serif;padding:14px 16px}
+#favs-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:none;border:none;width:100%;color:inherit;font-family:'Syne',sans-serif;padding:14px 16px}
 .acc-body{overflow:hidden;transition:max-height .35s ease,opacity .25s ease}
 .acc-body.closed{max-height:0!important;opacity:0;pointer-events:none}
 .acc-body.open{max-height:9999px;opacity:1}
 #assetsTable{width:100%;border-collapse:collapse;min-width:680px}
-#assetsTable thead th{padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.07em;
-  color:rgba(255,255,255,.3);text-transform:uppercase;white-space:nowrap;
-  background:#07070f;border-bottom:1px solid rgba(255,255,255,.07);text-align:left}
+#assetsTable thead th{padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.07em;color:rgba(255,255,255,.3);text-transform:uppercase;white-space:nowrap;background:#07070f;border-bottom:1px solid rgba(255,255,255,.07);text-align:left}
 #assetsTable thead th.r{text-align:right}
 #assetsTable thead th.c{text-align:center}
-.asset-row{border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;
-  border-left:3px solid transparent}
+.asset-row{border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;border-left:3px solid transparent}
 .asset-row:hover{background:rgba(255,255,255,.025)!important}
 .asset-row.active-sym{background:rgba(255,0,127,.04)!important;border-left-color:#ff007f!important}
 .asset-row td{padding:8px 12px;white-space:nowrap;vertical-align:middle}
@@ -148,12 +98,8 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 .badge.considerar{background:rgba(255,140,0,.12);color:#ff8c00}
 .badge.no_favorable{background:rgba(255,255,255,.05);color:rgba(255,255,255,.28)}
 .ema-pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin:1px}
-
-/* TOASTS */
-#toasts{position:fixed;top:12px;right:12px;z-index:9999;display:flex;flex-direction:column;
-  gap:7px;pointer-events:none;max-width:calc(100vw - 24px)}
-.toast{padding:9px 14px;border-radius:10px;font-size:12px;font-weight:500;pointer-events:auto;
-  animation:fadeIn .25s ease;line-height:1.45;word-break:break-word}
+#toasts{position:fixed;top:12px;right:12px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none;max-width:calc(100vw - 24px)}
+.toast{padding:9px 14px;border-radius:10px;font-size:12px;font-weight:500;pointer-events:auto;animation:fadeIn .25s ease;line-height:1.45;word-break:break-word}
 .toast.bullish{background:rgba(0,230,118,.13);color:#00e676;border:1px solid rgba(0,230,118,.25)}
 .toast.bearish{background:rgba(255,68,68,.13);color:#ff5252;border:1px solid rgba(255,68,68,.25)}
 .toast.info{background:rgba(255,0,127,.13);color:#ff69b4;border:1px solid rgba(255,0,127,.25)}
@@ -184,7 +130,6 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
   <div id="main">
 
     <div id="sidebar">
-      <!-- PRECIO & RSI -->
       <div class="card" id="price-widget">
         <div id="dispSym">---</div>
         <div id="dispPrice" class="mono">---</div>
@@ -202,22 +147,17 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
         </div>
       </div>
 
-      <!-- FRACTALES CERCANOS -->
       <div class="card" id="fractal-widget">
         <div class="fw-title">⬡ Niveles próximos</div>
-        <div id="fractal-list">
-          <div style="font-size:10px;color:rgba(255,255,255,.2)">Carga un activo…</div>
-        </div>
+        <div id="fractal-list"><div style="font-size:10px;color:rgba(255,255,255,.2)">Carga un activo…</div></div>
       </div>
 
-      <!-- ALERTAS SÍMBOLO ACTUAL -->
       <div id="alertBox" class="card">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.2);font-weight:700;margin-bottom:6px">
           ⚡ Alertas — <span id="alertSymLabel" style="color:#ff007f"></span></div>
         <div id="alertList" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto"></div>
       </div>
 
-      <!-- VIGILANCIA -->
       <div class="card" id="watch-panel">
         <div id="watch-hdr" onclick="toggleWatchPanel()" style="cursor:pointer;user-select:none">
           <div style="display:flex;align-items:center;gap:6px">
@@ -230,72 +170,83 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
           </div>
         </div>
         <div id="watchBody" class="acc-body closed">
-          <div id="watchEmpty" style="font-size:10px;line-height:1.6;color:rgba(255,255,255,.2)">
-            Marca ★ en cualquier activo. Alertas cuando precio cruza EMAs.
-          </div>
+          <div id="watchEmpty" style="font-size:10px;line-height:1.6;color:rgba(255,255,255,.2)">Marca ★ en cualquier activo. Alertas cuando precio cruza EMAs.</div>
           <div id="watch-alerts-list"></div>
           <div id="watchCount" style="font-size:10px;margin-top:6px;color:rgba(255,0,127,.5);font-weight:600"></div>
         </div>
       </div>
     </div>
-  
-   <!-- GRÁFICO -->
-<div class="card" id="chart-card">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-    <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em">Gráfico 4H</span>
-    <button onclick="toggleChart()" id="btnToggleChart"
-      style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
-      background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);cursor:pointer;font-family:'Syne',sans-serif">
-      ▼ Abrir gráfico
-    </button>
-  </div>
 
-  <!-- Todo lo que se pliega va dentro de chartBody -->
-  <div id="chartBody" style="display:none">
+    <!-- GRÁFICO -->
+    <div class="card" id="chart-card">
 
-    <div id="ind-bar">
-      <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700;margin-right:2px">Ind:</span>
-      <button class="btn-ind" id="tog-emaShort" style="background:rgba(30,144,255,.1);color:#1e90ff;border-color:rgba(30,144,255,.3)" onclick="toggleInd('emaShort')">EMA —</button>
-      <button class="btn-ind" id="tog-emaLong"  style="background:rgba(0,200,80,.1);color:#00c850;border-color:rgba(0,200,80,.3)"   onclick="toggleInd('emaLong')">EMA —</button>
-      <button class="btn-ind" id="tog-fractals" style="background:rgba(197,184,4,.1);color:#c5b804;border-color:rgba(197,184,4,.3)" onclick="toggleInd('fractals')">Fractales</button>
-      <button class="btn-ind" id="tog-zones"    style="background:rgba(255,165,0,.1);color:#ffa500;border-color:rgba(255,165,0,.3)"  onclick="toggleInd('zones')">Zonas</button>
-      <button class="btn-ind" id="tog-opens"    style="background:rgba(13,219,30,.1);color:#0ddb1e;border-color:rgba(13,219,30,.3)"  onclick="toggleInd('opens')">Apert.</button>
-      <button class="btn-ind off" id="tog-rsi"  style="background:rgba(255,0,127,.1);color:#ff69b4;border-color:rgba(255,0,127,.3)"  onclick="toggleInd('rsi')">RSI</button>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-        <button class="btn-ind" onclick="zoomChart(1.2)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">+</button>
-        <button class="btn-ind" onclick="zoomChart(0.8)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">-</button>
-        <button class="btn-ind" onclick="abrirTradingView()" style="background:rgba(41,98,255,.15);color:#2962ff;border-color:rgba(41,98,255,.4);padding:4px 10px;font-size:10px">📈 TradingView</button>
-        <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/sao20DcG/','_blank')"
-          style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
-          ★ Indicador Matrix Niveles Neo
-        </button>
-        <span style="font-size:9px;color:rgba(255,255,255,.2);white-space:nowrap;margin-left:4px">Doble clic reset</span>
-      </div>
-    </div>
-
-      <div id="loadWrap">
-        <div class="spin"></div>
-        <span style="font-size:12px">Cargando 4H…</span>
-      </div>
-
-      <div style="display:flex;flex-direction:column">
-        <div id="plotDiv"></div>
-        <div id="rsiWrap">
-          <div style="padding:3px 60px 1px 8px;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700">RSI 14 · señales extremas</span>
-            <span style="font-size:9px;color:rgba(255,255,255,.2)">
-              <span style="color:rgba(0,230,118,.8)">▲&lt;30</span>&nbsp;
-              <span style="color:rgba(255,0,127,.8)">▼&gt;70</span>
-            </span>
-          </div>
-          <div id="rsiDiv"></div>
+      <!-- BARRA TV: siempre visible -->
+      <div id="tv-bar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em">Gráfico 4H</span>
+          <button onclick="toggleChart()" id="btnToggleChart"
+            style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.12);
+            background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);cursor:pointer;font-family:'Syne',sans-serif">
+            ▼ Abrir gráfico
+          </button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <button class="btn-ind" onclick="abrirTradingView()"
+            style="background:rgba(41,98,255,.15);color:#2962ff;border-color:rgba(41,98,255,.4);padding:4px 10px;font-size:10px">
+            📈 TradingView
+          </button>
+          <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/sao20DcG/','_blank')"
+            style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
+            ★ Matrix Niveles Neo
+          </button>
+          <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/zQDMj0ly/','_blank')"
+            style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
+            ★ Indicador TV 2
+          </button>
         </div>
       </div>
-    </div>
 
-  </div>
+      <!-- CONTENIDO PLEGABLE -->
+      <div id="chartBody" style="display:none">
+        <div id="ind-bar">
+          <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700;margin-right:2px">Ind:</span>
+          <button class="btn-ind" id="tog-emaShort" style="background:rgba(30,144,255,.1);color:#1e90ff;border-color:rgba(30,144,255,.3)" onclick="toggleInd('emaShort')">EMA 200</button>
+          <button class="btn-ind" id="tog-emaLong"  style="background:rgba(0,200,80,.1);color:#00c850;border-color:rgba(0,200,80,.3)"   onclick="toggleInd('emaLong')">EMA 800</button>
+          <button class="btn-ind" id="tog-fractals" style="background:rgba(197,184,4,.1);color:#c5b804;border-color:rgba(197,184,4,.3)" onclick="toggleInd('fractals')">Fractales</button>
+          <button class="btn-ind" id="tog-zones"    style="background:rgba(255,165,0,.1);color:#ffa500;border-color:rgba(255,165,0,.3)"  onclick="toggleInd('zones')">Zonas</button>
+          <button class="btn-ind" id="tog-opens"    style="background:rgba(13,219,30,.1);color:#0ddb1e;border-color:rgba(13,219,30,.3)"  onclick="toggleInd('opens')">Apert.</button>
+          <button class="btn-ind off" id="tog-rsi"  style="background:rgba(255,0,127,.1);color:#ff69b4;border-color:rgba(255,0,127,.3)"  onclick="toggleInd('rsi')">RSI</button>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+            <button class="btn-ind" onclick="zoomChart(1.2)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">+</button>
+            <button class="btn-ind" onclick="zoomChart(0.8)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">-</button>
+            <span style="font-size:9px;color:rgba(255,255,255,.2);white-space:nowrap">Doble clic reset</span>
+          </div>
+        </div>
 
-  <!-- TABLA ACTIVOS -->
+        <div id="loadWrap">
+          <div class="spin"></div>
+          <span style="font-size:12px">Cargando 4H…</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column">
+          <div id="plotDiv"></div>
+          <div id="rsiWrap">
+            <div style="padding:3px 60px 1px 8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700">RSI 14 · señales extremas</span>
+              <span style="font-size:9px;color:rgba(255,255,255,.2)">
+                <span style="color:rgba(0,230,118,.8)">▲&lt;30</span>&nbsp;
+                <span style="color:rgba(255,0,127,.8)">▼&gt;70</span>
+              </span>
+            </div>
+            <div id="rsiDiv"></div>
+          </div>
+        </div>
+      </div><!-- fin chartBody -->
+
+    </div><!-- fin chart-card -->
+  </div><!-- fin #main -->
+
+  <!-- TABLA ACTIVOS: abierta por defecto -->
   <div class="card" id="favs-panel">
     <button id="favs-hdr" onclick="toggleFavs()">
       <div style="display:flex;align-items:center;gap:8px">
@@ -306,12 +257,12 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <span style="font-size:10px;color:rgba(255,255,255,.18)">★ vigilancia · clic fila = gráfico</span>
-        <span id="favChevron" style="color:rgba(255,255,255,.3);font-size:11px;transition:transform .3s;transform:rotate(-90deg)">▼</span>
+        <span id="favChevron" style="color:rgba(255,255,255,.3);font-size:11px;transition:transform .3s">▼</span>
       </div>
     </button>
-
-    <div id="favBody" class="acc-body closed">
-    <div class="table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible">
+    <!-- clase "open" directamente en el HTML → abierta sin JS al cargar -->
+    <div id="favBody" class="acc-body open">
+      <div class="table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible">
         <table id="assetsTable">
           <thead>
             <tr>
@@ -335,165 +286,128 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 
 <script>
 const DISPLAY_NAMES = {
-  // Índices principales
-  '^DJI':     'US30 · Dow Jones',
-  'GC=F':     'XAUUSD · Oro',
-  '^NDX':     'NAS100 · Nasdaq 100',
-  '^GSPC':    'SPX · S&P 500',
-  '^RUT':     'RTY · Russell 2000',
-  // Forex
-  'USDJPY=X': 'USDJPY · Dólar/Yen',
-  'GBPJPY=X': 'GBPJPY · Libra/Yen',
-  'EURUSD=X': 'EURUSD · Euro/Dólar',
-  'AUDUSD=X': 'AUDUSD · Aussie/Dólar',
-  // Materias primas
-  'SI=F':     'XAGUSD · Plata',
-  'CL=F':     'WTI · Petróleo',
-  // Bonos / Dollar
-  '^TYX':     'US20Y · Bono 20Y',
-  '^TNX':     'US10Y · Bono 10Y',
-  'DX=F':     'DXY · Índice Dólar',
-  // Cripto
-  'BTC-USD':  'BTC · Bitcoin',
-  'ETH-USD':  'ETH · Ethereum',
-  // ETFs
+  '^DJI':'US30 · Dow Jones','GC=F':'XAUUSD · Oro','^NDX':'NAS100 · Nasdaq 100',
+  '^GSPC':'SPX · S&P 500','^RUT':'RTY · Russell 2000',
+  'USDJPY=X':'USDJPY · Dólar/Yen','GBPJPY=X':'GBPJPY · Libra/Yen',
+  'EURUSD=X':'EURUSD · Euro/Dólar','AUDUSD=X':'AUDUSD · Aussie/Dólar',
+  'SI=F':'XAGUSD · Plata','CL=F':'WTI · Petróleo',
+  '^TYX':'US20Y · Bono 20Y','^TNX':'US10Y · Bono 10Y','DX=F':'DXY · Índice Dólar',
+  'BTC-USD':'BTC · Bitcoin','ETH-USD':'ETH · Ethereum',
   'SPY':'SPY · S&P 500 ETF','VOO':'VOO · Vanguard S&P','VTI':'VTI · Mercado Total',
   'QQQ':'QQQ · Nasdaq ETF','QQQM':'QQQM · Nasdaq Mini',
   'GLD':'GLD · Oro ETF','IAU':'IAU · Oro iShares','GDX':'GDX · Mineras Oro',
   'IWM':'IWM · Small Cap','SMH':'SMH · Semis','XLE':'XLE · Energía',
   'SCHD':'SCHD · Dividendos','SCHG':'SCHG · Growth','VGT':'VGT · Tecnología',
-  'EEM':'EEM · Emergentes','DIA':'DIA · Dow ETF',
-  // Acciones
-  'AAPL':'AAPL · Apple',
+  'EEM':'EEM · Emergentes','DIA':'DIA · Dow ETF','AAPL':'AAPL · Apple',
 };
 
-// Favoritos por defecto (los de la imagen)
-const DEFAULT_WATCHLIST = [
-  '^DJI','GC=F','^NDX',
-  'USDJPY=X','GBPJPY=X','EURUSD=X','AUDUSD=X',
-  'SI=F','CL=F',
-  '^TYX','^TNX','DX=F',
+const DEFAULT_WATCHLIST=['^DJI','GC=F','^NDX','USDJPY=X','GBPJPY=X','EURUSD=X','AUDUSD=X','SI=F','CL=F','^TYX','^TNX','DX=F'];
+
+const ALL_ASSETS=[
+  {name:'US30 Dow Jones',ticker:'^DJI',    cat:'📊',group:'Índices'},
+  {name:'Oro Futuros',   ticker:'GC=F',    cat:'🥇',group:'Índices'},
+  {name:'Nasdaq 100',    ticker:'^NDX',    cat:'📊',group:'Índices'},
+  {name:'S&P 500',       ticker:'^GSPC',   cat:'📊',group:'Índices'},
+  {name:'Russell 2000',  ticker:'^RUT',    cat:'📊',group:'Índices'},
+  {name:'USD/JPY',       ticker:'USDJPY=X',cat:'💱',group:'Forex'},
+  {name:'GBP/JPY',       ticker:'GBPJPY=X',cat:'💱',group:'Forex'},
+  {name:'EUR/USD',       ticker:'EURUSD=X',cat:'💱',group:'Forex'},
+  {name:'AUD/USD',       ticker:'AUDUSD=X',cat:'💱',group:'Forex'},
+  {name:'Plata Futuros', ticker:'SI=F',    cat:'⚪',group:'Materias primas'},
+  {name:'Petróleo WTI',  ticker:'CL=F',    cat:'🛢️',group:'Materias primas'},
+  {name:'Bono EEUU 20Y', ticker:'^TYX',    cat:'📋',group:'Bonos'},
+  {name:'Bono EEUU 10Y', ticker:'^TNX',    cat:'📋',group:'Bonos'},
+  {name:'Índice Dólar',  ticker:'DX=F',    cat:'💵',group:'Bonos'},
+  {name:'Bitcoin',       ticker:'BTC-USD', cat:'🪙',group:'Cripto'},
+  {name:'Ethereum',      ticker:'ETH-USD', cat:'🪙',group:'Cripto'},
+  {name:'SPY', ticker:'SPY', cat:'ETF',group:'ETFs'},{name:'VOO',ticker:'VOO',cat:'ETF',group:'ETFs'},
+  {name:'VTI', ticker:'VTI', cat:'ETF',group:'ETFs'},{name:'QQQ',ticker:'QQQ',cat:'ETF',group:'ETFs'},
+  {name:'QQQM',ticker:'QQQM',cat:'ETF',group:'ETFs'},{name:'GLD',ticker:'GLD',cat:'🥇', group:'ETFs'},
+  {name:'IAU', ticker:'IAU', cat:'🥇', group:'ETFs'},{name:'GDX',ticker:'GDX',cat:'🥇', group:'ETFs'},
+  {name:'IWM', ticker:'IWM', cat:'ETF',group:'ETFs'},{name:'SMH',ticker:'SMH',cat:'ETF',group:'ETFs'},
+  {name:'XLE', ticker:'XLE', cat:'ETF',group:'ETFs'},{name:'SCHD',ticker:'SCHD',cat:'ETF',group:'ETFs'},
+  {name:'SCHG',ticker:'SCHG',cat:'ETF',group:'ETFs'},{name:'VGT',ticker:'VGT',cat:'ETF',group:'ETFs'},
+  {name:'EEM', ticker:'EEM', cat:'ETF',group:'ETFs'},{name:'DIA',ticker:'DIA',cat:'ETF',group:'ETFs'},
+  {name:'Apple',ticker:'AAPL',cat:'💼',group:'Acciones'},
 ];
 
-const ALL_ASSETS = [
-  // ── Índices principales (primeros) ──
-  {name:'US30 Dow Jones',  ticker:'^DJI',     cat:'📊', group:'Índices'},
-  {name:'Oro Futuros',     ticker:'GC=F',     cat:'🥇', group:'Índices'},
-  {name:'Nasdaq 100',      ticker:'^NDX',     cat:'📊', group:'Índices'},
-  {name:'S&P 500',         ticker:'^GSPC',    cat:'📊', group:'Índices'},
-  {name:'Russell 2000',    ticker:'^RUT',     cat:'📊', group:'Índices'},
-  // ── Forex ──
-  {name:'USD/JPY',         ticker:'USDJPY=X', cat:'💱', group:'Forex'},
-  {name:'GBP/JPY',         ticker:'GBPJPY=X', cat:'💱', group:'Forex'},
-  {name:'EUR/USD',         ticker:'EURUSD=X', cat:'💱', group:'Forex'},
-  {name:'AUD/USD',         ticker:'AUDUSD=X', cat:'💱', group:'Forex'},
-  // ── Materias primas ──
-  {name:'Plata Futuros',   ticker:'SI=F',     cat:'⚪', group:'Materias primas'},
-  {name:'Petróleo WTI',    ticker:'CL=F',     cat:'🛢️', group:'Materias primas'},
-  // ── Bonos / Dólar ──
-  {name:'Bono EEUU 20Y',   ticker:'^TYX',     cat:'📋', group:'Bonos'},
-  {name:'Bono EEUU 10Y',   ticker:'^TNX',     cat:'📋', group:'Bonos'},
-  {name:'Índice Dólar',    ticker:'DX=F',     cat:'💵', group:'Bonos'},
-  // ── Cripto ──
-  {name:'Bitcoin',         ticker:'BTC-USD',  cat:'🪙', group:'Cripto'},
-  {name:'Ethereum',        ticker:'ETH-USD',  cat:'🪙', group:'Cripto'},
-  // ── ETFs ──
-  {name:'SPY',  ticker:'SPY',  cat:'ETF', group:'ETFs'},{name:'VOO', ticker:'VOO', cat:'ETF', group:'ETFs'},
-  {name:'VTI',  ticker:'VTI',  cat:'ETF', group:'ETFs'},{name:'QQQ', ticker:'QQQ', cat:'ETF', group:'ETFs'},
-  {name:'QQQM', ticker:'QQQM', cat:'ETF', group:'ETFs'},{name:'GLD', ticker:'GLD', cat:'🥇',  group:'ETFs'},
-  {name:'IAU',  ticker:'IAU',  cat:'🥇',  group:'ETFs'},{name:'GDX', ticker:'GDX', cat:'🥇',  group:'ETFs'},
-  {name:'IWM',  ticker:'IWM',  cat:'ETF', group:'ETFs'},{name:'SMH', ticker:'SMH', cat:'ETF', group:'ETFs'},
-  {name:'XLE',  ticker:'XLE',  cat:'ETF', group:'ETFs'},{name:'SCHD',ticker:'SCHD',cat:'ETF', group:'ETFs'},
-  {name:'SCHG', ticker:'SCHG', cat:'ETF', group:'ETFs'},{name:'VGT', ticker:'VGT', cat:'ETF', group:'ETFs'},
-  {name:'EEM',  ticker:'EEM',  cat:'ETF', group:'ETFs'},{name:'DIA', ticker:'DIA', cat:'ETF', group:'ETFs'},
-  // ── Acciones ──
-  {name:'Apple',ticker:'AAPL', cat:'💼', group:'Acciones'},
-];
-
-// ── Estado global ──────────────────────────────────────────
-let currentSymbol   = '^DJI';
-let favsOpen        = true;
-let indVisible      = {emaShort:true, emaLong:true, fractals:true, zones:true, opens:true, rsi:false};
-let lastData        = null;
-let watchlist       = new Set();
-let alertsByTicker  = {};
-let shownToasts     = new Set();
-let savedXRange     = null;
-let watchPanelOpen  = false;
-let currentEmaShort = 200;
-let currentEmaLong  = 800;
+let currentSymbol='^DJI';
+let favsOpen=true;
+let indVisible={emaShort:true,emaLong:true,fractals:true,zones:true,opens:true,rsi:false};
+let lastData=null;
+let watchlist=new Set();
+let alertsByTicker={};
+let shownToasts=new Set();
+let savedXRange=null;
+let watchPanelOpen=false;
+let currentEmaShort=200;
+let currentEmaLong=800;
 
 function saveWL(){try{localStorage.setItem('etf_wl2',JSON.stringify([...watchlist]))}catch(e){}}
 function loadWL(){
   try{
     const s=localStorage.getItem('etf_wl2');
     if(s) watchlist=new Set(JSON.parse(s));
-    else  watchlist=new Set(DEFAULT_WATCHLIST); // primera vez → favoritos por defecto
-  }catch(e){ watchlist=new Set(DEFAULT_WATCHLIST); }
+    else  watchlist=new Set(DEFAULT_WATCHLIST);
+  }catch(e){watchlist=new Set(DEFAULT_WATCHLIST);}
 }
 
 window.onload=()=>{
   loadWL();
   document.getElementById('favCount').innerText=`— ${ALL_ASSETS.length} activos`;
+  // chevron ya apunta hacia abajo (tabla abierta)
+  document.getElementById('favChevron').style.transform='rotate(0deg)';
   buildFavGrid();
   updateWatchingCount();
+  ALL_ASSETS.forEach(f=>loadRowData(f.ticker));
   loadSymbol('^DJI');
-  toggleFavs();
   startWatcher();
 };
 
-// ── Helpers ────────────────────────────────────────────────
 function favId(t){return 'f_'+t.replace(/[^a-z0-9]/gi,'_');}
-
 function formatPrice(p){
   if(p===null||p===undefined)return '—';
-  return p>100
-    ? p.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})
-    : p.toFixed(4);
+  return p>100?p.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}):p.toFixed(4);
 }
 
-// ── Tabla de activos ────────────────────────────────────────
+function toggleChart(){
+  const body=document.getElementById('chartBody');
+  const btn=document.getElementById('btnToggleChart');
+  const visible=body.style.display!=='none';
+  body.style.display=visible?'none':'block';
+  btn.innerText=visible?'▼ Abrir gráfico':'▲ Cerrar gráfico';
+  if(!visible&&lastData)renderPlotly(lastData);
+}
+
 function buildFavGrid(){
   const tbody=document.getElementById('favItems');
   tbody.innerHTML='';
   let lastGroup='';
   ALL_ASSETS.forEach(f=>{
     const id=favId(f.ticker),isW=watchlist.has(f.ticker);
-    // Separador de grupo
-    if(f.group && f.group!==lastGroup){
+    if(f.group&&f.group!==lastGroup){
       lastGroup=f.group;
       const sep=document.createElement('tr');
-      sep.innerHTML=`<td colspan="7" style="padding:6px 12px 3px;font-size:9px;font-weight:800;
-        letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.18);
-        background:#07070f;border-bottom:1px solid rgba(255,255,255,.05)">${f.group}</td>`;
+      sep.innerHTML=`<td colspan="7" style="padding:6px 12px 3px;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.18);background:#07070f;border-bottom:1px solid rgba(255,255,255,.05)">${f.group}</td>`;
       tbody.appendChild(sep);
     }
     const tr=document.createElement('tr');
-    tr.id='fc-'+id; tr.className='asset-row';
+    tr.id='fc-'+id;tr.className='asset-row';
     tr.onclick=e=>{if(e.target.closest('.fav-star'))return;loadSymbol(f.ticker);};
     tr.innerHTML=`
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="fav-star ${isW?'watching':'idle'}" id="star-${id}"
-            onclick="toggleWatch('${f.ticker}',event)">★</span>
+          <span class="fav-star ${isW?'watching':'idle'}" id="star-${id}" onclick="toggleWatch('${f.ticker}',event)">★</span>
           <div>
             <div style="font-size:12px;font-weight:700;color:#e0e0e0">${f.ticker}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.3)">${f.cat} ${f.name}</div>
-            <canvas id="spark-${id}" width="80" height="22"
-              style="display:block;margin-top:3px;max-width:60px"></canvas>
+            <canvas id="spark-${id}" width="80" height="22" style="display:block;margin-top:3px;max-width:60px"></canvas>
           </div>
         </div>
       </td>
-      <td style="text-align:right">
-        <span id="tp-${id}" class="mono" style="font-size:12px;font-weight:600;color:#fff">—</span>
-      </td>
-      <td style="text-align:right">
-        <span id="tc-${id}" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.3)">—</span>
-      </td>
-      <td style="text-align:center">
-        <span id="tr-${id}" style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;
-          background:rgba(255,255,255,.06);color:rgba(255,255,255,.3)">—</span>
-      </td>
+      <td style="text-align:right"><span id="tp-${id}" class="mono" style="font-size:12px;font-weight:600;color:#fff">—</span></td>
+      <td style="text-align:right"><span id="tc-${id}" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.3)">—</span></td>
+      <td style="text-align:center"><span id="tr-${id}" style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.3)">—</span></td>
       <td style="text-align:center;min-width:120px" id="tema-${id}">—</td>
       <td style="text-align:center" id="tcr-${id}">—</td>
       <td style="text-align:center" id="tes-${id}">—</td>`;
@@ -522,27 +436,27 @@ function updateWatchingCount(){
   document.getElementById('watchCount').innerText=n>0?`${n} activo${n>1?'s':''} en vigilancia`:'';
 }
 
+function toggleFavs(){
+  favsOpen=!favsOpen;
+  document.getElementById('favBody').classList.toggle('open',favsOpen);
+  document.getElementById('favBody').classList.toggle('closed',!favsOpen);
+  document.getElementById('favChevron').style.transform=favsOpen?'rotate(0deg)':'rotate(-90deg)';
+  if(favsOpen)ALL_ASSETS.forEach(f=>loadRowData(f.ticker));
+}
+
 async function loadRowData(ticker){
   try{
     const[rowRes,spkRes]=await Promise.all([
       fetch(`/api/row/${encodeURIComponent(ticker)}`),
       fetch(`/api/sparkline/${encodeURIComponent(ticker)}`)
     ]);
-    const d=await rowRes.json(), spk=await spkRes.json();
+    const d=await rowRes.json(),spk=await spkRes.json();
     if(d.error)return;
     const id=favId(ticker);
-
     drawSparkline(id,spk);
-
-    // Precio
-    const prEl=document.getElementById(`tp-${id}`);
-    if(prEl) prEl.innerText=formatPrice(d.price);
-
-    // Cambio %
+    const prEl=document.getElementById(`tp-${id}`);if(prEl)prEl.innerText=formatPrice(d.price);
     const chEl=document.getElementById(`tc-${id}`);
     if(chEl){const up=d.change_pct>=0;chEl.innerText=`${up?'+':''}${d.change_pct.toFixed(2)}%`;chEl.style.color=up?'#00e676':'#ff4444';}
-
-    // RSI
     const rsiEl=document.getElementById(`tr-${id}`);
     if(rsiEl&&d.rsi!=null){
       rsiEl.innerText=d.rsi.toFixed(1);
@@ -550,40 +464,31 @@ async function loadRowData(ticker){
       else if(d.rsi>70){rsiEl.style.background='rgba(255,68,68,.15)';rsiEl.style.color='#ff5252';}
       else{rsiEl.style.background='rgba(255,255,255,.06)';rsiEl.style.color='rgba(255,255,255,.5)';}
     }
-
-    // EMAs
     const emaCell=document.getElementById(`tema-${id}`);
     if(emaCell&&d.ema_short!=null&&d.ema_long!=null){
-      const sn=d.ema_short_name||'EMAc', ln=d.ema_long_name||'EMEl';
-      const sAbove=d.price>d.ema_short, lAbove=d.price>d.ema_long;
+      const sn=d.ema_short_name||'EMAc',ln=d.ema_long_name||'EMAl';
+      const sA=d.price>d.ema_short,lA=d.price>d.ema_long;
       emaCell.innerHTML=`
-        <span class="ema-pill" style="background:rgba(30,144,255,.12);color:${sAbove?'#1e90ff':'rgba(30,144,255,.4)'}">${sn} ${sAbove?'▲':'▼'}</span>
-        <span class="ema-pill" style="background:rgba(0,200,80,.12);color:${lAbove?'#00c850':'rgba(0,200,80,.4)'}">${ln} ${lAbove?'▲':'▼'}</span>`;
+        <span class="ema-pill" style="background:rgba(30,144,255,.12);color:${sA?'#1e90ff':'rgba(30,144,255,.4)'}">${sn} ${sA?'▲':'▼'}</span>
+        <span class="ema-pill" style="background:rgba(0,200,80,.12);color:${lA?'#00c850':'rgba(0,200,80,.4)'}">${ln} ${lA?'▲':'▼'}</span>`;
     }
-
-    // Cruce EMAs
     const crEl=document.getElementById(`tcr-${id}`);
     if(crEl&&d.ema_short!=null&&d.ema_long!=null){
-      const sn=d.ema_short_name||'EMAs', ln=d.ema_long_name||'EMAl';
-      if(d.ema_short>d.ema_long)
-        crEl.innerHTML=`<span style="color:#00e676;font-size:13px" title="Golden Cross">▲ ${sn}/${ln.replace('EMA','')}</span>`;
-      else
-        crEl.innerHTML=`<span style="color:#ff4444;font-size:13px" title="Death Cross">▼ ${sn}/${ln.replace('EMA','')}</span>`;
+      const sn=d.ema_short_name||'EMAs',ln=d.ema_long_name||'EMAl';
+      crEl.innerHTML=d.ema_short>d.ema_long
+        ?`<span style="color:#00e676;font-size:13px" title="Golden Cross">▲ ${sn}/${ln.replace('EMA','')}</span>`
+        :`<span style="color:#ff4444;font-size:13px" title="Death Cross">▼ ${sn}/${ln.replace('EMA','')}</span>`;
     }
-
-    // Estado
     const esEl=document.getElementById(`tes-${id}`);
-    if(esEl) esEl.innerHTML=calcularEstado(d);
-
+    if(esEl)esEl.innerHTML=calcularEstado(d);
   }catch(e){}
 }
 
 function calcularEstado(d){
-  if(d.rsi!=null&&d.rsi>68) return '<span class="badge no_favorable">No ahora</span>';
+  if(d.rsi!=null&&d.rsi>68)return '<span class="badge no_favorable">No ahora</span>';
   let pts=0;
-  // +1 punto si es martes, miércoles o jueves (días de mayor probabilidad)
-const diaSemana = new Date().getDay(); // 0=dom, 1=lun, 2=mar, 3=mie, 4=jue, 5=vie, 6=sab
-if(diaSemana >= 2 && diaSemana <= 4) pts += 1;
+  const dia=new Date().getDay();
+  if(dia>=2&&dia<=4)pts+=1;
   if(d.rsi!=null){if(d.rsi<30)pts+=3;else if(d.rsi<40)pts+=2;else if(d.rsi<50)pts+=1;}
   if(d.ema_long&&Math.abs(d.price-d.ema_long)/d.ema_long*100<=0.8)pts+=4;
   else if(d.ema_short&&Math.abs(d.price-d.ema_short)/d.ema_short*100<=0.8)pts+=2;
@@ -605,24 +510,13 @@ function drawSparkline(id,spk){
   const up=spk.pct>=0,col=up?'#00e676':'#ff4444';
   const pts=closes.map((v,i)=>({x:i/(closes.length-1)*W,y:H-2-(v-mn)/rng*(H-5)}));
   const gr=ctx.createLinearGradient(0,0,0,H);
-  gr.addColorStop(0,up?'rgba(0,230,118,.18)':'rgba(255,68,68,.18)');
-  gr.addColorStop(1,'rgba(0,0,0,0)');
+  gr.addColorStop(0,up?'rgba(0,230,118,.18)':'rgba(255,68,68,.18)');gr.addColorStop(1,'rgba(0,0,0,0)');
   ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
-  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
-  ctx.fillStyle=gr;ctx.fill();
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=gr;ctx.fill();
   ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
   ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
 }
 
-function toggleFavs(){
-  favsOpen=!favsOpen;
-  document.getElementById('favBody').classList.toggle('open',favsOpen);
-  document.getElementById('favBody').classList.toggle('closed',!favsOpen);
-  document.getElementById('favChevron').style.transform=favsOpen?'rotate(0deg)':'rotate(-90deg)';
-  if(favsOpen) ALL_ASSETS.forEach(f=>loadRowData(f.ticker));
-}
-
-// ── Panel de vigilancia ──────────────────────────────────────
 function startWatcher(){checkWatchlist();setInterval(checkWatchlist,5*60*1000);}
 
 async function checkWatchlist(){
@@ -700,268 +594,156 @@ function relTime(ts){
   if(d<86400000)return`${Math.floor(d/3600000)}h`;return`${Math.floor(d/86400000)}d`;
 }
 
-// ── Fractal sidebar ──────────────────────────────────────────
-function renderFractalList(fractales, precio){
+function renderFractalList(fractales,precio){
   const el=document.getElementById('fractal-list');
   if(!fractales||!fractales.levels){el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.2)">Sin datos</div>';return;}
   const levels=fractales.levels;
-  // Mostrar 3 arriba y 3 abajo del precio
   const above=levels.filter(l=>l.price>precio).sort((a,b)=>a.price-b.price).slice(0,4);
   const below=levels.filter(l=>l.price<=precio).sort((a,b)=>b.price-a.price).slice(0,4);
   let html='';
   above.reverse().forEach(l=>{
     const dist=((l.price-precio)/precio*100).toFixed(2);
-    html+=`<div class="frac-row">
-      <span class="frac-tag ${l.is_major?'major':'minor'}">${l.is_major?'◆':'◇'} ${l.price.toLocaleString('es-ES',{minimumFractionDigits:0,maximumFractionDigits:2})}</span>
-      <span style="font-size:9px;color:#00e676">+${dist}%</span>
-    </div>`;
+    html+=`<div class="frac-row"><span class="frac-tag ${l.is_major?'major':'minor'}">${l.is_major?'◆':'◇'} ${l.price.toLocaleString('es-ES',{maximumFractionDigits:2})}</span><span style="font-size:9px;color:#00e676">+${dist}%</span></div>`;
   });
-  // Precio actual
   html+=`<div style="padding:3px 0;text-align:center;font-size:9px;font-weight:700;color:#ff007f;border-top:1px solid rgba(255,0,127,.2);border-bottom:1px solid rgba(255,0,127,.2);margin:2px 0">● ${formatPrice(precio)}</div>`;
   below.forEach(l=>{
     const dist=(((precio-l.price)/precio)*100).toFixed(2);
-    html+=`<div class="frac-row">
-      <span class="frac-tag ${l.is_major?'major':'minor'}">${l.is_major?'◆':'◇'} ${l.price.toLocaleString('es-ES',{minimumFractionDigits:0,maximumFractionDigits:2})}</span>
-      <span style="font-size:9px;color:#ff4444">-${dist}%</span>
-    </div>`;
+    html+=`<div class="frac-row"><span class="frac-tag ${l.is_major?'major':'minor'}">${l.is_major?'◆':'◇'} ${l.price.toLocaleString('es-ES',{maximumFractionDigits:2})}</span><span style="font-size:9px;color:#ff4444">-${dist}%</span></div>`;
   });
   el.innerHTML=html;
 }
 
-// ── Gráfico principal ────────────────────────────────────────
 async function fetchData(sym){
   const r=await fetch(`/api/chart/${encodeURIComponent(sym)}`);
   const d=await r.json();if(d.error)throw new Error(d.error);return d;
 }
 
 const BG='#07070f';
-  function toggleChart(){
-  const body=document.getElementById('chartBody');
-  const btn=document.getElementById('btnToggleChart');
-  const visible=body.style.display!=='none';
-  body.style.display=visible?'none':'block';
-  btn.innerText=visible?'▼ Abrir gráfico':'▲ Cerrar gráfico';
-  if(!visible&&lastData) renderPlotly(lastData);
-}
 
 function renderPlotly(apiData){
   const cd=apiData.chart;
   const cfg=apiData.asset_config||{ema_short:200,ema_long:800};
   const opens=apiData.opens||{};
   const fractales=apiData.fractales||{};
-
   const dates=cd.candles.map(c=>new Date(c.x));
   const closes=cd.candles.map(c=>c.c);
   const last=closes[closes.length-1]||1;
   const yFmt=last>500?',.0f':last>1?',.2f':',.4f';
+  const traces=[],shapes=[];
 
-  const traces=[];
-  const shapes=[];
+  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',
+    line:{color:'rgba(255,255,255,.9)',width:1.2},fill:'tozeroy',fillcolor:'rgba(255,255,255,.04)',
+    hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
 
-  // ── Velas como área de precio ──
-  traces.push({
-    x:dates, y:closes, type:'scatter', mode:'lines', name:'Precio 4H',
-    line:{color:'rgba(255,255,255,.9)',width:1.2,shape:'linear'},
-    fill:'tozeroy', fillcolor:'rgba(255,255,255,.04)',
-    hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'
-  });
-
-  // ── Velas OHLC (opcional, ligeras) ──
-  traces.push({
-    x:dates,
-    open:cd.candles.map(c=>c.o), high:cd.candles.map(c=>c.h),
-    low:cd.candles.map(c=>c.l), close:closes,
-    type:'candlestick', name:'OHLC',
+  traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),
+    low:cd.candles.map(c=>c.l),close:closes,type:'candlestick',name:'OHLC',
     increasing:{line:{color:'rgba(0,230,118,.6)',width:1},fillcolor:'rgba(0,230,118,.15)'},
     decreasing:{line:{color:'rgba(255,68,68,.6)',width:1},fillcolor:'rgba(255,68,68,.15)'},
-    visible:'legendonly',
-    hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'
-  });
+    visible:'legendonly',hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'});
 
-  // ── EMAs ──
-  const keyShort=`ema${cfg.ema_short}`, keyLong=`ema${cfg.ema_long}`;
-  const emaShortData=cd[keyShort]||[];
-  const emaLongData =cd[keyLong]||[];
+  const emaShortData=cd[`ema${cfg.ema_short}`]||[];
+  const emaLongData=cd[`ema${cfg.ema_long}`]||[];
 
-  if(indVisible.emaShort&&emaShortData.length){
-    traces.push({
-      x:emaShortData.map(p=>new Date(p.x)), y:emaShortData.map(p=>p.y),
-      type:'scatter', mode:'lines', name:`EMA ${cfg.ema_short}`,
-      line:{color:'rgba(30,144,255,.9)',width:1.8},
-      hovertemplate:`EMA${cfg.ema_short}: $%{y:,.2f}<extra></extra>`
-    });
-  }
-  if(indVisible.emaLong&&emaLongData.length){
-    traces.push({
-      x:emaLongData.map(p=>new Date(p.x)), y:emaLongData.map(p=>p.y),
-      type:'scatter', mode:'lines', name:`EMA ${cfg.ema_long}`,
-      line:{color:'rgba(0,200,80,.9)',width:2.2},
-      hovertemplate:`EMA${cfg.ema_long}: $%{y:,.2f}<extra></extra>`
-    });
-  }
+  if(indVisible.emaShort&&emaShortData.length)
+    traces.push({x:emaShortData.map(p=>new Date(p.x)),y:emaShortData.map(p=>p.y),
+      type:'scatter',mode:'lines',name:`EMA ${cfg.ema_short}`,
+      line:{color:'rgba(30,144,255,.9)',width:1.8},hovertemplate:`EMA${cfg.ema_short}: $%{y:,.2f}<extra></extra>`});
 
-  // ── RSI markers ──
+  if(indVisible.emaLong&&emaLongData.length)
+    traces.push({x:emaLongData.map(p=>new Date(p.x)),y:emaLongData.map(p=>p.y),
+      type:'scatter',mode:'lines',name:`EMA ${cfg.ema_long}`,
+      line:{color:'rgba(0,200,80,.9)',width:2.2},hovertemplate:`EMA${cfg.ema_long}: $%{y:,.2f}<extra></extra>`});
+
   if(indVisible.rsi){
-    const ros=cd.rsi_os||[], rob=cd.rsi_ob||[];
-    if(ros.length) traces.push({
-      x:ros.map(p=>new Date(p.x)), y:ros.map(p=>p.y),
-      type:'scatter', mode:'markers', name:'RSI<30',
-      marker:{color:'#00e676',size:12,symbol:'triangle-up',line:{color:'#07070f',width:1.5}},
-      hovertemplate:'🟢 RSI Sobreventa<br>$%{y:,.2f}<extra></extra>'
-    });
-    if(rob.length) traces.push({
-      x:rob.map(p=>new Date(p.x)), y:rob.map(p=>p.y),
-      type:'scatter', mode:'markers', name:'RSI>70',
-      marker:{color:'#ff007f',size:12,symbol:'triangle-down',line:{color:'#07070f',width:1.5}},
-      hovertemplate:'🔴 RSI Sobrecompra<br>$%{y:,.2f}<extra></extra>'
-    });
+    const ros=cd.rsi_os||[],rob=cd.rsi_ob||[];
+    if(ros.length)traces.push({x:ros.map(p=>new Date(p.x)),y:ros.map(p=>p.y),type:'scatter',mode:'markers',name:'RSI<30',
+      marker:{color:'#00e676',size:12,symbol:'triangle-up',line:{color:'#07070f',width:1.5}},hovertemplate:'🟢 RSI Sobreventa<br>$%{y:,.2f}<extra></extra>'});
+    if(rob.length)traces.push({x:rob.map(p=>new Date(p.x)),y:rob.map(p=>p.y),type:'scatter',mode:'markers',name:'RSI>70',
+      marker:{color:'#ff007f',size:12,symbol:'triangle-down',line:{color:'#07070f',width:1.5}},hovertemplate:'🔴 RSI Sobrecompra<br>$%{y:,.2f}<extra></extra>'});
   }
 
-  // ── FRACTALES: líneas horizontales ──
   if(indVisible.fractals&&fractales.levels){
-    const xStart=dates[0], xEnd=dates[dates.length-1];
-
+    const xS=dates[0],xE=dates[dates.length-1];
     fractales.levels.forEach(l=>{
-      const isMajor=l.is_major;
-      // Línea
-      shapes.push({
-        type:'line', xref:'x', yref:'y',
-        x0:xStart, x1:xEnd, y0:l.price, y1:l.price,
-        line:{
-          color: isMajor ? 'rgba(0,0,0,0.9)' : 'rgba(197,184,4,0.55)',
-          width: isMajor ? 2 : 1,
-          dash:  isMajor ? 'solid' : 'solid'
-        }
-      });
+      shapes.push({type:'line',xref:'x',yref:'y',x0:xS,x1:xE,y0:l.price,y1:l.price,
+        line:{color:l.is_major?'rgba(0,0,0,0.9)':'rgba(197,184,4,0.55)',width:l.is_major?2:1}});
     });
-
-    // Anotaciones de niveles mayores (etiquetas)
     fractales.levels.filter(l=>l.is_major).forEach(l=>{
-      traces.push({
-        x:[xEnd], y:[l.price],
-        type:'scatter', mode:'text', name:'',
+      traces.push({x:[xE],y:[l.price],type:'scatter',mode:'text',name:'',
         text:[l.price.toLocaleString('es-ES',{maximumFractionDigits:0})],
-        textposition:'middle right',
-        textfont:{color:'rgba(255,255,255,.5)',size:9,family:'Space Mono'},
-        hoverinfo:'skip', showlegend:false
-      });
+        textposition:'middle right',textfont:{color:'rgba(255,255,255,.5)',size:9,family:'Space Mono'},
+        hoverinfo:'skip',showlegend:false});
     });
   }
 
-  // ── FRACTALES: zonas sombreadas en niveles mayores ──
   if(indVisible.zones&&fractales.levels){
     fractales.levels.filter(l=>l.is_major).forEach(l=>{
-      shapes.push({
-        type:'rect', xref:'paper', yref:'y',
-        x0:0, x1:1, y0:l.zone_bot, y1:l.zone_top,
-        fillcolor:'rgba(197,168,6,0.06)',
-        line:{color:'rgba(197,168,6,0.18)',width:0.5}
-      });
+      shapes.push({type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:l.zone_bot,y1:l.zone_top,
+        fillcolor:'rgba(197,168,6,0.06)',line:{color:'rgba(197,168,6,0.18)',width:0.5}});
     });
   }
 
-  // ── Apertura anual y semanal ──
   if(indVisible.opens){
     if(opens.year_open){
-      shapes.push({
-        type:'line', xref:'paper', yref:'y',
-        x0:0, x1:1, y0:opens.year_open, y1:opens.year_open,
-        line:{color:'rgba(13,219,30,0.6)',width:2,dash:'solid'}
-      });
-      traces.push({
-        x:[dates[Math.floor(dates.length*0.05)]], y:[opens.year_open],
-        type:'scatter', mode:'text', name:'',
-        text:['AÑO'], textposition:'top right',
-        textfont:{color:'rgba(13,219,30,.8)',size:9,family:'Space Mono'},
-        hoverinfo:'skip', showlegend:false
-      });
+      shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:opens.year_open,y1:opens.year_open,line:{color:'rgba(13,219,30,0.6)',width:2}});
+      traces.push({x:[dates[Math.floor(dates.length*0.05)]],y:[opens.year_open],type:'scatter',mode:'text',name:'',
+        text:['AÑO'],textposition:'top right',textfont:{color:'rgba(13,219,30,.8)',size:9,family:'Space Mono'},hoverinfo:'skip',showlegend:false});
     }
     if(opens.week_open){
-      shapes.push({
-        type:'line', xref:'paper', yref:'y',
-        x0:0, x1:1, y0:opens.week_open, y1:opens.week_open,
-        line:{color:'rgba(13,105,22,0.7)',width:1,dash:'dash'}
-      });
-      traces.push({
-        x:[dates[Math.floor(dates.length*0.05)]], y:[opens.week_open],
-        type:'scatter', mode:'text', name:'',
-        text:['SEMANA'], textposition:'bottom right',
-        textfont:{color:'rgba(13,150,22,.7)',size:8,family:'Space Mono'},
-        hoverinfo:'skip', showlegend:false
-      });
+      shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:opens.week_open,y1:opens.week_open,line:{color:'rgba(13,105,22,0.7)',width:1,dash:'dash'}});
+      traces.push({x:[dates[Math.floor(dates.length*0.05)]],y:[opens.week_open],type:'scatter',mode:'text',name:'',
+        text:['SEMANA'],textposition:'bottom right',textfont:{color:'rgba(13,150,22,.7)',size:8,family:'Space Mono'},hoverinfo:'skip',showlegend:false});
     }
   }
 
   const layout={
-    paper_bgcolor:BG, plot_bgcolor:'#0a0a12',
-    margin:{t:12,r:70,b:50,l:50},
+    paper_bgcolor:BG,plot_bgcolor:'#0a0a12',margin:{t:12,r:70,b:50,l:50},
     hovermode:'x unified',
-    hoverlabel:{bgcolor:'rgba(10,10,22,.95)',bordercolor:'rgba(255,255,255,.1)',
-      font:{family:'Space Mono,monospace',size:11,color:'#e0e0e0'}},
-    showlegend:false,
-    shapes:shapes,
+    hoverlabel:{bgcolor:'rgba(10,10,22,.95)',bordercolor:'rgba(255,255,255,.1)',font:{family:'Space Mono,monospace',size:11,color:'#e0e0e0'}},
+    showlegend:false,shapes:shapes,
     xaxis:{type:'date',gridcolor:'rgba(255,255,255,.03)',linecolor:'rgba(255,255,255,.06)',
-      tickcolor:'rgba(255,255,255,.2)',tickfont:{color:'rgba(255,255,255,.4)',size:9},
-      showspikes:true,spikecolor:'rgba(255,255,255,.1)',spikedash:'dot',spikethickness:1,
-      rangeslider:{visible:false}},
+      tickfont:{color:'rgba(255,255,255,.4)',size:9},showspikes:true,spikecolor:'rgba(255,255,255,.1)',
+      spikedash:'dot',spikethickness:1,rangeslider:{visible:false}},
     yaxis:{gridcolor:'rgba(255,255,255,.03)',linecolor:'rgba(255,255,255,.06)',
       tickfont:{color:'rgba(255,255,255,.4)',size:9},side:'right',tickformat:yFmt},
-    dragmode:'pan', font:{family:'Syne,sans-serif'}
+    dragmode:'pan',font:{family:'Syne,sans-serif'}
   };
 
-  if(savedXRange){
-    layout.xaxis.range=savedXRange;
-  } else {
-    const lastDate=dates[dates.length-1];
-    if(lastDate){
-      // Mostrar ~3 meses de velas 4h por defecto
-      const ago=new Date(lastDate.getTime()-90*24*60*60*1000);
-      layout.xaxis.range=[ago.toISOString(),lastDate.toISOString()];
-    }
+  if(savedXRange){layout.xaxis.range=savedXRange;}
+  else{
+    const ld=dates[dates.length-1];
+    if(ld)layout.xaxis.range=[new Date(ld.getTime()-90*24*60*60*1000).toISOString(),ld.toISOString()];
   }
 
   Plotly.react('plotDiv',traces,layout,{responsive:true,scrollZoom:true,displayModeBar:false,doubleClick:'reset'});
 
   const div=document.getElementById('plotDiv');
-  if(div._relayoutHandler) div.removeListener('plotly_relayout',div._relayoutHandler);
+  if(div._relayoutHandler)div.removeListener('plotly_relayout',div._relayoutHandler);
   div._relayoutHandler=ed=>{
-    if(ed['xaxis.range[0]']&&ed['xaxis.range[1]']){
-      savedXRange=[ed['xaxis.range[0]'],ed['xaxis.range[1]']];
-    } else if(ed['xaxis.autorange']===true){
-      savedXRange=null;
-    }
+    if(ed['xaxis.range[0]']&&ed['xaxis.range[1]'])savedXRange=[ed['xaxis.range[0]'],ed['xaxis.range[1]']];
+    else if(ed['xaxis.autorange']===true)savedXRange=null;
   };
   div.on('plotly_relayout',div._relayoutHandler);
 
-  // RSI panel
   const rsiWrap=document.getElementById('rsiWrap');
-  if(indVisible.rsi){
-    rsiWrap.style.display='block';
-    renderRSIPanel(cd,dates);
-  } else {
-    rsiWrap.style.display='none';
-  }
+  if(indVisible.rsi){rsiWrap.style.display='block';renderRSIPanel(cd,dates);}
+  else{rsiWrap.style.display='none';}
 
-  // Actualizar botones EMA con nombres reales
   updateEmaButtons(cfg);
 }
 
 function updateEmaButtons(cfg){
-  const bs=document.getElementById('tog-emaShort');
-  const bl=document.getElementById('tog-emaLong');
-  if(bs) bs.innerText=`EMA ${cfg.ema_short}`;
-  if(bl) bl.innerText=`EMA ${cfg.ema_long}`;
-  // Info en sidebar
+  const bs=document.getElementById('tog-emaShort'),bl=document.getElementById('tog-emaLong');
+  if(bs)bs.innerText=`EMA ${cfg.ema_short}`;
+  if(bl)bl.innerText=`EMA ${cfg.ema_long}`;
   document.getElementById('emaInfo').innerText=`EMA ${cfg.ema_short} (azul) / ${cfg.ema_long} (verde)`;
-  currentEmaShort=cfg.ema_short;
-  currentEmaLong=cfg.ema_long;
+  currentEmaShort=cfg.ema_short;currentEmaLong=cfg.ema_long;
 }
 
 function renderRSIPanel(cd,dates){
   const closes=cd.candles.map(c=>c.c).filter(v=>v!=null);
   const rsiDates=cd.candles.map(c=>new Date(c.x));
-  const period=14;
-  const rsiVals=new Array(closes.length).fill(null);
+  const period=14,rsiVals=new Array(closes.length).fill(null);
   if(closes.length>period){
     let gains=0,losses=0;
     for(let i=1;i<=period;i++){const d=closes[i]-closes[i-1];if(d>=0)gains+=d;else losses-=d;}
@@ -984,16 +766,13 @@ function renderRSIPanel(cd,dates){
     {x:[d0,dN],y:[30,30],type:'scatter',mode:'lines',showlegend:false,hoverinfo:'skip',line:{color:'rgba(0,230,118,.5)',width:1,dash:'dot'}},
     {x:[d0,dN],y:[70,70],type:'scatter',mode:'lines',showlegend:false,hoverinfo:'skip',line:{color:'rgba(255,0,127,.5)',width:1,dash:'dot'}},
     {x:[d0,dN],y:[50,50],type:'scatter',mode:'lines',showlegend:false,hoverinfo:'skip',line:{color:'rgba(255,255,255,.08)',width:1,dash:'dot'}},
-  ],{
-    paper_bgcolor:BG,plot_bgcolor:'rgba(255,255,255,.01)',
-    margin:{t:8,r:70,b:40,l:50},showlegend:false,
+  ],{paper_bgcolor:BG,plot_bgcolor:'rgba(255,255,255,.01)',margin:{t:8,r:70,b:40,l:50},showlegend:false,
     xaxis:{type:'date',gridcolor:'rgba(255,255,255,.03)',linecolor:'rgba(255,255,255,.05)',tickfont:{color:'rgba(255,255,255,.3)',size:9},rangeslider:{visible:false}},
     yaxis:{range:[0,100],gridcolor:'rgba(255,255,255,.03)',tickfont:{color:'rgba(255,255,255,.2)',size:8},side:'right',tickvals:[0,30,50,70,100]},
     shapes:[
       {type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:0,y1:30,fillcolor:'rgba(0,230,118,.04)',line:{width:0}},
       {type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:70,y1:100,fillcolor:'rgba(255,0,127,.04)',line:{width:0}}
-    ],
-    font:{family:'Syne,sans-serif'},dragmode:'pan'
+    ],font:{family:'Syne,sans-serif'},dragmode:'pan'
   },{responsive:true,scrollZoom:false,displayModeBar:false});
 }
 
@@ -1006,8 +785,7 @@ function toggleInd(key){
 function zoomChart(factor){
   const div=document.getElementById('plotDiv');
   if(!div||!div.layout||!div.layout.xaxis)return;
-  const xr=div.layout.xaxis.range;
-  if(!xr||xr.length<2)return;
+  const xr=div.layout.xaxis.range;if(!xr||xr.length<2)return;
   const s=new Date(xr[0]).getTime(),e=new Date(xr[1]).getTime();
   const center=(s+e)/2,half=((e-s)/2)/factor;
   savedXRange=[new Date(center-half).toISOString(),new Date(center+half).toISOString()];
@@ -1015,21 +793,19 @@ function zoomChart(factor){
 }
 
 async function loadSymbol(sym){
-  currentSymbol=sym;
-  savedXRange=null;
+  currentSymbol=sym;savedXRange=null;
   document.getElementById('symbolInput').value=sym;
   document.querySelectorAll('.asset-row').forEach(r=>r.classList.remove('active-sym'));
-  const el=document.getElementById('fc-'+favId(sym));
-  if(el)el.classList.add('active-sym');
+  const el=document.getElementById('fc-'+favId(sym));if(el)el.classList.add('active-sym');
   document.getElementById('loadWrap').style.display='flex';
   try{
     const data=await fetchData(sym);
     lastData=data;
     document.getElementById('loadWrap').style.display='none';
-    renderPlotly(data);
+    if(document.getElementById('chartBody').style.display!=='none')renderPlotly(data);
     updateSidebar(data);
     renderCurrentAlerts();
-    renderFractalList(data.fractales, data.last_price);
+    renderFractalList(data.fractales,data.last_price);
   }catch(e){
     document.getElementById('loadWrap').style.display='none';
     showToast('❌ '+e.message,'bearish');
@@ -1047,40 +823,19 @@ function doSearch(){const s=document.getElementById('symbolInput').value.trim().
 
 function abrirTradingView(){
   const map={
-    // Índices
-    '^DJI':    'DJ:DJI',
-    '^NDX':    'NASDAQ:NDX',
-    '^GSPC':   'SP:SPX',
-    '^RUT':    'TVC:RUT',
-    // Futuros
-    'YM=F':    'CME_MINI:YM1!',
-    'NQ=F':    'CME_MINI:NQ1!',
-    'GC=F':    'TVC:GOLD',
-    'SI=F':    'TVC:SILVER',
-    'CL=F':    'TVC:USOIL',
-    // Forex
-    'USDJPY=X':'FX:USDJPY',
-    'GBPJPY=X':'FX:GBPJPY',
-    'EURUSD=X':'FX:EURUSD',
-    'AUDUSD=X':'FX:AUDUSD',
-    // Bonos / Dólar
-    '^TNX':    'TVC:US10Y',
-    '^TYX':    'TVC:US20Y',
-    'DX=F':    'TVC:DXY',
-    // Cripto
-    'BTC-USD': 'BINANCE:BTCUSDT',
-    'ETH-USD': 'BINANCE:ETHUSDT',
-    // ETFs
-    'SPY':'AMEX:SPY','VOO':'AMEX:VOO','VTI':'AMEX:VTI',
-    'QQQ':'NASDAQ:QQQ','QQQM':'NASDAQ:QQQM',
-    'GLD':'AMEX:GLD','IAU':'AMEX:IAU','GDX':'AMEX:GDX',
-    'IWM':'AMEX:IWM','SMH':'NASDAQ:SMH','XLE':'AMEX:XLE',
-    'SCHD':'NASDAQ:SCHD','SCHG':'NASDAQ:SCHG','VGT':'AMEX:VGT',
-    'EEM':'AMEX:EEM','DIA':'AMEX:DIA',
-    'AAPL':'NASDAQ:AAPL',
+    '^DJI':'DJ:DJI','^NDX':'NASDAQ:NDX','^GSPC':'SP:SPX','^RUT':'TVC:RUT',
+    'YM=F':'CME_MINI:YM1!','NQ=F':'CME_MINI:NQ1!',
+    'GC=F':'TVC:GOLD','SI=F':'TVC:SILVER','CL=F':'TVC:USOIL',
+    'USDJPY=X':'FX:USDJPY','GBPJPY=X':'FX:GBPJPY','EURUSD=X':'FX:EURUSD','AUDUSD=X':'FX:AUDUSD',
+    '^TNX':'TVC:US10Y','^TYX':'TVC:US20Y','DX=F':'TVC:DXY',
+    'BTC-USD':'BINANCE:BTCUSDT','ETH-USD':'BINANCE:ETHUSDT',
+    'SPY':'AMEX:SPY','VOO':'AMEX:VOO','VTI':'AMEX:VTI','QQQ':'NASDAQ:QQQ','QQQM':'NASDAQ:QQQM',
+    'GLD':'AMEX:GLD','IAU':'AMEX:IAU','GDX':'AMEX:GDX','IWM':'AMEX:IWM',
+    'SMH':'NASDAQ:SMH','XLE':'AMEX:XLE','SCHD':'NASDAQ:SCHD','SCHG':'NASDAQ:SCHG',
+    'VGT':'AMEX:VGT','EEM':'AMEX:EEM','DIA':'AMEX:DIA','AAPL':'NASDAQ:AAPL',
   };
-  const sym = map[currentSymbol] || currentSymbol;
-  window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(sym)}`, '_blank');
+  const sym=map[currentSymbol]||currentSymbol;
+  window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(sym)}`,'_blank');
 }
 
 function updateSidebar(data){
