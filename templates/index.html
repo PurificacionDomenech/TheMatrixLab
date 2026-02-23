@@ -542,6 +542,9 @@ async function loadRowData(ticker){
 function calcularEstado(d){
   if(d.rsi!=null&&d.rsi>68) return '<span class="badge no_favorable">No ahora</span>';
   let pts=0;
+  // +1 punto si es martes, miércoles o jueves (días de mayor probabilidad)
+const diaSemana = new Date().getDay(); // 0=dom, 1=lun, 2=mar, 3=mie, 4=jue, 5=vie, 6=sab
+if(diaSemana >= 2 && diaSemana <= 4) pts += 1;
   if(d.rsi!=null){if(d.rsi<30)pts+=3;else if(d.rsi<40)pts+=2;else if(d.rsi<50)pts+=1;}
   if(d.ema_long&&Math.abs(d.price-d.ema_long)/d.ema_long*100<=0.8)pts+=4;
   else if(d.ema_short&&Math.abs(d.price-d.ema_short)/d.ema_short*100<=0.8)pts+=2;
