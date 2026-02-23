@@ -750,21 +750,26 @@ function renderPlotly(apiData){
   Plotly.react('plotDiv',traces,layout,{responsive:true,scrollZoom:true,displayModeBar:false,doubleClick:'reset'});
 
   const div=document.getElementById('plotDiv');
-  if(div._relayoutHandler)div.removeListener('plotly_relayout',div._relayoutHandler);
-  div._relayoutHandler=ed=>{
+  ifdiv._relayoutHandler=ed=>{
     if(ed['xaxis.range[0]']&&ed['xaxis.range[1]']){
       savedXRange=[ed['xaxis.range[0]'],ed['xaxis.range[1]']];
-      // Recalcular Y para la nueva ventana visible
       const yr = calcYRange(savedXRange);
       if(yr) Plotly.relayout('plotDiv',{'yaxis.range':yr});
+      // Sincronizar RSI
+      if(indVisible.rsi&&document.getElementById('rsiWrap').style.display!=='none'){
+        Plotly.relayout('rsiDiv',{'xaxis.range':savedXRange});
+      }
     } else if(ed['xaxis.autorange']===true){
       savedXRange=null;
+      if(indVisible.rsi&&document.getElementById('rsiWrap').style.display!=='none'){
+        Plotly.relayout('rsiDiv',{'xaxis.autorange':true});
+      }
     }
   };
   div.on('plotly_relayout',div._relayoutHandler);
 
   const rsiWrap=document.getElementById('rsiWrap');
-  if(indVisible.rsi){rsiWrap.style.display='block';renderRSIPanel(cd,dates);}
+  if(indVisible.rsi){rsiWrap.style.display='block';renderRSIPanel(cd,dates,xRangeToUse);}
   else{rsiWrap.style.display='none';}
 
   updateEmaButtons(cfg);
@@ -778,7 +783,7 @@ function updateEmaButtons(cfg){
   currentEmaShort=cfg.ema_short;currentEmaLong=cfg.ema_long;
 }
 
-function renderRSIPanel(cd,dates){
+function renderRSIPanel(cd,dates,xRangeToUse){
   const closes=cd.candles.map(c=>c.c).filter(v=>v!=null);
   const rsiDates=cd.candles.map(c=>new Date(c.x));
   const period=14,rsiVals=new Array(closes.length).fill(null);
@@ -805,7 +810,7 @@ function renderRSIPanel(cd,dates){
     {x:[d0,dN],y:[70,70],type:'scatter',mode:'lines',showlegend:false,hoverinfo:'skip',line:{color:'rgba(255,0,127,.5)',width:1,dash:'dot'}},
     {x:[d0,dN],y:[50,50],type:'scatter',mode:'lines',showlegend:false,hoverinfo:'skip',line:{color:'rgba(255,255,255,.08)',width:1,dash:'dot'}},
   ],{paper_bgcolor:BG,plot_bgcolor:'rgba(255,255,255,.01)',margin:{t:8,r:70,b:40,l:50},showlegend:false,
-    xaxis:{type:'date',gridcolor:'rgba(255,255,255,.03)',linecolor:'rgba(255,255,255,.05)',tickfont:{color:'rgba(255,255,255,.3)',size:9},rangeslider:{visible:false}},
+   xaxis:{type:'date',gridcolor:'rgba(255,255,255,.03)',linecolor:'rgba(255,255,255,.05)',tickfont:{color:'rgba(255,255,255,.3)',size:9},rangeslider:{visible:false},...(xRange?{range:xRange}:{})},
     yaxis:{range:[0,100],gridcolor:'rgba(255,255,255,.03)',tickfont:{color:'rgba(255,255,255,.2)',size:8},side:'right',tickvals:[0,30,50,70,100]},
     shapes:[
       {type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:0,y1:30,fillcolor:'rgba(0,230,118,.04)',line:{width:0}},
