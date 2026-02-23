@@ -28,28 +28,28 @@ ASSET_CONFIG = {
     "QQQ":    {"key_spacing": 10,   "major_spacing": 20,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
 
     # ── XAUUSD / Oro ──────────────────────────────────────────
-    "GC=F":   {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 20,  "ema_long": 80},
-    "GLD":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 20,  "ema_long": 80},
-    "IAU":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 20,  "ema_long": 80},
+    "GC=F":   {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200,  "ema_long": 800},
+    "GLD":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200,  "ema_long": 800},
+    "IAU":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200,  "ema_long": 800},
 
     # ── XAGUSD / Plata ────────────────────────────────────────
-    "SI=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 20,  "ema_long": 80},
-    "SLV":    {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 20,  "ema_long": 80},
+    "SI=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
+    "SLV":    {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
 
     # ── WTI / Petróleo ────────────────────────────────────────
-    "CL=F":   {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 20,  "ema_long": 80},
-    "USO":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 20,  "ema_long": 80},
+    "CL=F":   {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
+    "USO":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
 
     # ── FOREX ─────────────────────────────────────────────────
-    "USDJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 20,  "ema_long": 80},
-    "GBPJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 20,  "ema_long": 80},
-    "EURUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 20,  "ema_long": 80},
-    "AUDUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 20,  "ema_long": 80},
+    "USDJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
+    "GBPJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
+    "EURUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 200,  "ema_long": 800},
+    "AUDUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 200,  "ema_long": 800},
 
     # ── Bonos / Dollar ────────────────────────────────────────
-    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 20,  "ema_long": 80},  # US10Y
-    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 20,  "ema_long": 80},  # US20/30Y
-    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 20,  "ema_long": 80},  # DXY
+    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},  # US10Y
+    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},  # US20/30Y
+    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},  # DXY
 
     # ── S&P 500 ───────────────────────────────────────────────
     "^GSPC":  {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
@@ -61,13 +61,13 @@ ASSET_CONFIG = {
     "IWM":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
 
     # ── Cripto ────────────────────────────────────────────────
-    "BTC-USD":{"key_spacing": 1000, "major_spacing": 5000, "zone_size": 250, "ema_short": 20,  "ema_long": 80},
-    "ETH-USD":{"key_spacing": 50,   "major_spacing": 200,  "zone_size": 25,  "ema_short": 20,  "ema_long": 80},
+    "BTC-USD":{"key_spacing": 1000, "major_spacing": 5000, "zone_size": 250, "ema_short": 200,  "ema_long": 800},
+    "ETH-USD":{"key_spacing": 50,   "major_spacing": 200,  "zone_size": 25,  "ema_short": 200,  "ema_long": 800},
 
     # ── ETFs varios ───────────────────────────────────────────
     "VTI":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
     "QQQM":   {"key_spacing": 5,    "major_spacing": 20,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
-    "GDX":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 20,  "ema_long": 80},
+    "GDX":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
     "SMH":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
     "XLE":    {"key_spacing": 2,    "major_spacing": 10,   "zone_size": 0.5, "ema_short": 200, "ema_long": 800},
     "AAPL":   {"key_spacing": 5,    "major_spacing": 20,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
