@@ -4,64 +4,94 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from datetime import datetime, timedelta
+import pytz
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-INTERVAL_MAP = {
-    "1d":  ("1d",  "max"),
-    "1wk": ("1wk", "max"),
-    "1mo": ("1mo", "max"),
+# ── Configuración por activo ──────────────────────────────────
+ASSET_CONFIG = {
+    # US30 / Dow Jones
+    "^DJI":  {"key_spacing": 500, "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
+    "YM=F":  {"key_spacing": 500, "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
+    # XAUUSD / Gold
+    "GC=F":  {"key_spacing": 50,  "major_spacing": 100,  "zone_size": 10,  "ema_short": 20,  "ema_long": 80},
+    "GLD":   {"key_spacing": 5,   "major_spacing": 10,   "zone_size": 1,   "ema_short": 20,  "ema_long": 80},
+    "IAU":   {"key_spacing": 5,   "major_spacing": 10,   "zone_size": 1,   "ema_short": 20,  "ema_long": 80},
+    "XAUUSD":{"key_spacing": 50,  "major_spacing": 100,  "zone_size": 10,  "ema_short": 20,  "ema_long": 80},
+    # Default (indices, ETFs, etc.)
+    "_default": {"key_spacing": 50, "major_spacing": 100, "zone_size": 10, "ema_short": 200, "ema_long": 800},
 }
+
+def get_asset_config(ticker: str) -> dict:
+    t = ticker.upper()
+    if t in ASSET_CONFIG:
+        return ASSET_CONFIG[t]
+    # Heurística: si precio > 5000 → US30-like
+    return ASSET_CONFIG["_default"]
 
 def clean_df(df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return df
 
-def calcular_indicadores(df):
-    # NUEVAS SMAs
-    df["SMA20"]  = df["Close"].rolling(20).mean()
-    df["SMA80"]  = df["Close"].rolling(80).mean()
-    df["SMA200"] = df["Close"].rolling(200).mean()
-    df["SMA800"] = df["Close"].rolling(800).mean()
+def calcular_indicadores(df, ema_short=200, ema_long=800):
+    df[f"EMA{ema_short}"] = df["Close"].ewm(span=ema_short, adjust=False).mean()
+    df[f"EMA{ema_long}"]  = df["Close"].ewm(span=ema_long,  adjust=False).mean()
 
-    # RSI
+    # RSI 14
     delta = df["Close"].diff()
     gain  = delta.where(delta > 0, 0).rolling(14).mean()
     loss  = (-delta.where(delta < 0, 0)).rolling(14).mean()
     df["RSI"] = 100 - (100 / (1 + gain / loss))
 
-    # SuperTrend
-    df["TR"] = pd.concat([
-        df["High"] - df["Low"],
-        (df["High"] - df["Close"].shift()).abs(),
-        (df["Low"]  - df["Close"].shift()).abs()
-    ], axis=1).max(axis=1)
-    df["ATR"] = df["TR"].rolling(7).mean()
-    hl2 = (df["High"] + df["Low"]) / 2
-    df["UB"] = hl2 + 3.0 * df["ATR"]
-    df["LB"] = hl2 - 3.0 * df["ATR"]
-    df["ST"]  = np.nan
-    df["Dir"] = 0
-
-    for i in range(1, len(df)):
-        ps  = df.iloc[i-1]["ST"]
-        pd_ = df.iloc[i-1]["Dir"]
-        cl  = float(df.iloc[i]["LB"])
-        cu  = float(df.iloc[i]["UB"])
-        cc  = float(df.iloc[i]["Close"])
-        if np.isnan(ps):
-            df.iloc[i, df.columns.get_loc("ST")]  = cl
-            df.iloc[i, df.columns.get_loc("Dir")] = 1
-            continue
-        st = max(cl, ps) if pd_ == 1 else min(cu, ps)
-        df.iloc[i, df.columns.get_loc("ST")]  = st
-        df.iloc[i, df.columns.get_loc("Dir")] = 1 if cc > st else -1
-
     return df
 
-def detectar_alertas(df, ticker=""):
+def calcular_fractales(precio_actual: float, cfg: dict, n_above=30, n_below=30) -> dict:
+    """Genera niveles fractales alrededor del precio actual."""
+    key_sp    = cfg["key_spacing"]
+    major_sp  = cfg["major_spacing"]
+    zone_size = cfg["zone_size"]
+
+    base = round(precio_actual / key_sp) * key_sp
+    levels = []
+
+    for i in range(-n_below, n_above + 1):
+        nivel = base + i * key_sp
+        is_major = round(nivel % major_sp) == 0
+        levels.append({
+            "price":    nivel,
+            "is_major": is_major,
+            "zone_top": nivel + zone_size,
+            "zone_bot": nivel - zone_size,
+        })
+
+    return {"levels": levels, "key_spacing": key_sp, "major_spacing": major_sp, "zone_size": zone_size}
+
+def calcular_year_week_open(df: pd.DataFrame) -> dict:
+    """Calcula apertura del año y semana actuales desde datos 4h."""
+    result = {"year_open": None, "week_open": None}
+    if df.empty:
+        return result
+
+    now = df.index[-1]
+    # Apertura del año: primer open del año en curso
+    year_start = pd.Timestamp(year=now.year, month=1, day=1, tz=now.tz if now.tz else None)
+    year_df = df[df.index >= year_start]
+    if not year_df.empty:
+        result["year_open"] = float(year_df["Open"].iloc[0])
+
+    # Apertura de la semana: primer open del lunes de esta semana
+    week_start = now - pd.Timedelta(days=now.weekday())
+    week_start = week_start.replace(hour=0, minute=0, second=0)
+    week_df = df[df.index >= week_start]
+    if not week_df.empty:
+        result["week_open"] = float(week_df["Open"].iloc[0])
+
+    return result
+
+def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
     alertas = []
     n = len(df) - 1
     if n < 2:
@@ -71,46 +101,34 @@ def detectar_alertas(df, ticker=""):
     precio_prev = float(df["Close"].iloc[n - 1])
     prefix = f"[{ticker}] " if ticker else ""
 
-    # NUEVAS SMAs
-    smas = {
-        "SMA20":  (df["SMA20"].iloc[n],  df["SMA20"].iloc[n-1]),
-        "SMA80":  (df["SMA80"].iloc[n],  df["SMA80"].iloc[n-1]),
-        "SMA200": (df["SMA200"].iloc[n], df["SMA200"].iloc[n-1]),
-        "SMA800": (df["SMA800"].iloc[n], df["SMA800"].iloc[n-1]),
-    }
+    col_s = f"EMA{ema_short}"
+    col_l = f"EMA{ema_long}"
 
-    # Precio tocando o cruzando SMAs
-    for nombre, (sma_now, sma_prev) in smas.items():
-        if not (pd.notna(sma_now) and pd.notna(sma_prev)):
+    for col, nombre in [(col_s, f"EMA{ema_short}"), (col_l, f"EMA{ema_long}")]:
+        if col not in df.columns:
             continue
+        ema_now  = df[col].iloc[n]
+        ema_prev = df[col].iloc[n-1]
+        if not (pd.notna(ema_now) and pd.notna(ema_prev)):
+            continue
+        if precio_prev < ema_prev and precio_now >= ema_now:
+            alertas.append({"nivel": "bullish", "msg": prefix + f"Precio cruza {nombre} al alza ${precio_now:.2f}"})
+        elif precio_prev > ema_prev and precio_now <= ema_now:
+            alertas.append({"nivel": "bearish", "msg": prefix + f"Precio cruza {nombre} a la baja ${precio_now:.2f}"})
+        elif ema_now > 0 and abs(precio_now - ema_now) / ema_now * 100 <= 0.4:
+            alertas.append({"nivel": "info", "msg": prefix + f"Precio tocando {nombre} ${precio_now:.2f}"})
 
-        if precio_prev < sma_prev and precio_now >= sma_now:
-            alertas.append({"nivel": "bullish",
-                "msg": prefix + f"Precio cruza {nombre} al alza ${precio_now:.2f}"})
-        elif precio_prev > sma_prev and precio_now <= sma_now:
-            alertas.append({"nivel": "bearish",
-                "msg": prefix + f"Precio cruza {nombre} a la baja ${precio_now:.2f}"})
-        elif sma_now > 0 and abs(precio_now - sma_now) / sma_now * 100 <= 0.4:
-            alertas.append({"nivel": "info",
-                "msg": prefix + f"Precio tocando {nombre} ${precio_now:.2f}"})
+    # Cruce EMAs entre sí
+    es_now  = df[col_s].iloc[n]  if col_s in df.columns else None
+    es_prev = df[col_s].iloc[n-1] if col_s in df.columns else None
+    el_now  = df[col_l].iloc[n]  if col_l in df.columns else None
+    el_prev = df[col_l].iloc[n-1] if col_l in df.columns else None
 
-    # Cruce rápido 20/80
-    s20_n, s20_p = smas["SMA20"]
-    s80_n, s80_p = smas["SMA80"]
-    if pd.notna(s20_n) and pd.notna(s80_n):
-        if s20_p < s80_p and s20_n >= s80_n:
-            alertas.append({"nivel": "bullish", "msg": prefix + "Golden Cross SMA20/80"})
-        elif s20_p > s80_p and s20_n <= s80_n:
-            alertas.append({"nivel": "bearish", "msg": prefix + "Death Cross SMA20/80"})
-
-    # Cruce macro 200/800
-    s200_n, s200_p = smas["SMA200"]
-    s800_n, s800_p = smas["SMA800"]
-    if pd.notna(s200_n) and pd.notna(s800_n):
-        if s200_p < s800_p and s200_n >= s800_n:
-            alertas.append({"nivel": "bullish", "msg": prefix + "Golden Cross SMA200/800"})
-        elif s200_p > s800_p and s200_n <= s800_n:
-            alertas.append({"nivel": "bearish", "msg": prefix + "Death Cross SMA200/800"})
+    if all(pd.notna(x) for x in [es_now, es_prev, el_now, el_prev] if x is not None):
+        if es_prev < el_prev and es_now >= el_now:
+            alertas.append({"nivel": "bullish", "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}"})
+        elif es_prev > el_prev and es_now <= el_now:
+            alertas.append({"nivel": "bearish", "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}"})
 
     return alertas
 
@@ -125,38 +143,50 @@ async def index():
     return FileResponse("templates/index.html")
 
 @app.get("/api/chart/{ticker}")
-async def get_chart(ticker: str, interval: str = "1d"):
+async def get_chart(ticker: str):
     try:
-        yf_interval, yf_period = INTERVAL_MAP.get(interval, ("1d", "max"))
-        df = yf.download(ticker.upper(), period=yf_period, interval=yf_interval, progress=False)
+        cfg = get_asset_config(ticker)
+        ema_short = cfg["ema_short"]
+        ema_long  = cfg["ema_long"]
+
+        # Descargamos ~2 años en 4h para tener suficientes datos para EMA800
+        df = yf.download(ticker.upper(), period="2y", interval="4h", progress=False)
         if df.empty:
             return {"error": "Simbolo no encontrado: " + ticker}
 
         df = clean_df(df)
-        df = calcular_indicadores(df)
+        df = calcular_indicadores(df, ema_short, ema_long)
+
+        # Ajuste config por precio real (heurística si no está en ASSET_CONFIG)
+        ultimo_precio = float(df["Close"].iloc[-1])
+        if ticker.upper() not in ASSET_CONFIG:
+            if ultimo_precio > 5000:
+                cfg = ASSET_CONFIG["^DJI"]
+            elif ultimo_precio > 500:
+                cfg = ASSET_CONFIG["_default"]
+            else:
+                cfg = {"key_spacing": round(ultimo_precio * 0.01, 2),
+                       "major_spacing": round(ultimo_precio * 0.02, 2),
+                       "zone_size": round(ultimo_precio * 0.002, 2),
+                       "ema_short": ema_short, "ema_long": ema_long}
 
         timestamps = ts_ms(df.index)
+
         candles = [
-            {
-                "x": timestamps[i],
-                "o": safe(df["Open"].iloc[i]),
-                "h": safe(df["High"].iloc[i]),
-                "l": safe(df["Low"].iloc[i]),
-                "c": safe(df["Close"].iloc[i]),
-            }
+            {"x": timestamps[i], "o": safe(df["Open"].iloc[i]),
+             "h": safe(df["High"].iloc[i]), "l": safe(df["Low"].iloc[i]),
+             "c": safe(df["Close"].iloc[i])}
             for i in range(len(df))
         ]
 
-        def sma_series(col):
-            return [
-                {"x": timestamps[i], "y": float(df[col].iloc[i])}
-                for i in range(len(df))
-                if pd.notna(df[col].iloc[i])
-            ]
+        def ema_series(col):
+            if col not in df.columns:
+                return []
+            return [{"x": timestamps[i], "y": float(df[col].iloc[i])}
+                    for i in range(len(df)) if pd.notna(df[col].iloc[i])]
 
         # RSI markers
-        rsi_os = []
-        rsi_ob = []
+        rsi_os, rsi_ob = [], []
         for i in range(len(df)):
             r = df["RSI"].iloc[i]
             if pd.notna(r):
@@ -165,42 +195,34 @@ async def get_chart(ticker: str, interval: str = "1d"):
                 elif r > 70:
                     rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
 
-        # SuperTrend
-        st_buy = []
-        st_sell = []
-        for i in range(len(df)):
-            st = df["ST"].iloc[i]
-            dr = df["Dir"].iloc[i]
-            if pd.notna(st):
-                if dr == 1:
-                    st_buy.append({"x": timestamps[i], "y": float(st)})
-                else:
-                    st_sell.append({"x": timestamps[i], "y": float(st)})
+        # Fractales
+        fractales = calcular_fractales(ultimo_precio, cfg)
 
-        last  = float(df["Close"].iloc[-1])
-        first = float(df["Close"].iloc[0])
+        # Aperturas año/semana
+        opens = calcular_year_week_open(df)
+
         rsi_series = df["RSI"].dropna()
         rsi_c = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50
 
-        alertas = detectar_alertas(df, ticker=ticker.upper())
+        first = float(df["Close"].iloc[0])
+        alertas = detectar_alertas(df, ticker=ticker.upper(), ema_short=ema_short, ema_long=ema_long)
 
         return {
             "chart": {
-                "candles": candles,
-                "sma20":  sma_series("SMA20"),
-                "sma80":  sma_series("SMA80"),
-                "sma200": sma_series("SMA200"),
-                "sma800": sma_series("SMA800"),
-                "rsi_os": rsi_os,
-                "rsi_ob": rsi_ob,
-                "st_buy": st_buy,
-                "st_sell": st_sell,
+                "candles":   candles,
+                f"ema{ema_short}": ema_series(f"EMA{ema_short}"),
+                f"ema{ema_long}":  ema_series(f"EMA{ema_long}"),
+                "rsi_os":    rsi_os,
+                "rsi_ob":    rsi_ob,
             },
-            "last_price":  last,
-            "change":      last - first,
-            "change_pct":  (last - first) / first * 100,
-            "rsi_current": rsi_c,
-            "alertas":     alertas,
+            "fractales":    fractales,
+            "opens":        opens,
+            "last_price":   ultimo_precio,
+            "change":       ultimo_precio - first,
+            "change_pct":   (ultimo_precio - first) / first * 100,
+            "rsi_current":  rsi_c,
+            "alertas":      alertas,
+            "asset_config": {"ema_short": ema_short, "ema_long": ema_long},
         }
 
     except Exception as e:
@@ -209,36 +231,41 @@ async def get_chart(ticker: str, interval: str = "1d"):
 @app.get("/api/row/{ticker}")
 async def get_row(ticker: str):
     try:
-        df = yf.download(ticker.upper(), period="1y", interval="1d", progress=False)
+        cfg = get_asset_config(ticker)
+        ema_short = cfg["ema_short"]
+        ema_long  = cfg["ema_long"]
+
+        df = yf.download(ticker.upper(), period="1y", interval="4h", progress=False)
         if df.empty:
             return {"error": "not found"}
 
         df = clean_df(df)
-        df = calcular_indicadores(df)
+        df = calcular_indicadores(df, ema_short, ema_long)
 
         last  = float(df["Close"].iloc[-1])
         first = float(df["Close"].iloc[0])
 
-        def last_val(col):
-            s = df[col].dropna()
-            return float(s.iloc[-1]) if not s.empty else None
-
         rsi_s = df["RSI"].dropna()
         rsi   = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
 
-        dir_s  = df["Dir"].dropna()
-        st_dir = int(dir_s.iloc[-1]) if not dir_s.empty else 0
+        col_s = f"EMA{ema_short}"
+        col_l = f"EMA{ema_long}"
+
+        def last_val(col):
+            if col not in df.columns:
+                return None
+            s = df[col].dropna()
+            return float(s.iloc[-1]) if not s.empty else None
 
         return {
             "ticker":     ticker.upper(),
             "price":      last,
             "change_pct": round((last - first) / first * 100, 2),
             "rsi":        round(rsi, 1) if rsi is not None else None,
-            "sma20":      last_val("SMA20"),
-            "sma80":      last_val("SMA80"),
-            "sma200":     last_val("SMA200"),
-            "sma800":     last_val("SMA800"),
-            "st_dir":     st_dir,
+            "ema_short":  last_val(col_s),
+            "ema_long":   last_val(col_l),
+            "ema_short_name": f"EMA{ema_short}",
+            "ema_long_name":  f"EMA{ema_long}",
         }
 
     except Exception as e:
@@ -252,11 +279,14 @@ async def watch_favorites(tickers: str = ""):
         if not t:
             continue
         try:
-            df = yf.download(t.upper(), period="1y", interval="1d", progress=False)
+            cfg = get_asset_config(t)
+            df = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
             if not df.empty:
                 df = clean_df(df)
-                df = calcular_indicadores(df)
-                all_alertas.extend(detectar_alertas(df, ticker=t.upper()))
+                df = calcular_indicadores(df, cfg["ema_short"], cfg["ema_long"])
+                all_alertas.extend(detectar_alertas(df, ticker=t.upper(),
+                                                    ema_short=cfg["ema_short"],
+                                                    ema_long=cfg["ema_long"]))
         except Exception:
             pass
     return {"alertas": all_alertas}
