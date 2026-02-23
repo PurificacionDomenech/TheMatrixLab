@@ -81,6 +81,14 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 
 /* CHART */
 #chart-card{padding:13px;display:flex;flex-direction:column;gap:9px;position:relative}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+  <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em">Gráfico 4H</span>
+  <button onclick="toggleChart()" id="btnToggleChart"
+    style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);cursor:pointer;font-family:'Syne',sans-serif">
+    ▼ Abrir gráfico
+  </button>
+</div>
 #ind-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .btn-ind{padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;
   transition:all .15s;border:1px solid transparent;font-family:'Syne',sans-serif;white-space:nowrap}
@@ -230,28 +238,40 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
         </div>
       </div>
     </div>
+  
+   <!-- GRÁFICO -->
+<div class="card" id="chart-card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em">Gráfico 4H</span>
+    <button onclick="toggleChart()" id="btnToggleChart"
+      style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);
+      background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);cursor:pointer;font-family:'Syne',sans-serif">
+      ▼ Abrir gráfico
+    </button>
+  </div>
 
-    <!-- GRÁFICO -->
-    <div class="card" id="chart-card">
-      <div id="ind-bar">
-        <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700;margin-right:2px">Ind:</span>
-        <button class="btn-ind" id="tog-emaShort" style="background:rgba(30,144,255,.1);color:#1e90ff;border-color:rgba(30,144,255,.3)" onclick="toggleInd('emaShort')">EMA —</button>
-        <button class="btn-ind" id="tog-emaLong"  style="background:rgba(0,200,80,.1);color:#00c850;border-color:rgba(0,200,80,.3)"   onclick="toggleInd('emaLong')">EMA —</button>
-        <button class="btn-ind" id="tog-fractals" style="background:rgba(197,184,4,.1);color:#c5b804;border-color:rgba(197,184,4,.3)" onclick="toggleInd('fractals')">Fractales</button>
-        <button class="btn-ind" id="tog-zones"    style="background:rgba(255,165,0,.1);color:#ffa500;border-color:rgba(255,165,0,.3)"  onclick="toggleInd('zones')">Zonas</button>
-        <button class="btn-ind" id="tog-opens"    style="background:rgba(13,219,30,.1);color:#0ddb1e;border-color:rgba(13,219,30,.3)"  onclick="toggleInd('opens')">Apert.</button>
-        <button class="btn-ind off" id="tog-rsi"  style="background:rgba(255,0,127,.1);color:#ff69b4;border-color:rgba(255,0,127,.3)"  onclick="toggleInd('rsi')">RSI</button>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-          <button class="btn-ind" onclick="zoomChart(1.2)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">+</button>
-          <button class="btn-ind" onclick="zoomChart(0.8)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">-</button>
-          <button class="btn-ind" onclick="abrirTradingView()" style="background:rgba(41,98,255,.15);color:#2962ff;border-color:rgba(41,98,255,.4);padding:4px 10px;font-size:10px">📈TradingView </button>
-          <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/sao20DcG/','_blank')"
-  style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
-  ★ Indicador Matrix Niveles Neo
-</button>
-          <span style="font-size:9px;color:rgba(255,255,255,.2);white-space:nowrap;margin-left:4px">Doble clic reset</span>
-        </div>
+  <!-- Todo lo que se pliega va dentro de chartBody -->
+  <div id="chartBody" style="display:none">
+
+    <div id="ind-bar">
+      <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.18);font-weight:700;margin-right:2px">Ind:</span>
+      <button class="btn-ind" id="tog-emaShort" style="background:rgba(30,144,255,.1);color:#1e90ff;border-color:rgba(30,144,255,.3)" onclick="toggleInd('emaShort')">EMA —</button>
+      <button class="btn-ind" id="tog-emaLong"  style="background:rgba(0,200,80,.1);color:#00c850;border-color:rgba(0,200,80,.3)"   onclick="toggleInd('emaLong')">EMA —</button>
+      <button class="btn-ind" id="tog-fractals" style="background:rgba(197,184,4,.1);color:#c5b804;border-color:rgba(197,184,4,.3)" onclick="toggleInd('fractals')">Fractales</button>
+      <button class="btn-ind" id="tog-zones"    style="background:rgba(255,165,0,.1);color:#ffa500;border-color:rgba(255,165,0,.3)"  onclick="toggleInd('zones')">Zonas</button>
+      <button class="btn-ind" id="tog-opens"    style="background:rgba(13,219,30,.1);color:#0ddb1e;border-color:rgba(13,219,30,.3)"  onclick="toggleInd('opens')">Apert.</button>
+      <button class="btn-ind off" id="tog-rsi"  style="background:rgba(255,0,127,.1);color:#ff69b4;border-color:rgba(255,0,127,.3)"  onclick="toggleInd('rsi')">RSI</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <button class="btn-ind" onclick="zoomChart(1.2)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">+</button>
+        <button class="btn-ind" onclick="zoomChart(0.8)" style="background:rgba(255,255,255,.05);color:#fff;padding:4px 10px;font-size:14px">-</button>
+        <button class="btn-ind" onclick="abrirTradingView()" style="background:rgba(41,98,255,.15);color:#2962ff;border-color:rgba(41,98,255,.4);padding:4px 10px;font-size:10px">📈 TradingView</button>
+        <button class="btn-ind" onclick="window.open('https://es.tradingview.com/script/sao20DcG/','_blank')"
+          style="background:rgba(41,98,255,.08);color:#6b8fff;border-color:rgba(41,98,255,.25);padding:4px 10px;font-size:10px">
+          ★ Indicador Matrix Niveles Neo
+        </button>
+        <span style="font-size:9px;color:rgba(255,255,255,.2);white-space:nowrap;margin-left:4px">Doble clic reset</span>
       </div>
+    </div>
 
       <div id="loadWrap">
         <div class="spin"></div>
@@ -392,7 +412,7 @@ const ALL_ASSETS = [
 
 // ── Estado global ──────────────────────────────────────────
 let currentSymbol   = '^DJI';
-let favsOpen        = false;
+let favsOpen        = true;
 let indVisible      = {emaShort:true, emaLong:true, fractals:true, zones:true, opens:true, rsi:false};
 let lastData        = null;
 let watchlist       = new Set();
@@ -418,6 +438,7 @@ window.onload=()=>{
   buildFavGrid();
   updateWatchingCount();
   loadSymbol('^DJI');
+  toggleFavs();
   startWatcher();
 };
 
@@ -714,6 +735,14 @@ async function fetchData(sym){
 }
 
 const BG='#07070f';
+  function toggleChart(){
+  const body=document.getElementById('chartBody');
+  const btn=document.getElementById('btnToggleChart');
+  const visible=body.style.display!=='none';
+  body.style.display=visible?'none':'block';
+  btn.innerText=visible?'▼ Abrir gráfico':'▲ Cerrar gráfico';
+  if(!visible&&lastData) renderPlotly(lastData);
+}
 
 function renderPlotly(apiData){
   const cd=apiData.chart;
