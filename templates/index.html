@@ -297,31 +297,79 @@ body{font-family:'Syne',sans-serif;background:#07070f;color:#e0e0e0;min-height:1
 
 <script>
 const DISPLAY_NAMES = {
-  'BTC-USD':'BTC · Bitcoin','ETH-USD':'ETH · Ethereum',
-  '^GSPC':'SPX · S&P 500','^NDX':'NQ · Nasdaq 100','^DJI':'YM · Dow Jones',
-  '^RUT':'RTY · Russell 2000','GC=F':'XAUUSD · Oro Futuros',
+  // Índices principales
+  '^DJI':     'US30 · Dow Jones',
+  'GC=F':     'XAUUSD · Oro',
+  '^NDX':     'NAS100 · Nasdaq 100',
+  '^GSPC':    'SPX · S&P 500',
+  '^RUT':     'RTY · Russell 2000',
+  // Forex
+  'USDJPY=X': 'USDJPY · Dólar/Yen',
+  'GBPJPY=X': 'GBPJPY · Libra/Yen',
+  'EURUSD=X': 'EURUSD · Euro/Dólar',
+  'AUDUSD=X': 'AUDUSD · Aussie/Dólar',
+  // Materias primas
+  'SI=F':     'XAGUSD · Plata',
+  'CL=F':     'WTI · Petróleo',
+  // Bonos / Dollar
+  '^TYX':     'US20Y · Bono 20Y',
+  '^TNX':     'US10Y · Bono 10Y',
+  'DX=F':     'DXY · Índice Dólar',
+  // Cripto
+  'BTC-USD':  'BTC · Bitcoin',
+  'ETH-USD':  'ETH · Ethereum',
+  // ETFs
   'SPY':'SPY · S&P 500 ETF','VOO':'VOO · Vanguard S&P','VTI':'VTI · Mercado Total',
-  'QQQ':'QQQ · Nasdaq ETF','GLD':'GLD · Oro ETF','IAU':'IAU · Oro iShares',
-  'GDX':'GDX · Mineras Oro','AAPL':'AAPL · Apple',
+  'QQQ':'QQQ · Nasdaq ETF','QQQM':'QQQM · Nasdaq Mini',
+  'GLD':'GLD · Oro ETF','IAU':'IAU · Oro iShares','GDX':'GDX · Mineras Oro',
+  'IWM':'IWM · Small Cap','SMH':'SMH · Semis','XLE':'XLE · Energía',
+  'SCHD':'SCHD · Dividendos','SCHG':'SCHG · Growth','VGT':'VGT · Tecnología',
+  'EEM':'EEM · Emergentes','DIA':'DIA · Dow ETF',
+  // Acciones
+  'AAPL':'AAPL · Apple',
 };
 
+// Favoritos por defecto (los de la imagen)
+const DEFAULT_WATCHLIST = [
+  '^DJI','GC=F','^NDX',
+  'USDJPY=X','GBPJPY=X','EURUSD=X','AUDUSD=X',
+  'SI=F','CL=F',
+  '^TYX','^TNX','DX=F',
+];
+
 const ALL_ASSETS = [
-  {name:'Bitcoin',    ticker:'BTC-USD',cat:'🪙'},
-  {name:'Ethereum',   ticker:'ETH-USD',cat:'🪙'},
-  {name:'Dow Jones',  ticker:'^DJI',   cat:'📊'},
-  {name:'S&P 500',    ticker:'^GSPC',  cat:'📊'},
-  {name:'Nasdaq 100', ticker:'^NDX',   cat:'📊'},
-  {name:'Russell 2K', ticker:'^RUT',   cat:'📊'},
-  {name:'Oro Futuros',ticker:'GC=F',   cat:'🥇'},
-  {name:'SPY',  ticker:'SPY', cat:'ETF'},{name:'VOO',  ticker:'VOO', cat:'ETF'},
-  {name:'VTI',  ticker:'VTI', cat:'ETF'},{name:'QQQ',  ticker:'QQQ', cat:'ETF'},
-  {name:'QQQM', ticker:'QQQM',cat:'ETF'},{name:'SCHD', ticker:'SCHD',cat:'ETF'},
-  {name:'SCHG', ticker:'SCHG',cat:'ETF'},{name:'VGT',  ticker:'VGT', cat:'ETF'},
-  {name:'IWM',  ticker:'IWM', cat:'ETF'},{name:'XLE',  ticker:'XLE', cat:'ETF'},
-  {name:'SMH',  ticker:'SMH', cat:'ETF'},{name:'EEM',  ticker:'EEM', cat:'ETF'},
-  {name:'DIA',  ticker:'DIA', cat:'ETF'},{name:'GLD',  ticker:'GLD', cat:'🥇'},
-  {name:'IAU',  ticker:'IAU', cat:'🥇'},{name:'GDX',  ticker:'GDX', cat:'🥇'},
-  {name:'Apple',ticker:'AAPL',cat:'💼'},
+  // ── Índices principales (primeros) ──
+  {name:'US30 Dow Jones',  ticker:'^DJI',     cat:'📊', group:'Índices'},
+  {name:'Oro Futuros',     ticker:'GC=F',     cat:'🥇', group:'Índices'},
+  {name:'Nasdaq 100',      ticker:'^NDX',     cat:'📊', group:'Índices'},
+  {name:'S&P 500',         ticker:'^GSPC',    cat:'📊', group:'Índices'},
+  {name:'Russell 2000',    ticker:'^RUT',     cat:'📊', group:'Índices'},
+  // ── Forex ──
+  {name:'USD/JPY',         ticker:'USDJPY=X', cat:'💱', group:'Forex'},
+  {name:'GBP/JPY',         ticker:'GBPJPY=X', cat:'💱', group:'Forex'},
+  {name:'EUR/USD',         ticker:'EURUSD=X', cat:'💱', group:'Forex'},
+  {name:'AUD/USD',         ticker:'AUDUSD=X', cat:'💱', group:'Forex'},
+  // ── Materias primas ──
+  {name:'Plata Futuros',   ticker:'SI=F',     cat:'⚪', group:'Materias primas'},
+  {name:'Petróleo WTI',    ticker:'CL=F',     cat:'🛢️', group:'Materias primas'},
+  // ── Bonos / Dólar ──
+  {name:'Bono EEUU 20Y',   ticker:'^TYX',     cat:'📋', group:'Bonos'},
+  {name:'Bono EEUU 10Y',   ticker:'^TNX',     cat:'📋', group:'Bonos'},
+  {name:'Índice Dólar',    ticker:'DX=F',     cat:'💵', group:'Bonos'},
+  // ── Cripto ──
+  {name:'Bitcoin',         ticker:'BTC-USD',  cat:'🪙', group:'Cripto'},
+  {name:'Ethereum',        ticker:'ETH-USD',  cat:'🪙', group:'Cripto'},
+  // ── ETFs ──
+  {name:'SPY',  ticker:'SPY',  cat:'ETF', group:'ETFs'},{name:'VOO', ticker:'VOO', cat:'ETF', group:'ETFs'},
+  {name:'VTI',  ticker:'VTI',  cat:'ETF', group:'ETFs'},{name:'QQQ', ticker:'QQQ', cat:'ETF', group:'ETFs'},
+  {name:'QQQM', ticker:'QQQM', cat:'ETF', group:'ETFs'},{name:'GLD', ticker:'GLD', cat:'🥇',  group:'ETFs'},
+  {name:'IAU',  ticker:'IAU',  cat:'🥇',  group:'ETFs'},{name:'GDX', ticker:'GDX', cat:'🥇',  group:'ETFs'},
+  {name:'IWM',  ticker:'IWM',  cat:'ETF', group:'ETFs'},{name:'SMH', ticker:'SMH', cat:'ETF', group:'ETFs'},
+  {name:'XLE',  ticker:'XLE',  cat:'ETF', group:'ETFs'},{name:'SCHD',ticker:'SCHD',cat:'ETF', group:'ETFs'},
+  {name:'SCHG', ticker:'SCHG', cat:'ETF', group:'ETFs'},{name:'VGT', ticker:'VGT', cat:'ETF', group:'ETFs'},
+  {name:'EEM',  ticker:'EEM',  cat:'ETF', group:'ETFs'},{name:'DIA', ticker:'DIA', cat:'ETF', group:'ETFs'},
+  // ── Acciones ──
+  {name:'Apple',ticker:'AAPL', cat:'💼', group:'Acciones'},
 ];
 
 // ── Estado global ──────────────────────────────────────────
@@ -338,7 +386,13 @@ let currentEmaShort = 200;
 let currentEmaLong  = 800;
 
 function saveWL(){try{localStorage.setItem('etf_wl2',JSON.stringify([...watchlist]))}catch(e){}}
-function loadWL(){try{const s=localStorage.getItem('etf_wl2');if(s)watchlist=new Set(JSON.parse(s))}catch(e){}}
+function loadWL(){
+  try{
+    const s=localStorage.getItem('etf_wl2');
+    if(s) watchlist=new Set(JSON.parse(s));
+    else  watchlist=new Set(DEFAULT_WATCHLIST); // primera vez → favoritos por defecto
+  }catch(e){ watchlist=new Set(DEFAULT_WATCHLIST); }
+}
 
 window.onload=()=>{
   loadWL();
@@ -363,8 +417,18 @@ function formatPrice(p){
 function buildFavGrid(){
   const tbody=document.getElementById('favItems');
   tbody.innerHTML='';
+  let lastGroup='';
   ALL_ASSETS.forEach(f=>{
     const id=favId(f.ticker),isW=watchlist.has(f.ticker);
+    // Separador de grupo
+    if(f.group && f.group!==lastGroup){
+      lastGroup=f.group;
+      const sep=document.createElement('tr');
+      sep.innerHTML=`<td colspan="7" style="padding:6px 12px 3px;font-size:9px;font-weight:800;
+        letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.18);
+        background:#07070f;border-bottom:1px solid rgba(255,255,255,.05)">${f.group}</td>`;
+      tbody.appendChild(sep);
+    }
     const tr=document.createElement('tr');
     tr.id='fc-'+id; tr.className='asset-row';
     tr.onclick=e=>{if(e.target.closest('.fav-star'))return;loadSymbol(f.ticker);};
