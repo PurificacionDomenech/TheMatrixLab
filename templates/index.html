@@ -132,7 +132,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
   transition:all .15s;border:1px solid transparent;font-family:var(--fm);white-space:nowrap;letter-spacing:.04em}
 .bi.off{opacity:.2;filter:grayscale(.8)}
 #plotDiv{width:100%;height:min(120vw,580px)}
-#rsiWrap{display:block} /* RSI visible por defecto */
+#rsiWrap{display:block}
 #rsiDiv{width:100%;height:min(30vw,150px)}
 @media(min-width:900px){#plotDiv{height:720px}#rsiDiv{height:170px}}
 #lw{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
@@ -535,7 +535,6 @@ async function loadRow(t){
         ?`<span style="font-family:var(--fm);color:#00ff41;font-size:10px;text-shadow:0 0 5px rgba(0,255,65,.4)">▲ ${sn}/${ln}</span>`
         :`<span style="font-family:var(--fm);color:#ff3333;font-size:10px">▼ ${sn}/${ln}</span>`;
     }
-    // ── FRACTAL TOUCH COLUMN ────────────────────────────────
     const fe=document.getElementById(`tft-${id}`);
     if(fe){
       if(d.fractal_touch){
@@ -553,7 +552,6 @@ async function loadRow(t){
   }catch(e){}
 }
 
-/* ESTADO CON FRACTAL BONUS */
 function calcEstado(d){
   if(d.rsi!=null&&d.rsi>68)return '<span class="badge no_favorable">NO AHORA</span>';
   let pts=0;
@@ -564,10 +562,9 @@ function calcEstado(d){
   else if(d.ema_short&&Math.abs(d.price-d.ema_short)/d.ema_short*100<=0.8)pts+=2;
   if(d.ema_long&&d.price<d.ema_long)pts+=1;
   if(d.ema_short&&d.price<d.ema_short)pts+=1;
-  /* ── FRACTAL TOUCH BONUS ─────────────────────── */
   if(d.fractal_touch){
-    pts+=d.fractal_is_major?3:1;          // mayor=+3, menor=+1
-    if(d.fractal_tipo==='soporte')pts+=1;  // soporte = +1 extra
+    pts+=d.fractal_is_major?3:1;
+    if(d.fractal_tipo==='soporte')pts+=1;
   }
   if(pts>=8)return '<span class="badge favorable">FAVORABLE</span>';
   if(pts>=5)return '<span class="badge interesante">INTERESANTE</span>';
@@ -689,6 +686,7 @@ function abrirTV(){
   const m={'^DJI':'DJ:DJI','^NDX':'NASDAQ:NDX','^GSPC':'SP:SPX','GC=F':'TVC:GOLD','SI=F':'TVC:SILVER','CL=F':'TVC:USOIL','USDJPY=X':'FX:USDJPY','GBPJPY=X':'FX:GBPJPY','EURUSD=X':'FX:EURUSD','BTC-USD':'BINANCE:BTCUSDT','SPY':'AMEX:SPY','QQQ':'NASDAQ:QQQ','AAPL':'NASDAQ:AAPL'};
   window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(m[sym]||sym)}`,'_blank');
 }
+
 function updateSB(d){
   document.getElementById('dSym').innerText=DN[sym]||sym;
   document.getElementById('dPx').innerText=fmtP(d.last_price);
@@ -712,6 +710,7 @@ function updateSB(d){
       <span style="color:rgba(0,255,160,.8);font-size:10px;font-family:var(--fm)">${fmtP(op.week_open)}</span>
     </div>`:''}`;
 }
+
 function updRSI(v){
   v=parseFloat(v);if(isNaN(v))return;
   document.getElementById('rsiVal').innerText=v.toFixed(1);
@@ -742,15 +741,38 @@ function renderP(apiData){
   const yFmt=last>500?',.0f':last>1?',.2f':',.4f';
   const traces=[],shapes=[];
 
-  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',fill:'tozeroy',fillcolor:'rgba(255,255,255)',hoverinfo:'skip',showlegend:false});
-  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',line:{color:'rgba(255,255,255,.10)',width:1.5},fill:'tozeroy',fillcolor:'rgba(0,255,65,.025)',hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
-  traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),low:cd.candles.map(c=>c.l),close:closes,type:'candlestick',name:'OHLC',increasing:{line:{color:'rgba(0,255,65,.65)',width:1},fillcolor:'rgba(255,255,65,.1)'},decreasing:{line:{color:'rgba(255,51,51,.65)',width:1},fillcolor:'rgba(255,51,51,.1)'},visible:'legendonly',hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'});
+  /* ── PRECIO: línea blanca + sombra blanca ── */
+  traces.push({
+    x:dates,y:closes,
+    type:'scatter',mode:'none',name:'',
+    fill:'tozeroy',
+    fillcolor:'rgba(255,255,255,.06)',
+    hoverinfo:'skip',showlegend:false
+  });
+  traces.push({
+    x:dates,y:closes,
+    type:'scatter',mode:'lines',name:'Precio 4H',
+    line:{color:'rgba(255,255,255,.92)',width:1.8},
+    fill:'tozeroy',
+    fillcolor:'rgba(255,255,255,.04)',
+    hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'
+  });
+
+  /* ── OHLC (visible solo desde leyenda) ── */
+  traces.push({
+    x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),
+    low:cd.candles.map(c=>c.l),close:closes,
+    type:'candlestick',name:'OHLC',
+    increasing:{line:{color:'rgba(0,255,65,.65)',width:1},fillcolor:'rgba(0,255,65,.1)'},
+    decreasing:{line:{color:'rgba(255,51,51,.65)',width:1},fillcolor:'rgba(255,51,51,.1)'},
+    visible:'legendonly',
+    hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'
+  });
 
   const esd=cd[`ema${cfg.ema_short}`]||[],eld=cd[`ema${cfg.ema_long}`]||[];
   if(ind.emaS&&esd.length)traces.push({x:esd.map(p=>new Date(p.x)),y:esd.map(p=>p.y),type:'scatter',mode:'lines',name:`EMA ${cfg.ema_short}`,line:{color:'rgba(30,144,255,.8)',width:1.5},hovertemplate:`EMA${cfg.ema_short}: $%{y:,.2f}<extra></extra>`});
   if(ind.emaL&&eld.length)traces.push({x:eld.map(p=>new Date(p.x)),y:eld.map(p=>p.y),type:'scatter',mode:'lines',name:`EMA ${cfg.ema_long}`,line:{color:'rgba(0,255,65,.8)',width:2},hovertemplate:`EMA${cfg.ema_long}: $%{y:,.2f}<extra></extra>`});
 
-  /* RSI markers en precio — siempre activo */
   if(ind.rsi){
     const ros=cd.rsi_os||[],rob=cd.rsi_ob||[];
     if(ros.length)traces.push({x:ros.map(p=>new Date(p.x)),y:ros.map(p=>p.y),type:'scatter',mode:'markers',name:'RSI<30',marker:{color:'#00ff41',size:11,symbol:'triangle-up',line:{color:'#000',width:1.5}},hovertemplate:'▲ RSI Sobreventa<br>$%{y:,.2f}<extra></extra>'});
@@ -765,20 +787,24 @@ function renderP(apiData){
   if(ind.zone&&fr.levels){
     fr.levels.filter(l=>l.is_major).forEach(l=>{shapes.push({type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:l.zone_bot,y1:l.zone_top,fillcolor:'rgba(0,255,65,.025)',line:{color:'rgba(0,255,65,.1)',width:0.5}})});
   }
- if(ind.open){
+
+  /* ── APERTURAS AÑO y SEMANA con etiquetas en el gráfico ── */
+  if(ind.open){
+    const labelIdx=Math.floor(dates.length*0.02);
     if(opens.year_open){
       shapes.push({
         type:'line',xref:'paper',yref:'y',x0:0,x1:1,
         y0:opens.year_open,y1:opens.year_open,
-        line:{color:'rgba(100,220,255,.55)',width:1.5,dash:'dashdot'}
+        line:{color:'rgba(100,220,255,.6)',width:1.5,dash:'dashdot'}
       });
+      /* etiqueta flotante sobre la línea */
       traces.push({
-        x:[dates[Math.floor(dates.length*.02)]],
+        x:[dates[labelIdx]],
         y:[opens.year_open],
         type:'scatter',mode:'text',name:'',
-        text:['◆ AÑO'],
-        textposition:'top right',
-        textfont:{color:'rgba(100,220,255,.6)',size:9,family:'Share Tech Mono'},
+        text:['── AÑO'],
+        textposition:'top center',
+        textfont:{color:'rgba(100,220,255,.85)',size:10,family:'Share Tech Mono'},
         hoverinfo:'skip',showlegend:false
       });
     }
@@ -786,21 +812,20 @@ function renderP(apiData){
       shapes.push({
         type:'line',xref:'paper',yref:'y',x0:0,x1:1,
         y0:opens.week_open,y1:opens.week_open,
-        line:{color:'rgba(0,255,160,.45)',width:1,dash:'dot'}
+        line:{color:'rgba(0,255,160,.5)',width:1,dash:'dot'}
       });
       traces.push({
-        x:[dates[Math.floor(dates.length*.02)]],
+        x:[dates[labelIdx]],
         y:[opens.week_open],
         type:'scatter',mode:'text',name:'',
-        text:['◆ SEM'],
-        textposition:'bottom right',
-        textfont:{color:'rgba(0,255,160,.5)',size:9,family:'Share Tech Mono'},
+        text:['── SEMANA'],
+        textposition:'bottom center',
+        textfont:{color:'rgba(0,255,160,.8)',size:10,family:'Share Tech Mono'},
         hoverinfo:'skip',showlegend:false
       });
     }
   }
 
-  /* ── FRACTAL TOUCH MARKERS en gráfico ─────────────────── */
   if(ind.ftm&&cd.fractal_touch_candles&&cd.fractal_touch_candles.length){
     const ftS=cd.fractal_touch_candles.filter(p=>p.tipo==='soporte');
     const ftR=cd.fractal_touch_candles.filter(p=>p.tipo==='resistencia');
@@ -846,14 +871,11 @@ function renderP(apiData){
   };
   div.on('plotly_relayout',div._rl);
 
-  // RSI panel siempre visible
   document.getElementById('rsiWrap').style.display='block';
   renderRSI(cd,dates,xU);
 
-  // Update EMA button labels
   const bs=document.getElementById('t-eS'),bl=document.getElementById('t-eL');
   if(bs)bs.innerText=`EMA ${cfg.ema_short}`;if(bl)bl.innerText=`EMA ${cfg.ema_long}`;
-  document.getElementById('emaInfo').innerText=`EMA ${cfg.ema_short} (azul) / ${cfg.ema_long} (verde)`;
 }
 
 function renderRSI(cd,dates,xU){
