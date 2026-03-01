@@ -408,23 +408,25 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 const DN={'^DJI':'US30 · Dow Jones','GC=F':'XAUUSD · Oro','^NDX':'NAS100 · Nasdaq 100','^GSPC':'SPX · S&P 500','^RUT':'RTY · Russell 2000','USDJPY=X':'USDJPY','GBPJPY=X':'GBPJPY','EURUSD=X':'EURUSD','AUDUSD=X':'AUDUSD','SI=F':'XAGUSD · Plata','CL=F':'WTI · Petróleo','^TYX':'US20Y · Bono','^TNX':'US10Y · Bono','DX=F':'DXY · Dólar','BTC-USD':'BTC · Bitcoin','ETH-USD':'ETH · Ethereum','SPY':'SPY','VOO':'VOO','VTI':'VTI','QQQ':'QQQ','QQQM':'QQQM','GLD':'GLD','IAU':'IAU','GDX':'GDX','IWM':'IWM','SMH':'SMH','XLE':'XLE','SCHD':'SCHD','SCHG':'SCHG','VGT':'VGT','EEM':'EEM','DIA':'DIA','AAPL':'AAPL · Apple'};
 const DWL=['^DJI','GC=F','^NDX','USDJPY=X','GBPJPY=X','EURUSD=X','AUDUSD=X','SI=F','CL=F','^TYX','^TNX','DX=F'];
 const AA=[
-  {n:'US30 Dow Jones',t:'^DJI',c:'📊',g:'Índices'},{n:'Oro Futuros',t:'GC=F',c:'🥇',g:'Índices'},
-  {n:'Nasdaq 100',t:'^NDX',c:'📊',g:'Índices'},{n:'S&P 500',t:'^GSPC',c:'📊',g:'Índices'},
-  {n:'Russell 2000',t:'^RUT',c:'📊',g:'Índices'},
-  {n:'USD/JPY',t:'USDJPY=X',c:'💱',g:'Forex'},{n:'GBP/JPY',t:'GBPJPY=X',c:'💱',g:'Forex'},
-  {n:'EUR/USD',t:'EURUSD=X',c:'💱',g:'Forex'},{n:'AUD/USD',t:'AUDUSD=X',c:'💱',g:'Forex'},
-  {n:'Plata',t:'SI=F',c:'⚪',g:'Materias'},{n:'Petróleo WTI',t:'CL=F',c:'🛢️',g:'Materias'},
-  {n:'Bono 20Y',t:'^TYX',c:'📋',g:'Bonos'},{n:'Bono 10Y',t:'^TNX',c:'📋',g:'Bonos'},
+  {n:'US30 Dow Jones',t:'^DJI',c:'📊',g:'Índices'},
+  {n:'NAS100',t:'^NDX',c:'📊',g:'Índices'},
+  {n:'S&P 500',t:'^GSPC',c:'📊',g:'Índices',hidden:true},
+  {n:'Russell 2000',t:'^RUT',c:'📊',g:'Índices',hidden:true},
+  {n:'Oro Futuros',t:'GC=F',c:'🥇',g:'Índices',hidden:true},
+  {n:'USD/JPY',t:'USDJPY=X',c:'💱',g:'Forex'},
+  {n:'GBP/JPY',t:'GBPJPY=X',c:'💱',g:'Forex'},
+  {n:'EUR/USD',t:'EURUSD=X',c:'💱',g:'Forex'},
+  {n:'AUD/USD',t:'AUDUSD=X',c:'💱',g:'Forex'},
+  {n:'XAUUSD · Oro',t:'GC=F',c:'🥇',g:'Materias'},
+  {n:'Plata',t:'SI=F',c:'⚪',g:'Materias'},
+  {n:'Petróleo WTI',t:'CL=F',c:'🛢️',g:'Materias'},
+  {n:'Bono 20Y',t:'^TYX',c:'📋',g:'Bonos'},
+  {n:'Bono 10Y',t:'^TNX',c:'📋',g:'Bonos'},
   {n:'Índice Dólar',t:'DX=F',c:'💵',g:'Bonos'},
-  {n:'Bitcoin',t:'BTC-USD',c:'🪙',g:'Cripto'},{n:'Ethereum',t:'ETH-USD',c:'🪙',g:'Cripto'},
-  {n:'SPY',t:'SPY',c:'ETF',g:'ETFs'},{n:'VOO',t:'VOO',c:'ETF',g:'ETFs'},{n:'VTI',t:'VTI',c:'ETF',g:'ETFs'},
-  {n:'QQQ',t:'QQQ',c:'ETF',g:'ETFs'},{n:'QQQM',t:'QQQM',c:'ETF',g:'ETFs'},
-  {n:'GLD',t:'GLD',c:'🥇',g:'ETFs'},{n:'IAU',t:'IAU',c:'🥇',g:'ETFs'},{n:'GDX',t:'GDX',c:'🥇',g:'ETFs'},
-  {n:'IWM',t:'IWM',c:'ETF',g:'ETFs'},{n:'SMH',t:'SMH',c:'ETF',g:'ETFs'},{n:'XLE',t:'XLE',c:'ETF',g:'ETFs'},
-  {n:'SCHD',t:'SCHD',c:'ETF',g:'ETFs'},{n:'SCHG',t:'SCHG',c:'ETF',g:'ETFs'},{n:'VGT',t:'VGT',c:'ETF',g:'ETFs'},
-  {n:'EEM',t:'EEM',c:'ETF',g:'ETFs'},{n:'DIA',t:'DIA',c:'ETF',g:'ETFs'},
-  {n:'Apple',t:'AAPL',c:'💼',g:'Acciones'},
-];
+  {n:'Bitcoin',t:'BTC-USD',c:'🪙',g:'Cripto',hidden:true},
+  {n:'Ethereum',t:'ETH-USD',c:'🪙',g:'Cripto',hidden:true},
+  {n:'SPY',t:'SPY',c:'ETF',g:'ETFs',hidden:true},
+  // ... resto con hidden:true
 
 /* STATE */
 let sym='^DJI',favsOpen=true;
@@ -460,6 +462,7 @@ function buildGrid(){
   let lg='';
   AA.forEach(a=>{
     const id=fid(a.t),isW=wl.has(a.t);
+    if(a.hidden)return;
     if(a.g&&a.g!==lg){lg=a.g;const s=document.createElement('tr');s.className='grp';s.innerHTML=`<td colspan="8">${a.g}</td>`;tb.appendChild(s)}
     const tr=document.createElement('tr');
     tr.id='fc-'+id;tr.className='ar';
