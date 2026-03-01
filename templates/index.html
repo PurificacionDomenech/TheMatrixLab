@@ -385,6 +385,21 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 <div id="toasts"></div>
 
 <script>
+  /* ── PROTECCIÓN DE SESIÓN ── */
+(async function(){
+  const SUPABASE_URL = 'https://fhuijfysfqzjmzadsace.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
+  try {
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      window.location.replace('/');
+    }
+  } catch(e) {
+    window.location.replace('/');
+  }
+})();
 /* MATRIX RAIN */
 (function(){
   const cv=document.getElementById('mx'),cx=cv.getContext('2d');
