@@ -601,10 +601,17 @@ try {
   }); 
 } catch(e) { console.error('Error init Supabase:', e); }
 
-// NO redirigir automáticamente desde Splash
-// Dejar que el usuario controle el flujo
-if (!sb) console.error('Supabase not initialized');
-else console.log('Splash: Supabase ready');
+// Redirigir automáticamente al dashboard si ya hay sesión
+if (sb) {
+  sb.auth.getSession().then(({data: {session}}) => {
+    if (session) {
+      console.log('Splash: Session active, redirecting to /app');
+      window.location.replace('/app');
+    }
+  });
+} else {
+  console.error('Supabase not initialized');
+}
 
 
 async function doRegister(event) {

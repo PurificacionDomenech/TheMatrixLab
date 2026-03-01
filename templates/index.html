@@ -384,6 +384,8 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 </div>
 <div id="toasts"></div>
 
+<!-- SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ── PROTECCIÓN DE SESIÓN ── */
 (async function(){
@@ -392,32 +394,35 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
   let redirectAttempted = false;
   
   try {
+    if (typeof supabase === 'undefined') {
+      console.error('Supabase library not loaded');
+      window.location.replace('/');
+      return;
+    }
+
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
     
+    // Verificar sesión inicial inmediatamente
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      console.log('Index: No initial session, redirecting');
+      redirectAttempted = true;
+      window.location.replace('/');
+      return;
+    }
+
     sb.auth.onAuthStateChange((event, session) => {
       console.log('Index: Auth state changed:', event, session ? 'Active' : 'None');
-      if (!session && !redirectAttempted) {
-        redirectAttempted = true;
-        console.log('Index: No session, redirecting to /');
-        window.location.replace('/');
-      } else if (session) {
-        console.log('Index: Session OK for user:', session.user.email);
+      if (event === 'SIGNED_OUT' || !session) {
+        if (!redirectAttempted) {
+          redirectAttempted = true;
+          console.log('Index: Session lost, redirecting to /');
+          window.location.replace('/');
+        }
       }
     });
-    
-    setTimeout(() => {
-      if (!redirectAttempted) {
-        sb.auth.getSession().then(({data}) => {
-          if (!data.session && !redirectAttempted) {
-            redirectAttempted = true;
-            console.log('Index: Timeout - no session, redirecting');
-            window.location.replace('/');
-          }
-        });
-      }
-    }, 2000);
     
   } catch(e) {
     console.error('Index auth error:', e);
