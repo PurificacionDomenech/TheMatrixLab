@@ -4,90 +4,51 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from datetime import datetime, timedelta
-import pytz
 import os
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ── Configuración por activo ──────────────────────────────────
-# key_spacing:   distancia entre líneas fractales menores (amarillo)
-# major_spacing: distancia entre líneas fractales mayores (negro, con zona)
-# zone_size:     semiancho de la zona sombreada en niveles mayores
-# ema_short/long: periodos de las EMAs
-
 ASSET_CONFIG = {
-    # ── US30 / Dow Jones ──────────────────────────────────────
     "^DJI":   {"key_spacing": 500,  "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
-    "YM=F":   {"key_spacing": 500,  "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
-
-    # ── NAS100 / Nasdaq ───────────────────────────────────────
     "^NDX":   {"key_spacing": 500,  "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
-    "NQ=F":   {"key_spacing": 500,  "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
-    "QQQ":    {"key_spacing": 10,   "major_spacing": 20,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
-
-    # ── XAUUSD / Oro ──────────────────────────────────────────
-    "GC=F":   {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200,  "ema_long": 800},
-    "GLD":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200,  "ema_long": 800},
-    "IAU":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200,  "ema_long": 800},
-
-    # ── XAGUSD / Plata ────────────────────────────────────────
-    "SI=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
-    "SLV":    {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
-
-    # ── WTI / Petróleo ────────────────────────────────────────
-    "CL=F":   {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
-    "USO":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
-
-    # ── FOREX ─────────────────────────────────────────────────
-    "USDJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
-    "GBPJPY=X": {"key_spacing": 1,  "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
-    "EURUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 200,  "ema_long": 800},
-    "AUDUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 200,  "ema_long": 800},
-
-    # ── Bonos / Dollar ────────────────────────────────────────
-    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},
-    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},
-    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
-
-    # ── S&P 500 ───────────────────────────────────────────────
+    "GC=F":   {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
+    "GLD":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
+    "IAU":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
+    "SI=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200, "ema_long": 800},
+    "CL=F":   {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200, "ema_long": 800},
+    "USDJPY=X":{"key_spacing": 1,   "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200, "ema_long": 800},
+    "GBPJPY=X":{"key_spacing": 1,   "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200, "ema_long": 800},
+    "EURUSD=X":{"key_spacing":0.005,"major_spacing":0.01,  "zone_size":0.001,"ema_short": 200, "ema_long": 800},
+    "AUDUSD=X":{"key_spacing":0.005,"major_spacing":0.01,  "zone_size":0.001,"ema_short": 200, "ema_long": 800},
+    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200, "ema_long": 800},
+    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200, "ema_long": 800},
+    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200, "ema_long": 800},
     "^GSPC":  {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
     "SPY":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
     "VOO":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
-
-    # ── Russell 2000 ──────────────────────────────────────────
     "^RUT":   {"key_spacing": 25,   "major_spacing": 50,   "zone_size": 5,   "ema_short": 200, "ema_long": 800},
     "IWM":    {"key_spacing": 5,    "major_spacing": 10,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
-
-    # ── Cripto ────────────────────────────────────────────────
-    "BTC-USD":{"key_spacing": 1000, "major_spacing": 5000, "zone_size": 250, "ema_short": 200,  "ema_long": 800},
-    "ETH-USD":{"key_spacing": 50,   "major_spacing": 200,  "zone_size": 25,  "ema_short": 200,  "ema_long": 800},
-
-    # ── ETFs varios ───────────────────────────────────────────
-    "VTI":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
+    "BTC-USD":{"key_spacing": 1000, "major_spacing": 5000, "zone_size": 250, "ema_short": 200, "ema_long": 800},
+    "ETH-USD":{"key_spacing": 50,   "major_spacing": 200,  "zone_size": 25,  "ema_short": 200, "ema_long": 800},
+    "QQQ":    {"key_spacing": 10,   "major_spacing": 20,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
     "QQQM":   {"key_spacing": 5,    "major_spacing": 20,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
-    "GDX":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200,  "ema_long": 800},
+    "GDX":    {"key_spacing": 2,    "major_spacing": 5,    "zone_size": 0.5, "ema_short": 200, "ema_long": 800},
     "SMH":    {"key_spacing": 10,   "major_spacing": 50,   "zone_size": 2,   "ema_short": 200, "ema_long": 800},
     "XLE":    {"key_spacing": 2,    "major_spacing": 10,   "zone_size": 0.5, "ema_short": 200, "ema_long": 800},
     "AAPL":   {"key_spacing": 5,    "major_spacing": 20,   "zone_size": 1,   "ema_short": 200, "ema_long": 800},
-
-    # ── Default ───────────────────────────────────────────────
-    "_default": {"key_spacing": 50, "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
+    "_default":{"key_spacing": 50,  "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
 }
 
-def get_asset_config(ticker: str) -> dict:
-    t = ticker.upper()
-    if t in ASSET_CONFIG:
-        return ASSET_CONFIG[t]
-    return ASSET_CONFIG["_default"]
+def get_cfg(ticker):
+    return ASSET_CONFIG.get(ticker.upper(), ASSET_CONFIG["_default"])
 
 def clean_df(df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return df
 
-def calcular_indicadores(df, ema_short=200, ema_long=800):
+def calc_indicators(df, ema_short=200, ema_long=800):
     df[f"EMA{ema_short}"] = df["Close"].ewm(span=ema_short, adjust=False).mean()
     df[f"EMA{ema_long}"]  = df["Close"].ewm(span=ema_long,  adjust=False).mean()
     delta = df["Close"].diff()
@@ -96,24 +57,43 @@ def calcular_indicadores(df, ema_short=200, ema_long=800):
     df["RSI"] = 100 - (100 / (1 + gain / loss))
     return df
 
-def calcular_fractales(precio_actual: float, cfg: dict, n_above=30, n_below=30) -> dict:
-    key_sp    = cfg["key_spacing"]
-    major_sp  = cfg["major_spacing"]
-    zone_size = cfg["zone_size"]
-    base = round(precio_actual / key_sp) * key_sp
+def calc_fractales(precio, cfg, n_above=30, n_below=30):
+    ks, ms, zs = cfg["key_spacing"], cfg["major_spacing"], cfg["zone_size"]
+    base = round(precio / ks) * ks
     levels = []
     for i in range(-n_below, n_above + 1):
-        nivel = base + i * key_sp
-        is_major = round(nivel % major_sp) == 0
+        p = base + i * ks
         levels.append({
-            "price":    nivel,
-            "is_major": is_major,
-            "zone_top": nivel + zone_size,
-            "zone_bot": nivel - zone_size,
+            "price":    p,
+            "is_major": round(p % ms) == 0,
+            "zone_top": p + zs,
+            "zone_bot": p - zs,
         })
-    return {"levels": levels, "key_spacing": key_sp, "major_spacing": major_sp, "zone_size": zone_size}
+    return {"levels": levels, "key_spacing": ks, "major_spacing": ms, "zone_size": zs}
 
-def calcular_year_week_open(df: pd.DataFrame) -> dict:
+def detect_fractal_touch(high, low, close, fractales):
+    """Detecta si la vela actual toca un nivel fractal (soporte o resistencia)."""
+    zs = fractales["zone_size"]
+    best = None
+    for level in fractales["levels"]:
+        lp = level["price"]
+        # La vela cruza el nivel (high >= lp-zs y low <= lp+zs)
+        crosses = high >= (lp - zs) and low <= (lp + zs)
+        in_zone  = abs(close - lp) <= zs * 1.5
+        if crosses or in_zone:
+            tipo = "soporte" if close >= lp else "resistencia"
+            candidate = {
+                "touch":    True,
+                "price":    lp,
+                "is_major": level["is_major"],
+                "tipo":     tipo,
+                "crosses":  crosses,
+            }
+            if best is None or (not best["is_major"] and level["is_major"]):
+                best = candidate
+    return best or {"touch": False, "price": None, "is_major": False, "tipo": None, "crosses": False}
+
+def calc_opens(df):
     result = {"year_open": None, "week_open": None}
     if df.empty:
         return result
@@ -129,7 +109,7 @@ def calcular_year_week_open(df: pd.DataFrame) -> dict:
         result["week_open"] = float(week_df["Open"].iloc[0])
     return result
 
-def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
+def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
     alertas = []
     n = len(df) - 1
     if n < 2:
@@ -137,30 +117,43 @@ def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
     precio_now  = float(df["Close"].iloc[n])
     precio_prev = float(df["Close"].iloc[n - 1])
     prefix = f"[{ticker}] " if ticker else ""
-    col_s = f"EMA{ema_short}"
-    col_l = f"EMA{ema_long}"
+    col_s, col_l = f"EMA{ema_short}", f"EMA{ema_long}"
+
     for col, nombre in [(col_s, f"EMA{ema_short}"), (col_l, f"EMA{ema_long}")]:
-        if col not in df.columns:
-            continue
+        if col not in df.columns: continue
         ema_now  = df[col].iloc[n]
-        ema_prev = df[col].iloc[n-1]
-        if not (pd.notna(ema_now) and pd.notna(ema_prev)):
-            continue
+        ema_prev = df[col].iloc[n - 1]
+        if not (pd.notna(ema_now) and pd.notna(ema_prev)): continue
         if precio_prev < ema_prev and precio_now >= ema_now:
             alertas.append({"nivel": "bullish", "msg": prefix + f"Precio cruza {nombre} al alza ${precio_now:.2f}"})
         elif precio_prev > ema_prev and precio_now <= ema_now:
             alertas.append({"nivel": "bearish", "msg": prefix + f"Precio cruza {nombre} a la baja ${precio_now:.2f}"})
         elif ema_now > 0 and abs(precio_now - ema_now) / ema_now * 100 <= 0.4:
             alertas.append({"nivel": "info", "msg": prefix + f"Precio tocando {nombre} ${precio_now:.2f}"})
-    es_now  = df[col_s].iloc[n]  if col_s in df.columns else None
+
+    es_now  = df[col_s].iloc[n]   if col_s in df.columns else None
     es_prev = df[col_s].iloc[n-1] if col_s in df.columns else None
-    el_now  = df[col_l].iloc[n]  if col_l in df.columns else None
+    el_now  = df[col_l].iloc[n]   if col_l in df.columns else None
     el_prev = df[col_l].iloc[n-1] if col_l in df.columns else None
     if all(pd.notna(x) for x in [es_now, es_prev, el_now, el_prev] if x is not None):
         if es_prev < el_prev and es_now >= el_now:
             alertas.append({"nivel": "bullish", "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}"})
         elif es_prev > el_prev and es_now <= el_now:
             alertas.append({"nivel": "bearish", "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}"})
+
+    # ── FRACTAL TOUCH ALERT ─────────────────────────────────
+    if cfg is not None:
+        last_high = float(df["High"].iloc[n])
+        last_low  = float(df["Low"].iloc[n])
+        fractales = calc_fractales(precio_now, cfg)
+        ft = detect_fractal_touch(last_high, last_low, precio_now, fractales)
+        if ft["touch"]:
+            mayor_str = "MAYOR " if ft["is_major"] else ""
+            nivel_tipo = "bullish" if ft["tipo"] == "soporte" else "bearish"
+            alertas.append({
+                "nivel": nivel_tipo,
+                "msg":   prefix + f"⬡ Vela toca fractal {mayor_str}{ft['tipo'].upper()} ${ft['price']:.2f}"
+            })
     return alertas
 
 def safe(v):
@@ -169,174 +162,171 @@ def safe(v):
 def ts_ms(idx):
     return [int(t.timestamp() * 1000) for t in idx]
 
-# ─────────────────────────────────────────────────────────────
-# HELPER: detecta automáticamente si el logo es .png o .jpg/.jpeg
-# ─────────────────────────────────────────────────────────────
-def find_logo():
-    for ext in ("png", "jpg", "jpeg", "webp", "svg"):
-        path = f"static/logo.{ext}"
-        if os.path.exists(path):
-            return path
-    return None
 
-# ─────────────────────────────────────────────────────────────
-# RUTAS
-# ─────────────────────────────────────────────────────────────
+# ─── RUTAS ───────────────────────────────────────────────────
 
 @app.get("/")
 async def splash():
-    """Página de landing (splash). Si no existe Splash.html busca splash.html."""
     for name in ("Splash.html", "splash.html"):
         path = f"templates/{name}"
         if os.path.exists(path):
             return FileResponse(path)
-    # fallback al dashboard si no existe splash
     return FileResponse("templates/index.html")
 
 @app.get("/app")
 async def dashboard():
-    """Dashboard principal — requiere sesión (controlado desde el splash/Supabase)."""
     return FileResponse("templates/index.html")
 
-# ─────────────────────────────────────────────────────────────
-# API
-# ─────────────────────────────────────────────────────────────
 
 @app.get("/api/chart/{ticker}")
 async def get_chart(ticker: str):
     try:
-        cfg = get_asset_config(ticker)
-        ema_short = cfg["ema_short"]
-        ema_long  = cfg["ema_long"]
+        cfg = get_cfg(ticker)
+        es, el = cfg["ema_short"], cfg["ema_long"]
         df = yf.download(ticker.upper(), period="2y", interval="4h", progress=False)
         if df.empty:
             return {"error": "Simbolo no encontrado: " + ticker}
         df = clean_df(df)
-        df = calcular_indicadores(df, ema_short, ema_long)
-        ultimo_precio = float(df["Close"].iloc[-1])
-        if ticker.upper() not in ASSET_CONFIG:
-            if ultimo_precio > 5000:
-                cfg = ASSET_CONFIG["^DJI"]
-            elif ultimo_precio > 500:
-                cfg = ASSET_CONFIG["_default"]
-            else:
-                cfg = {"key_spacing": round(ultimo_precio * 0.01, 2),
-                       "major_spacing": round(ultimo_precio * 0.02, 2),
-                       "zone_size": round(ultimo_precio * 0.002, 2),
-                       "ema_short": ema_short, "ema_long": ema_long}
+        df = calc_indicators(df, es, el)
+
+        ultimo = float(df["Close"].iloc[-1])
+        fractales = calc_fractales(ultimo, cfg)
         timestamps = ts_ms(df.index)
+
         candles = [
             {"x": timestamps[i], "o": safe(df["Open"].iloc[i]),
              "h": safe(df["High"].iloc[i]), "l": safe(df["Low"].iloc[i]),
              "c": safe(df["Close"].iloc[i])}
             for i in range(len(df))
         ]
+
         def ema_series(col):
-            if col not in df.columns:
-                return []
+            if col not in df.columns: return []
             return [{"x": timestamps[i], "y": float(df[col].iloc[i])}
                     for i in range(len(df)) if pd.notna(df[col].iloc[i])]
+
         rsi_os, rsi_ob = [], []
         for i in range(len(df)):
             r = df["RSI"].iloc[i]
             if pd.notna(r):
-                if r < 30:
-                    rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
-                elif r > 70:
-                    rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
-        fractales = calcular_fractales(ultimo_precio, cfg)
-        opens = calcular_year_week_open(df)
-        rsi_series = df["RSI"].dropna()
-        rsi_c = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50
-        first = float(df["Close"].iloc[0])
-        alertas = detectar_alertas(df, ticker=ticker.upper(), ema_short=ema_short, ema_long=ema_long)
+                if r < 30:  rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
+                elif r > 70:rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
+
+        # Markers de toques fractales históricos (solo mayores)
+        fractal_touch_candles = []
+        for i in range(len(df)):
+            h = safe(df["High"].iloc[i]); l = safe(df["Low"].iloc[i]); c = safe(df["Close"].iloc[i])
+            if h is None or l is None or c is None: continue
+            ft = detect_fractal_touch(h, l, c, fractales)
+            if ft["touch"] and ft["is_major"]:
+                fractal_touch_candles.append({"x": timestamps[i], "y": c,
+                                              "tipo": ft["tipo"], "price": ft["price"]})
+
+        opens  = calc_opens(df)
+        rsi_s  = df["RSI"].dropna()
+        rsi_c  = float(rsi_s.iloc[-1]) if not rsi_s.empty else 50
+        first  = float(df["Close"].iloc[0])
+        alertas = detect_alerts(df, ticker=ticker.upper(), ema_short=es, ema_long=el, cfg=cfg)
+
         return {
             "chart": {
-                "candles":   candles,
-                f"ema{ema_short}": ema_series(f"EMA{ema_short}"),
-                f"ema{ema_long}":  ema_series(f"EMA{ema_long}"),
-                "rsi_os":    rsi_os,
-                "rsi_ob":    rsi_ob,
+                "candles": candles,
+                f"ema{es}": ema_series(f"EMA{es}"),
+                f"ema{el}": ema_series(f"EMA{el}"),
+                "rsi_os":  rsi_os,
+                "rsi_ob":  rsi_ob,
+                "fractal_touch_candles": fractal_touch_candles,
             },
             "fractales":    fractales,
             "opens":        opens,
-            "last_price":   ultimo_precio,
-            "change":       ultimo_precio - first,
-            "change_pct":   (ultimo_precio - first) / first * 100,
+            "last_price":   ultimo,
+            "change":       ultimo - first,
+            "change_pct":   (ultimo - first) / first * 100,
             "rsi_current":  rsi_c,
             "alertas":      alertas,
-            "asset_config": {"ema_short": ema_short, "ema_long": ema_long},
+            "asset_config": {"ema_short": es, "ema_long": el},
         }
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.get("/api/row/{ticker}")
 async def get_row(ticker: str):
     try:
-        cfg = get_asset_config(ticker)
-        ema_short = cfg["ema_short"]
-        ema_long  = cfg["ema_long"]
+        cfg = get_cfg(ticker)
+        es, el = cfg["ema_short"], cfg["ema_long"]
         df = yf.download(ticker.upper(), period="1y", interval="4h", progress=False)
         if df.empty:
             return {"error": "not found"}
         df = clean_df(df)
-        df = calcular_indicadores(df, ema_short, ema_long)
+        df = calc_indicators(df, es, el)
+
         last  = float(df["Close"].iloc[-1])
         first = float(df["Close"].iloc[0])
         rsi_s = df["RSI"].dropna()
         rsi   = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
-        col_s = f"EMA{ema_short}"
-        col_l = f"EMA{ema_long}"
+
         def last_val(col):
-            if col not in df.columns:
-                return None
+            if col not in df.columns: return None
             s = df[col].dropna()
             return float(s.iloc[-1]) if not s.empty else None
+
+        # Fractal touch en última vela
+        last_high = float(df["High"].iloc[-1])
+        last_low  = float(df["Low"].iloc[-1])
+        fractales = calc_fractales(last, cfg)
+        ft        = detect_fractal_touch(last_high, last_low, last, fractales)
+
         return {
-            "ticker":     ticker.upper(),
-            "price":      last,
-            "change_pct": round((last - first) / first * 100, 2),
-            "rsi":        round(rsi, 1) if rsi is not None else None,
-            "ema_short":  last_val(col_s),
-            "ema_long":   last_val(col_l),
-            "ema_short_name": f"EMA{ema_short}",
-            "ema_long_name":  f"EMA{ema_long}",
+            "ticker":           ticker.upper(),
+            "price":            last,
+            "change_pct":       round((last - first) / first * 100, 2),
+            "rsi":              round(rsi, 1) if rsi is not None else None,
+            "ema_short":        last_val(f"EMA{es}"),
+            "ema_long":         last_val(f"EMA{el}"),
+            "ema_short_name":   f"EMA{es}",
+            "ema_long_name":    f"EMA{el}",
+            "fractal_touch":    ft["touch"],
+            "fractal_price":    ft["price"],
+            "fractal_is_major": ft["is_major"],
+            "fractal_tipo":     ft["tipo"],
+            "fractal_crosses":  ft["crosses"],
         }
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/api/watch")
-async def watch_favorites(tickers: str = ""):
+async def watch(tickers: str = ""):
     all_alertas = []
     for t in tickers.split(","):
         t = t.strip()
-        if not t:
-            continue
+        if not t: continue
         try:
-            cfg = get_asset_config(t)
-            df = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
+            cfg = get_cfg(t)
+            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
             if not df.empty:
                 df = clean_df(df)
-                df = calcular_indicadores(df, cfg["ema_short"], cfg["ema_long"])
-                all_alertas.extend(detectar_alertas(df, ticker=t.upper(),
-                                                    ema_short=cfg["ema_short"],
-                                                    ema_long=cfg["ema_long"]))
+                df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+                all_alertas.extend(detect_alerts(df, ticker=t.upper(),
+                    ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg))
         except Exception:
             pass
     return {"alertas": all_alertas}
+
 
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
     try:
         df = yf.download(ticker.upper(), period="1mo", interval="1d", progress=False)
-        if df.empty:
-            return {"closes": [], "pct": 0}
+        if df.empty: return {"closes": [], "pct": 0}
         df = clean_df(df)
         closes = df["Close"].dropna().tolist()
         pct = (closes[-1] - closes[0]) / closes[0] * 100 if len(closes) > 1 else 0
         return {"closes": [float(c) for c in closes], "pct": round(pct, 2)}
     except Exception:
         return {"closes": [], "pct": 0}
+
 
 if __name__ == "__main__":
     import uvicorn
