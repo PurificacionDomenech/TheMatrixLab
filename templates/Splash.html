@@ -601,19 +601,10 @@ try {
   }); 
 } catch(e) { console.error('Error init Supabase:', e); }
 
-async function checkSession() {
-  if (!sb) return;
-  console.log('Splash: Checking session...');
-  try {
-    const { data, error } = await sb.auth.getSession();
-    console.log('Splash session data:', data.session ? 'Active' : 'None', error || '');
-    if (data.session) {
-      console.log('Splash: Session found, redirecting to /app');
-      window.location.href = '/app';
-    }
-  } catch(e) { console.error('Splash checkSession error:', e); }
-}
-checkSession();
+// NO redirigir automáticamente desde Splash
+// Dejar que el usuario controle el flujo
+if (!sb) console.error('Supabase not initialized');
+else console.log('Splash: Supabase ready');
 
 
 async function doRegister(event) {
@@ -648,7 +639,9 @@ async function doLogin(event) {
     const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
     if (error) throw error;
     showMsg(msg,'ok','✓ Acceso concedido. Redirigiendo…');
-    setTimeout(()=>window.location.href='/app',1000);
+    // Esperar a que la sesión se persista en localStorage
+    await new Promise(r => setTimeout(r, 500));
+    window.location.href='/app';
   } catch(e) {
     btn.disabled=false;btn.textContent='ACCEDER AL DASHBOARD';
     const errMap={'Invalid login credentials':'Email o contraseña incorrectos.','Email not confirmed':'Confirma tu email antes de ingresar.'};
