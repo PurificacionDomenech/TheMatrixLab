@@ -404,25 +404,26 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
     
-    // Verificar sesión inicial inmediatamente
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) {
-      console.log('Index: No initial session, redirecting');
-      redirectAttempted = true;
-      window.location.replace('/');
-      return;
-    }
-
     sb.auth.onAuthStateChange((event, session) => {
       console.log('Index: Auth state changed:', event, session ? 'Active' : 'None');
-      if (event === 'SIGNED_OUT' || !session) {
+      if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
         if (!redirectAttempted) {
           redirectAttempted = true;
-          console.log('Index: Session lost, redirecting to /');
+          console.log('Index: Session lost or not found, redirecting to /');
           window.location.replace('/');
         }
       }
     });
+
+    // Verificar sesión inicial con un pequeño margen para que Supabase recupere el estado
+    setTimeout(async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session && !redirectAttempted) {
+        console.log('Index: No session after timeout, redirecting');
+        redirectAttempted = true;
+        window.location.replace('/');
+      }
+    }, 1500);
     
   } catch(e) {
     console.error('Index auth error:', e);

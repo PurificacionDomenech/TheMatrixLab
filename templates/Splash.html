@@ -603,8 +603,8 @@ try {
 
 // Redirigir automáticamente al dashboard si ya hay sesión
 if (sb) {
-  sb.auth.getSession().then(({data: {session}}) => {
-    if (session) {
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
       console.log('Splash: Session active, redirecting to /app');
       window.location.replace('/app');
     }
@@ -646,9 +646,7 @@ async function doLogin(event) {
     const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
     if (error) throw error;
     showMsg(msg,'ok','✓ Acceso concedido. Redirigiendo…');
-    // Esperar a que la sesión se persista en localStorage
-    await new Promise(r => setTimeout(r, 500));
-    window.location.href='/app';
+    // La redirección se manejará automáticamente por onAuthStateChange
   } catch(e) {
     btn.disabled=false;btn.textContent='ACCEDER AL DASHBOARD';
     const errMap={'Invalid login credentials':'Email o contraseña incorrectos.','Email not confirmed':'Confirma tu email antes de ingresar.'};
