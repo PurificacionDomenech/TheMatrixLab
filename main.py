@@ -1,4 +1,3 @@
-
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -7,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import pytz
+import os
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -47,9 +47,9 @@ ASSET_CONFIG = {
     "AUDUSD=X": {"key_spacing": 0.005,"major_spacing":0.01,"zone_size":0.001,"ema_short": 200,  "ema_long": 800},
 
     # ── Bonos / Dollar ────────────────────────────────────────
-    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},  # US10Y
-    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},  # US20/30Y
-    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},  # DXY
+    "^TNX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},
+    "^TYX":   {"key_spacing": 0.1,  "major_spacing": 0.5,  "zone_size": 0.05,"ema_short": 200,  "ema_long": 800},
+    "DX=F":   {"key_spacing": 1,    "major_spacing": 5,    "zone_size": 0.25,"ema_short": 200,  "ema_long": 800},
 
     # ── S&P 500 ───────────────────────────────────────────────
     "^GSPC":  {"key_spacing": 50,   "major_spacing": 100,  "zone_size": 10,  "ema_short": 200, "ema_long": 800},
@@ -80,7 +80,6 @@ def get_asset_config(ticker: str) -> dict:
     t = ticker.upper()
     if t in ASSET_CONFIG:
         return ASSET_CONFIG[t]
-    # Heurística: si precio > 5000 → US30-like
     return ASSET_CONFIG["_default"]
 
 def clean_df(df):
@@ -91,24 +90,18 @@ def clean_df(df):
 def calcular_indicadores(df, ema_short=200, ema_long=800):
     df[f"EMA{ema_short}"] = df["Close"].ewm(span=ema_short, adjust=False).mean()
     df[f"EMA{ema_long}"]  = df["Close"].ewm(span=ema_long,  adjust=False).mean()
-
-    # RSI 14
     delta = df["Close"].diff()
     gain  = delta.where(delta > 0, 0).rolling(14).mean()
     loss  = (-delta.where(delta < 0, 0)).rolling(14).mean()
     df["RSI"] = 100 - (100 / (1 + gain / loss))
-
     return df
 
 def calcular_fractales(precio_actual: float, cfg: dict, n_above=30, n_below=30) -> dict:
-    """Genera niveles fractales alrededor del precio actual."""
     key_sp    = cfg["key_spacing"]
     major_sp  = cfg["major_spacing"]
     zone_size = cfg["zone_size"]
-
     base = round(precio_actual / key_sp) * key_sp
     levels = []
-
     for i in range(-n_below, n_above + 1):
         nivel = base + i * key_sp
         is_major = round(nivel % major_sp) == 0
@@ -118,29 +111,22 @@ def calcular_fractales(precio_actual: float, cfg: dict, n_above=30, n_below=30) 
             "zone_top": nivel + zone_size,
             "zone_bot": nivel - zone_size,
         })
-
     return {"levels": levels, "key_spacing": key_sp, "major_spacing": major_sp, "zone_size": zone_size}
 
 def calcular_year_week_open(df: pd.DataFrame) -> dict:
-    """Calcula apertura del año y semana actuales desde datos 4h."""
     result = {"year_open": None, "week_open": None}
     if df.empty:
         return result
-
     now = df.index[-1]
-    # Apertura del año: primer open del año en curso
     year_start = pd.Timestamp(year=now.year, month=1, day=1, tz=now.tz if now.tz else None)
     year_df = df[df.index >= year_start]
     if not year_df.empty:
         result["year_open"] = float(year_df["Open"].iloc[0])
-
-    # Apertura de la semana: primer open del lunes de esta semana
     week_start = now - pd.Timedelta(days=now.weekday())
     week_start = week_start.replace(hour=0, minute=0, second=0)
     week_df = df[df.index >= week_start]
     if not week_df.empty:
         result["week_open"] = float(week_df["Open"].iloc[0])
-
     return result
 
 def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
@@ -148,14 +134,11 @@ def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
     n = len(df) - 1
     if n < 2:
         return alertas
-
     precio_now  = float(df["Close"].iloc[n])
     precio_prev = float(df["Close"].iloc[n - 1])
     prefix = f"[{ticker}] " if ticker else ""
-
     col_s = f"EMA{ema_short}"
     col_l = f"EMA{ema_long}"
-
     for col, nombre in [(col_s, f"EMA{ema_short}"), (col_l, f"EMA{ema_long}")]:
         if col not in df.columns:
             continue
@@ -169,19 +152,15 @@ def detectar_alertas(df, ticker="", ema_short=200, ema_long=800):
             alertas.append({"nivel": "bearish", "msg": prefix + f"Precio cruza {nombre} a la baja ${precio_now:.2f}"})
         elif ema_now > 0 and abs(precio_now - ema_now) / ema_now * 100 <= 0.4:
             alertas.append({"nivel": "info", "msg": prefix + f"Precio tocando {nombre} ${precio_now:.2f}"})
-
-    # Cruce EMAs entre sí
     es_now  = df[col_s].iloc[n]  if col_s in df.columns else None
     es_prev = df[col_s].iloc[n-1] if col_s in df.columns else None
     el_now  = df[col_l].iloc[n]  if col_l in df.columns else None
     el_prev = df[col_l].iloc[n-1] if col_l in df.columns else None
-
     if all(pd.notna(x) for x in [es_now, es_prev, el_now, el_prev] if x is not None):
         if es_prev < el_prev and es_now >= el_now:
             alertas.append({"nivel": "bullish", "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}"})
         elif es_prev > el_prev and es_now <= el_now:
             alertas.append({"nivel": "bearish", "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}"})
-
     return alertas
 
 def safe(v):
@@ -190,9 +169,38 @@ def safe(v):
 def ts_ms(idx):
     return [int(t.timestamp() * 1000) for t in idx]
 
+# ─────────────────────────────────────────────────────────────
+# HELPER: detecta automáticamente si el logo es .png o .jpg/.jpeg
+# ─────────────────────────────────────────────────────────────
+def find_logo():
+    for ext in ("png", "jpg", "jpeg", "webp", "svg"):
+        path = f"static/logo.{ext}"
+        if os.path.exists(path):
+            return path
+    return None
+
+# ─────────────────────────────────────────────────────────────
+# RUTAS
+# ─────────────────────────────────────────────────────────────
+
 @app.get("/")
-async def index():
+async def splash():
+    """Página de landing (splash). Si no existe Splash.html busca splash.html."""
+    for name in ("Splash.html", "splash.html"):
+        path = f"templates/{name}"
+        if os.path.exists(path):
+            return FileResponse(path)
+    # fallback al dashboard si no existe splash
     return FileResponse("templates/index.html")
+
+@app.get("/app")
+async def dashboard():
+    """Dashboard principal — requiere sesión (controlado desde el splash/Supabase)."""
+    return FileResponse("templates/index.html")
+
+# ─────────────────────────────────────────────────────────────
+# API
+# ─────────────────────────────────────────────────────────────
 
 @app.get("/api/chart/{ticker}")
 async def get_chart(ticker: str):
@@ -200,16 +208,11 @@ async def get_chart(ticker: str):
         cfg = get_asset_config(ticker)
         ema_short = cfg["ema_short"]
         ema_long  = cfg["ema_long"]
-
-        # Descargamos ~2 años en 4h para tener suficientes datos para EMA800
         df = yf.download(ticker.upper(), period="2y", interval="4h", progress=False)
         if df.empty:
             return {"error": "Simbolo no encontrado: " + ticker}
-
         df = clean_df(df)
         df = calcular_indicadores(df, ema_short, ema_long)
-
-        # Ajuste config por precio real (heurística si no está en ASSET_CONFIG)
         ultimo_precio = float(df["Close"].iloc[-1])
         if ticker.upper() not in ASSET_CONFIG:
             if ultimo_precio > 5000:
@@ -221,23 +224,18 @@ async def get_chart(ticker: str):
                        "major_spacing": round(ultimo_precio * 0.02, 2),
                        "zone_size": round(ultimo_precio * 0.002, 2),
                        "ema_short": ema_short, "ema_long": ema_long}
-
         timestamps = ts_ms(df.index)
-
         candles = [
             {"x": timestamps[i], "o": safe(df["Open"].iloc[i]),
              "h": safe(df["High"].iloc[i]), "l": safe(df["Low"].iloc[i]),
              "c": safe(df["Close"].iloc[i])}
             for i in range(len(df))
         ]
-
         def ema_series(col):
             if col not in df.columns:
                 return []
             return [{"x": timestamps[i], "y": float(df[col].iloc[i])}
                     for i in range(len(df)) if pd.notna(df[col].iloc[i])]
-
-        # RSI markers
         rsi_os, rsi_ob = [], []
         for i in range(len(df)):
             r = df["RSI"].iloc[i]
@@ -246,19 +244,12 @@ async def get_chart(ticker: str):
                     rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
                 elif r > 70:
                     rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
-
-        # Fractales
         fractales = calcular_fractales(ultimo_precio, cfg)
-
-        # Aperturas año/semana
         opens = calcular_year_week_open(df)
-
         rsi_series = df["RSI"].dropna()
         rsi_c = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50
-
         first = float(df["Close"].iloc[0])
         alertas = detectar_alertas(df, ticker=ticker.upper(), ema_short=ema_short, ema_long=ema_long)
-
         return {
             "chart": {
                 "candles":   candles,
@@ -276,7 +267,6 @@ async def get_chart(ticker: str):
             "alertas":      alertas,
             "asset_config": {"ema_short": ema_short, "ema_long": ema_long},
         }
-
     except Exception as e:
         return {"error": str(e)}
 
@@ -286,29 +276,22 @@ async def get_row(ticker: str):
         cfg = get_asset_config(ticker)
         ema_short = cfg["ema_short"]
         ema_long  = cfg["ema_long"]
-
         df = yf.download(ticker.upper(), period="1y", interval="4h", progress=False)
         if df.empty:
             return {"error": "not found"}
-
         df = clean_df(df)
         df = calcular_indicadores(df, ema_short, ema_long)
-
         last  = float(df["Close"].iloc[-1])
         first = float(df["Close"].iloc[0])
-
         rsi_s = df["RSI"].dropna()
         rsi   = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
-
         col_s = f"EMA{ema_short}"
         col_l = f"EMA{ema_long}"
-
         def last_val(col):
             if col not in df.columns:
                 return None
             s = df[col].dropna()
             return float(s.iloc[-1]) if not s.empty else None
-
         return {
             "ticker":     ticker.upper(),
             "price":      last,
@@ -319,7 +302,6 @@ async def get_row(ticker: str):
             "ema_short_name": f"EMA{ema_short}",
             "ema_long_name":  f"EMA{ema_long}",
         }
-
     except Exception as e:
         return {"error": str(e)}
 
@@ -358,6 +340,5 @@ async def sparkline(ticker: str):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
