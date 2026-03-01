@@ -596,12 +596,12 @@ const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
 
 let sb = null;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) {}
-
 async function checkSession() {
   if (!sb) return;
-  try { const { data: { session } } = await sb.auth.getSession(); if (session) window.location.href = '/app'; } catch(e) {}
+  try { await sb.auth.signOut(); } catch(e) {}
 }
 checkSession();
+
 
 async function doRegister() {
   const name=document.getElementById('regName').value.trim();
