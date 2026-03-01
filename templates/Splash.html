@@ -595,16 +595,23 @@ const SUPABASE_URL = 'https://fhuijfysfqzjmzadsace.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
 
 let sb = null;
-try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) {}
+try { 
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  }); 
+} catch(e) { console.error('Error init Supabase:', e); }
 
 async function checkSession() {
   if (!sb) return;
+  console.log('Splash: Checking session...');
   try {
-    const { data } = await sb.auth.getSession();
+    const { data, error } = await sb.auth.getSession();
+    console.log('Splash session data:', data.session ? 'Active' : 'None', error || '');
     if (data.session) {
+      console.log('Splash: Session found, redirecting to /app');
       window.location.href = '/app';
     }
-  } catch(e) {}
+  } catch(e) { console.error('Splash checkSession error:', e); }
 }
 checkSession();
 

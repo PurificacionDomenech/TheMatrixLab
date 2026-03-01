@@ -389,13 +389,26 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 (async function(){
   const SUPABASE_URL = 'https://fhuijfysfqzjmzadsace.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
+  console.log('Index: Checking session...');
   try {
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+    
+    // Pequeña espera para asegurar que Supabase cargue la sesión del localStorage
+    await new Promise(r => setTimeout(r, 100));
+    
     const { data, error } = await sb.auth.getSession();
+    console.log('Index session data:', data.session ? 'Active' : 'None', error || '');
+    
     if (error || !data.session) {
+      console.log('Index: No session, redirecting to /');
       window.location.replace('/');
+    } else {
+      console.log('Index: Session OK, user:', data.session.user.email);
     }
   } catch(e) {
+    console.error('Index auth error:', e);
     window.location.replace('/');
   }
 })();
