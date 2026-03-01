@@ -391,17 +391,8 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
   const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
   try {
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    
-    // Esperar hasta 3 segundos a que la sesión se establezca
-    let session = null;
-    for(let i = 0; i < 6; i++){
-      const { data } = await sb.auth.getSession();
-      session = data.session;
-      if(session) break;
-      await new Promise(r => setTimeout(r, 500));
-    }
-    
-    if(!session){
+    const { data, error } = await sb.auth.getSession();
+    if (error || !data.session) {
       window.location.replace('/');
     }
   } catch(e) {
