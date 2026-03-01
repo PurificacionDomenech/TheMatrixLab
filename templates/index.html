@@ -742,8 +742,8 @@ function renderP(apiData){
   const yFmt=last>500?',.0f':last>1?',.2f':',.4f';
   const traces=[],shapes=[];
 
-  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',fill:'tozeroy',fillcolor:'rgba(255,255,255,.04)',hoverinfo:'skip',showlegend:false});
-  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',line:{color:'rgba(255,255,255,.09)',width:1.5},fill:'tozeroy',fillcolor:'rgba(0,255,65,.025)',hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
+  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',fill:'tozeroy',fillcolor:'rgba(255,255,255)',hoverinfo:'skip',showlegend:false});
+  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',line:{color:'rgba(255,255,255,.10)',width:1.5},fill:'tozeroy',fillcolor:'rgba(0,255,65,.025)',hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
   traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),low:cd.candles.map(c=>c.l),close:closes,type:'candlestick',name:'OHLC',increasing:{line:{color:'rgba(0,255,65,.65)',width:1},fillcolor:'rgba(255,255,65,.1)'},decreasing:{line:{color:'rgba(255,51,51,.65)',width:1},fillcolor:'rgba(255,51,51,.1)'},visible:'legendonly',hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'});
 
   const esd=cd[`ema${cfg.ema_short}`]||[],eld=cd[`ema${cfg.ema_long}`]||[];
