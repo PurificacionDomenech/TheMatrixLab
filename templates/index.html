@@ -697,6 +697,20 @@ function updateSB(d){
   ce.style.color=d.change>=0?'#00ff41':'#ff3333';
   updRSI(d.rsi_current);
   document.getElementById('asl').innerText=sym;
+  const op=d.opens||{};
+  const ei=document.getElementById('emaInfo');
+  ei.innerHTML=`
+    <div style="margin-bottom:4px;color:rgba(0,255,65,.25)">EMA ${d.asset_config?.ema_short||200} / ${d.asset_config?.ema_long||800}</div>
+    ${op.year_open?`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-top:1px solid rgba(100,220,255,.08)">
+      <span style="color:rgba(100,220,255,.4);font-size:8px;letter-spacing:.1em;font-family:var(--fd)">AÑO</span>
+      <span style="color:rgba(100,220,255,.8);font-size:10px;font-family:var(--fm)">${fmtP(op.year_open)}</span>
+    </div>`:''}
+    ${op.week_open?`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-top:1px solid rgba(0,255,160,.06)">
+      <span style="color:rgba(0,255,160,.4);font-size:8px;letter-spacing:.1em;font-family:var(--fd)">SEM</span>
+      <span style="color:rgba(0,255,160,.8);font-size:10px;font-family:var(--fm)">${fmtP(op.week_open)}</span>
+    </div>`:''}`;
 }
 function updRSI(v){
   v=parseFloat(v);if(isNaN(v))return;
@@ -728,9 +742,9 @@ function renderP(apiData){
   const yFmt=last>500?',.0f':last>1?',.2f':',.4f';
   const traces=[],shapes=[];
 
-  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',fill:'tozeroy',fillcolor:'rgba(0,255,65,.05)',hoverinfo:'skip',showlegend:false});
-  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',line:{color:'rgba(0,255,65,.85)',width:1.5},fill:'tozeroy',fillcolor:'rgba(0,255,65,.025)',hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
-  traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),low:cd.candles.map(c=>c.l),close:closes,type:'candlestick',name:'OHLC',increasing:{line:{color:'rgba(0,255,65,.65)',width:1},fillcolor:'rgba(0,255,65,.1)'},decreasing:{line:{color:'rgba(255,51,51,.65)',width:1},fillcolor:'rgba(255,51,51,.1)'},visible:'legendonly',hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'});
+  traces.push({x:dates,y:closes,type:'scatter',mode:'none',name:'',fill:'tozeroy',fillcolor:'rgba(255,255,65,.05)',hoverinfo:'skip',showlegend:false});
+  traces.push({x:dates,y:closes,type:'scatter',mode:'lines',name:'Precio 4H',line:{color:'rgba(255,255,65,.85)',width:1.5},fill:'tozeroy',fillcolor:'rgba(0,255,65,.025)',hovertemplate:'<b>%{x|%d %b %Y %H:%M}</b><br><b>$%{y:,.2f}</b><extra></extra>'});
+  traces.push({x:dates,open:cd.candles.map(c=>c.o),high:cd.candles.map(c=>c.h),low:cd.candles.map(c=>c.l),close:closes,type:'candlestick',name:'OHLC',increasing:{line:{color:'rgba(0,255,65,.65)',width:1},fillcolor:'rgba(255,255,65,.1)'},decreasing:{line:{color:'rgba(255,51,51,.65)',width:1},fillcolor:'rgba(255,51,51,.1)'},visible:'legendonly',hovertemplate:'O:%{open:.2f} H:%{high:.2f} L:%{low:.2f} C:%{close:.2f}<extra>OHLC</extra>'});
 
   const esd=cd[`ema${cfg.ema_short}`]||[],eld=cd[`ema${cfg.ema_long}`]||[];
   if(ind.emaS&&esd.length)traces.push({x:esd.map(p=>new Date(p.x)),y:esd.map(p=>p.y),type:'scatter',mode:'lines',name:`EMA ${cfg.ema_short}`,line:{color:'rgba(30,144,255,.8)',width:1.5},hovertemplate:`EMA${cfg.ema_short}: $%{y:,.2f}<extra></extra>`});
@@ -751,9 +765,39 @@ function renderP(apiData){
   if(ind.zone&&fr.levels){
     fr.levels.filter(l=>l.is_major).forEach(l=>{shapes.push({type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:l.zone_bot,y1:l.zone_top,fillcolor:'rgba(0,255,65,.025)',line:{color:'rgba(0,255,65,.1)',width:0.5}})});
   }
-  if(ind.open){
-    if(opens.year_open){shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:opens.year_open,y1:opens.year_open,line:{color:'rgba(0,255,65,.55)',width:1.5}});traces.push({x:[dates[Math.floor(dates.length*.05)]],y:[opens.year_open],type:'scatter',mode:'text',name:'',text:['AÑO'],textposition:'top right',textfont:{color:'rgba(0,255,65,.5)',size:9,family:'Share Tech Mono'},hoverinfo:'skip',showlegend:false})}
-    if(opens.week_open){shapes.push({type:'line',xref:'paper',yref:'y',x0:0,x1:1,y0:opens.week_open,y1:opens.week_open,line:{color:'rgba(0,180,35,.5)',width:1,dash:'dash'}});traces.push({x:[dates[Math.floor(dates.length*.05)]],y:[opens.week_open],type:'scatter',mode:'text',name:'',text:['SEM'],textposition:'bottom right',textfont:{color:'rgba(0,180,35,.45)',size:8,family:'Share Tech Mono'},hoverinfo:'skip',showlegend:false})}
+ if(ind.open){
+    if(opens.year_open){
+      shapes.push({
+        type:'line',xref:'paper',yref:'y',x0:0,x1:1,
+        y0:opens.year_open,y1:opens.year_open,
+        line:{color:'rgba(100,220,255,.55)',width:1.5,dash:'dashdot'}
+      });
+      traces.push({
+        x:[dates[Math.floor(dates.length*.02)]],
+        y:[opens.year_open],
+        type:'scatter',mode:'text',name:'',
+        text:['◆ AÑO'],
+        textposition:'top right',
+        textfont:{color:'rgba(100,220,255,.6)',size:9,family:'Share Tech Mono'},
+        hoverinfo:'skip',showlegend:false
+      });
+    }
+    if(opens.week_open){
+      shapes.push({
+        type:'line',xref:'paper',yref:'y',x0:0,x1:1,
+        y0:opens.week_open,y1:opens.week_open,
+        line:{color:'rgba(0,255,160,.45)',width:1,dash:'dot'}
+      });
+      traces.push({
+        x:[dates[Math.floor(dates.length*.02)]],
+        y:[opens.week_open],
+        type:'scatter',mode:'text',name:'',
+        text:['◆ SEM'],
+        textposition:'bottom right',
+        textfont:{color:'rgba(0,255,160,.5)',size:9,family:'Share Tech Mono'},
+        hoverinfo:'skip',showlegend:false
+      });
+    }
   }
 
   /* ── FRACTAL TOUCH MARKERS en gráfico ─────────────────── */
