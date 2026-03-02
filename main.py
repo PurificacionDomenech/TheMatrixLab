@@ -1,13 +1,24 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import asyncio
+import time
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from notifier import notify_alertas
 import os
 
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ─── TICKERS VIGILADOS EN EL SERVIDOR (notificaciones automáticas) ──────────
+WATCH_TICKERS = [
+    "^DJI", "GC=F", "^NDX", "USDJPY=X", "GBPJPY=X",
+    "EURUSD=X", "AUDUSD=X", "SI=F", "CL=F", "^TYX", "^TNX", "DX=F",
+]
+_sent_cache: dict[str, float] = {}
+_DEDUP_SECONDS = 4 * 3600  # No reenviar la misma alerta en 4h
+
 
 ASSET_CONFIG = {
     "^DJI":   {"key_spacing": 500,  "major_spacing": 1000, "zone_size": 100, "ema_short": 200, "ema_long": 800},
@@ -72,12 +83,10 @@ def calc_fractales(precio, cfg, n_above=30, n_below=30):
     return {"levels": levels, "key_spacing": ks, "major_spacing": ms, "zone_size": zs}
 
 def detect_fractal_touch(high, low, close, fractales):
-    """Detecta si la vela actual toca un nivel fractal (soporte o resistencia)."""
     zs = fractales["zone_size"]
     best = None
     for level in fractales["levels"]:
         lp = level["price"]
-        # La vela cruza el nivel (high >= lp-zs y low <= lp+zs)
         crosses = high >= (lp - zs) and low <= (lp + zs)
         in_zone  = abs(close - lp) <= zs * 1.5
         if crosses or in_zone:
@@ -141,7 +150,6 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
         elif es_prev > el_prev and es_now <= el_now:
             alertas.append({"nivel": "bearish", "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}"})
 
-    # ── FRACTAL TOUCH ALERT ─────────────────────────────────
     if cfg is not None:
         last_high = float(df["High"].iloc[n])
         last_low  = float(df["Low"].iloc[n])
@@ -163,6 +171,55 @@ def ts_ms(idx):
     return [int(t.timestamp() * 1000) for t in idx]
 
 
+# ─── SCHEDULER ───────────────────────────────────────────────
+
+async def scheduled_watch():
+    """Revisa alertas para WATCH_TICKERS y envía por Telegram + Email."""
+    now = time.time()
+    nuevas = []
+    for t in WATCH_TICKERS:
+        try:
+            cfg = get_cfg(t)
+            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
+            if df.empty:
+                continue
+            df = clean_df(df)
+            df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            alertas = detect_alerts(df, ticker=t.upper(),
+                                    ema_short=cfg["ema_short"],
+                                    ema_long=cfg["ema_long"], cfg=cfg)
+            for a in alertas:
+                key = a["msg"]
+                if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
+                    nuevas.append(a)
+                    _sent_cache[key] = now
+        except Exception as e:
+            print(f"[scheduler] Error en {t}: {e}")
+
+    if nuevas:
+        print(f"[scheduler] Enviando {len(nuevas)} alertas…")
+        await notify_alertas(nuevas, source="Auto 4H")
+    else:
+        print("[scheduler] Sin alertas nuevas.")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    scheduler = AsyncIOScheduler()
+    # Ejecución automática cada 4 horas
+    scheduler.add_job(scheduled_watch, "interval", hours=4, id="watch_4h")
+    scheduler.start()
+    print("[scheduler] Iniciado · revisión cada 4h")
+    yield
+    scheduler.shutdown()
+
+
+# ─── APP ─────────────────────────────────────────────────────
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 # ─── RUTAS ───────────────────────────────────────────────────
 
 @app.get("/")
@@ -176,6 +233,13 @@ async def splash():
 @app.get("/app")
 async def dashboard():
     return FileResponse("templates/index.html")
+
+
+@app.get("/api/notify")
+async def force_notify():
+    """Endpoint manual para forzar una revisión y envío inmediato."""
+    await scheduled_watch()
+    return {"ok": True}
 
 
 @app.get("/api/chart/{ticker}")
@@ -212,7 +276,6 @@ async def get_chart(ticker: str):
                 if r < 30:  rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
                 elif r > 70:rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
 
-        # Markers de toques fractales históricos (solo mayores)
         fractal_touch_candles = []
         for i in range(len(df)):
             h = safe(df["High"].iloc[i]); l = safe(df["Low"].iloc[i]); c = safe(df["Close"].iloc[i])
@@ -271,7 +334,6 @@ async def get_row(ticker: str):
             s = df[col].dropna()
             return float(s.iloc[-1]) if not s.empty else None
 
-        # Fractal touch en última vela
         last_high = float(df["High"].iloc[-1])
         last_low  = float(df["Low"].iloc[-1])
         fractales = calc_fractales(last, cfg)
