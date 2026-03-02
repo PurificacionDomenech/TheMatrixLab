@@ -39,19 +39,16 @@ body{
   overflow-x:hidden;
 }
 
-/* ─── MATRIX RAIN CANVAS ─── */
 #matrix-canvas{
   position:fixed;inset:0;z-index:0;
   opacity:.18;pointer-events:none;
 }
 
-/* ─── VIGNETTE ─── */
 .vignette{
   position:fixed;inset:0;z-index:1;pointer-events:none;
   background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,.85) 100%);
 }
 
-/* ─── SCANLINES ─── */
 .scanlines{
   position:fixed;inset:0;z-index:2;pointer-events:none;
   background:repeating-linear-gradient(
@@ -63,14 +60,12 @@ body{
   );
 }
 
-/* ─── CORNER ACCENTS ─── */
 .corner{position:fixed;z-index:3;width:70px;height:70px;pointer-events:none}
 .corner-tl{top:0;left:0;border-top:1px solid rgba(0,255,65,.3);border-left:1px solid rgba(0,255,65,.3)}
 .corner-tr{top:0;right:0;border-top:1px solid rgba(0,255,65,.3);border-right:1px solid rgba(0,255,65,.3)}
 .corner-bl{bottom:0;left:0;border-bottom:1px solid rgba(0,255,65,.3);border-left:1px solid rgba(0,255,65,.3)}
 .corner-br{bottom:0;right:0;border-bottom:1px solid rgba(0,255,65,.3);border-right:1px solid rgba(0,255,65,.3)}
 
-/* ─── TICKER TAPE ─── */
 .ticker-wrap{
   position:fixed;top:0;left:0;right:0;z-index:10;
   height:34px;
@@ -93,7 +88,6 @@ body{
 .ticker-item .dn{color:#ff3333}
 @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
-/* ─── NAV ─── */
 nav{
   position:fixed;top:34px;left:0;right:0;z-index:20;
   display:flex;align-items:center;justify-content:space-between;
@@ -125,7 +119,6 @@ nav{
 }
 .nav-cta:hover{background:var(--green-dim);border-color:var(--green);box-shadow:0 0 18px rgba(0,255,65,.15)}
 
-/* ─── MAIN ─── */
 main{
   position:relative;z-index:5;
   min-height:100vh;
@@ -134,7 +127,6 @@ main{
   text-align:center;
 }
 
-/* ─── EYEBROW ─── */
 .eyebrow{
   font-family:var(--font-mono);font-size:10px;
   letter-spacing:.25em;text-transform:uppercase;
@@ -149,7 +141,6 @@ main{
 }
 .eyebrow::after{background:linear-gradient(270deg,transparent,rgba(0,255,65,.25))}
 
-/* ─── LOGO ─── */
 .logo-hero{
   position:relative;margin-bottom:32px;
   opacity:0;animation:scaleIn .7s cubic-bezier(.2,.8,.2,1) .35s forwards;
@@ -171,7 +162,6 @@ main{
 }
 @keyframes pulse-ring{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.015)}}
 
-/* ─── HEADLINE ─── */
 h1{
   font-family:var(--font-display);
   font-size:clamp(1.8rem,5vw,3.6rem);
@@ -202,7 +192,6 @@ h1 .rx{
   text-shadow:0 0 16px rgba(255,0,51,.7);
 }
 
-/* ─── SUBTITLE ─── */
 .subtitle{
   font-size:clamp(13px,1.8vw,15px);
   color:var(--muted);font-weight:300;line-height:1.7;
@@ -211,7 +200,6 @@ h1 .rx{
 }
 .subtitle strong{color:rgba(0,255,65,.8)}
 
-/* ─── STATS ─── */
 .stats-row{
   display:flex;align-items:stretch;gap:1px;
   background:rgba(0,255,65,.1);
@@ -231,7 +219,6 @@ h1 .rx{
 .stat-value{font-family:var(--font-mono);font-size:17px;font-weight:400;color:var(--green);text-shadow:0 0 12px rgba(0,255,65,.4)}
 .stat-sub{font-family:var(--font-mono);font-size:8px;color:rgba(0,255,65,.25)}
 
-/* ─── CTA ─── */
 .cta-wrap{
   display:flex;flex-direction:column;align-items:center;gap:14px;
   opacity:0;animation:fadeUp .6s ease 1s forwards;
@@ -268,7 +255,6 @@ h1 .rx{
 }
 .trial-note strong{color:rgba(0,255,65,.6)}
 
-/* ─── FEATURES ─── */
 .features-strip{
   display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center;
   margin-top:50px;padding-top:26px;
@@ -283,7 +269,6 @@ h1 .rx{
 .feat-dot{width:4px;height:4px;border-radius:50%;background:var(--green);opacity:.5;flex-shrink:0;
   box-shadow:0 0 5px rgba(0,255,65,.6)}
 
-/* ─── SCROLL HINT ─── */
 .scroll-hint{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%);
   z-index:20;display:flex;flex-direction:column;align-items:center;gap:6px;
@@ -302,7 +287,6 @@ h1 .rx{
 @keyframes scroll-bounce{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(6px);opacity:.15}}
 .scroll-hint span{font-family:var(--font-mono);font-size:8px;color:rgba(0,255,65,.25);letter-spacing:.2em;text-transform:uppercase}
 
-/* ─── MODAL ─── */
 .modal-bg{
   position:fixed;inset:0;z-index:100;
   background:rgba(0,0,0,.95);
@@ -373,12 +357,10 @@ h1 .rx{
 
 .modal-footer{padding:11px 26px 18px;text-align:center;font-size:9px;color:rgba(0,255,65,.2);font-family:var(--font-mono);border-top:1px solid rgba(0,255,65,.06);line-height:1.9;letter-spacing:.04em}
 
-/* ─── ANIMATIONS ─── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes scaleIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 
-/* ─── GLITCH en el title ─── */
 .glitch{position:relative;display:inline-block}
 .glitch::before,.glitch::after{
   content:attr(data-text);
@@ -408,7 +390,6 @@ h1 .rx{
   93%{transform:none;opacity:0}
 }
 
-/* ─── RESPONSIVE ─── */
 @media(max-width:600px){
   nav{padding:10px 14px}
   h1{font-size:1.65rem}
@@ -420,7 +401,6 @@ h1 .rx{
 </head>
 <body>
 
-<!-- MATRIX RAIN -->
 <canvas id="matrix-canvas"></canvas>
 <div class="vignette"></div>
 <div class="scanlines"></div>
@@ -429,12 +409,10 @@ h1 .rx{
 <div class="corner corner-bl"></div>
 <div class="corner corner-br"></div>
 
-<!-- TICKER -->
 <div class="ticker-wrap">
   <div class="ticker-track" id="tickerTrack"></div>
 </div>
 
-<!-- NAV -->
 <nav>
   <div class="nav-logo">
     <img src="/static/logo.jpg" alt="The Matrix Lab" onerror="this.style.display='none'">
@@ -446,7 +424,6 @@ h1 .rx{
   </div>
 </nav>
 
-<!-- HERO -->
 <main>
   <div class="eyebrow">The Matrix Lab · Análisis Técnico Inteligente</div>
 
@@ -464,7 +441,7 @@ h1 .rx{
   </h1>
 
   <p class="subtitle">
-    <strong>EMAs  200/800 + Fractarles + RSI</strong> + alertas automáticas.<br>
+    <strong>EMAs 200/800 + Fractales + RSI</strong> + alertas automáticas.<br>
     Niveles fractales. Señales reales. Decisiones inteligentes.
   </p>
 
@@ -503,16 +480,14 @@ h1 .rx{
 
   <div class="features-strip">
     <div class="feat-item"><span class="feat-dot"></span>Gráficos estilo TradingView</div>
-    <div class="feat-item"><span class="feat-dot"></span>Cruces SMA 200/800</div>
+    <div class="feat-item"><span class="feat-dot"></span>Cruces EMA 200/800</div>
     <div class="feat-item"><span class="feat-dot"></span>RSI con señales extremas</div>
-    <div class="feat-item"><span class="feat-dot"></span> Inicio semana</div>
-    <div class="feat-item"><span class="feat.dot"></span>Inicio Año></div>
+    <div class="feat-item"><span class="feat-dot"></span>Apertura semana y año</div>
     <div class="feat-item"><span class="feat-dot"></span>Niveles fractales clave</div>
-    <div class="feat-item"><span class="feat-dot"></span> Idicador Tradingview</div>
+    <div class="feat-item"><span class="feat-dot"></span>Indicador TradingView</div>
   </div>
 </main>
 
-<!-- SCROLL HINT -->
 <div class="scroll-hint">
   <div class="scroll-mouse"><div class="scroll-dot"></div></div>
   <span>explorar</span>
@@ -566,7 +541,8 @@ h1 .rx{
         </div>
         <div class="field">
           <label>Contraseña</label>
-          <input type="password" id="logPass" placeholder="tu contraseña" autocomplete="current-password">
+          <!-- autocomplete="off" evita que el navegador rellene la contraseña automáticamente -->
+          <input type="password" id="logPass" placeholder="tu contraseña" autocomplete="off">
         </div>
         <button type="submit" class="btn-submit" id="btnLogin">ACCEDER AL DASHBOARD</button>
         <div class="divider">o</div>
@@ -587,7 +563,6 @@ h1 .rx{
   </div>
 </div>
 
-<!-- SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ─── SUPABASE ─── */
@@ -595,155 +570,213 @@ const SUPABASE_URL = 'https://fhuijfysfqzjmzadsace.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
 
 let sb = null;
-try { 
+try {
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-  }); 
-} catch(e) { console.error('Error init Supabase:', e); }
-
-// Redirigir automáticamente al dashboard si ya hay sesión
-if (sb) {
-  sb.auth.onAuthStateChange((event, session) => {
-    if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-      console.log('Splash: Session active, redirecting to /app');
-      window.location.replace('/app');
+    auth: {
+      persistSession: true,
+      autoRefreshToken: false,   // ← no renueva el token automáticamente
+      detectSessionInUrl: true
     }
   });
-} else {
-  console.error('Supabase not initialized');
+} catch(e) {
+  console.error('Error init Supabase:', e);
 }
 
-
-async function doRegister(event) {
-  if (event) event.preventDefault();
-  const name=document.getElementById('regName').value.trim();
-  const email=document.getElementById('regEmail').value.trim();
-  const pass=document.getElementById('regPass').value;
-  const btn=document.getElementById('btnRegister'),msg=document.getElementById('msgRegister');
-  if (!email||!pass){showMsg(msg,'err','Por favor completa todos los campos');return;}
-  if (pass.length<6){showMsg(msg,'err','La contraseña debe tener al menos 6 caracteres');return;}
-  btn.disabled=true;btn.textContent='PROCESANDO…';
+/* ─── FORZAR CIERRE DE SESIÓN AL CARGAR LA SPLASH ───────────────────────────
+   Esto garantiza que SIEMPRE se pida contraseña manual.
+   Aunque el usuario haya iniciado sesión antes, al volver a la splash
+   su sesión queda destruida y debe volver a autenticarse.
+   ─────────────────────────────────────────────────────────────────────────── */
+(async function forceSignOut() {
+  if (!sb) return;
   try {
-    const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}});
-    if (error) throw error;
-    showMsg(msg,'ok','✓ Cuenta creada. Revisa tu email para confirmar.');
-    btn.textContent='✓ REVISA TU EMAIL';
+    await sb.auth.signOut();
+    console.log('Splash: sesión cerrada — login manual requerido');
   } catch(e) {
-    btn.disabled=false;btn.textContent='CREAR CUENTA GRATIS';
-    const errMap={'User already registered':'Este email ya está registrado. Intenta iniciar sesión.','Password should be at least 6 characters':'La contraseña debe tener al menos 6 caracteres.'};
-    showMsg(msg,'err',errMap[e.message]||e.message);
+    console.debug('Splash: no había sesión activa');
+  }
+})();
+
+/* ─── LOGIN: redirige al dashboard SOLO tras login manual exitoso ─── */
+async function doLogin(event) {
+  if (event) event.preventDefault();
+  const email = document.getElementById('logEmail').value.trim();
+  const pass  = document.getElementById('logPass').value;
+  const btn   = document.getElementById('btnLogin');
+  const msg   = document.getElementById('msgLogin');
+
+  if (!email || !pass) { showMsg(msg, 'err', 'Ingresa tu email y contraseña'); return; }
+  btn.disabled = true; btn.textContent = 'CONECTANDO…';
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    showMsg(msg, 'ok', '✓ Acceso concedido. Redirigiendo…');
+    setTimeout(() => window.location.replace('/app'), 900);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'ACCEDER AL DASHBOARD';
+    const errMap = {
+      'Invalid login credentials': 'Email o contraseña incorrectos.',
+      'Email not confirmed':        'Confirma tu email antes de ingresar.'
+    };
+    showMsg(msg, 'err', errMap[e.message] || e.message);
   }
 }
 
-async function doLogin(event) {
+async function doRegister(event) {
   if (event) event.preventDefault();
-  const email=document.getElementById('logEmail').value.trim();
-  const pass=document.getElementById('logPass').value;
-  const btn=document.getElementById('btnLogin'),msg=document.getElementById('msgLogin');
-  if (!email||!pass){showMsg(msg,'err','Ingresa tu email y contraseña');return;}
-  btn.disabled=true;btn.textContent='CONECTANDO…';
+  const name  = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass  = document.getElementById('regPass').value;
+  const btn   = document.getElementById('btnRegister');
+  const msg   = document.getElementById('msgRegister');
+
+  if (!email || !pass) { showMsg(msg, 'err', 'Por favor completa todos los campos'); return; }
+  if (pass.length < 6) { showMsg(msg, 'err', 'La contraseña debe tener al menos 6 caracteres'); return; }
+
+  btn.disabled = true; btn.textContent = 'PROCESANDO…';
   try {
-    const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+    const { data, error } = await sb.auth.signUp({
+      email, password: pass,
+      options: { data: { full_name: name } }
+    });
     if (error) throw error;
-    showMsg(msg,'ok','✓ Acceso concedido. Redirigiendo…');
-    // La redirección se manejará automáticamente por onAuthStateChange
+    showMsg(msg, 'ok', '✓ Cuenta creada. Revisa tu email para confirmar.');
+    btn.textContent = '✓ REVISA TU EMAIL';
   } catch(e) {
-    btn.disabled=false;btn.textContent='ACCEDER AL DASHBOARD';
-    const errMap={'Invalid login credentials':'Email o contraseña incorrectos.','Email not confirmed':'Confirma tu email antes de ingresar.'};
-    showMsg(msg,'err',errMap[e.message]||e.message);
+    btn.disabled = false; btn.textContent = 'CREAR CUENTA GRATIS';
+    const errMap = {
+      'User already registered':                    'Este email ya está registrado. Intenta iniciar sesión.',
+      'Password should be at least 6 characters':  'La contraseña debe tener al menos 6 caracteres.'
+    };
+    showMsg(msg, 'err', errMap[e.message] || e.message);
   }
 }
 
 async function doGoogleAuth() {
   if (!sb) return;
-  try { await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin+'/app'}}); } catch(e) {}
+  try {
+    await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/app' }
+    });
+  } catch(e) {}
 }
 
 async function doForgotPassword() {
-  const email=document.getElementById('logEmail').value.trim();
-  const msg=document.getElementById('msgLogin');
-  if (!email){showMsg(msg,'info','> Escribe tu email arriba primero');return;}
+  const email = document.getElementById('logEmail').value.trim();
+  const msg   = document.getElementById('msgLogin');
+  if (!email) { showMsg(msg, 'info', '> Escribe tu email arriba primero'); return; }
   try {
-    await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/app'});
-    showMsg(msg,'ok','✓ Email de recuperación enviado.');
-  } catch(e){showMsg(msg,'err',e.message);}
+    await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/app' });
+    showMsg(msg, 'ok', '✓ Email de recuperación enviado.');
+  } catch(e) { showMsg(msg, 'err', e.message); }
 }
 
-function showMsg(el,type,text){el.className='msg-box '+type;el.textContent=text;el.style.display='block';}
+function showMsg(el, type, text) {
+  el.className = 'msg-box ' + type;
+  el.textContent = text;
+  el.style.display = 'block';
+}
 
-function openModal(tab){document.getElementById('modalBg').classList.add('open');document.body.style.overflow='hidden';switchTab(tab);}
-function closeModal(){document.getElementById('modalBg').classList.remove('open');document.body.style.overflow='';}
-function closeModalOutside(e){if(e.target===document.getElementById('modalBg'))closeModal();}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+function openModal(tab) {
+  document.getElementById('modalBg').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  switchTab(tab);
+}
+function closeModal() {
+  document.getElementById('modalBg').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modalBg')) closeModal();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-function switchTab(tab){
-  const isReg=tab==='register';
-  document.getElementById('tabRegister').classList.toggle('active',isReg);
-  document.getElementById('tabLogin').classList.toggle('active',!isReg);
-  document.getElementById('formRegister').style.display=isReg?'block':'none';
-  document.getElementById('formLogin').style.display=isReg?'none':'block';
-  document.getElementById('modalTitle').innerHTML=isReg?'CREAR CUENTA':'BIENVENIDO';
-  document.getElementById('modalSub').textContent=isReg?'> 3 días de acceso completo · sin tarjeta':'> Ingresa a tu dashboard';
+function switchTab(tab) {
+  const isReg = tab === 'register';
+  document.getElementById('tabRegister').classList.toggle('active', isReg);
+  document.getElementById('tabLogin').classList.toggle('active', !isReg);
+  document.getElementById('formRegister').style.display = isReg ? 'block' : 'none';
+  document.getElementById('formLogin').style.display    = isReg ? 'none'  : 'block';
+  document.getElementById('modalTitle').innerHTML = isReg ? 'CREAR CUENTA' : 'BIENVENIDO';
+  document.getElementById('modalSub').textContent = isReg
+    ? '> 3 días de acceso completo · sin tarjeta'
+    : '> Ingresa a tu dashboard';
   if (isReg) document.getElementById('regName').focus();
-  else document.getElementById('logEmail').focus();
+  else       document.getElementById('logEmail').focus();
 }
 
 /* ─── TICKER ─── */
-const TICKERS=[
-  {sym:'BTC',price:'95,240',chg:'+2.4%',up:true},{sym:'ETH',price:'3,180',chg:'+1.8%',up:true},
-  {sym:'S&P500',price:'5,842',chg:'-0.3%',up:false},{sym:'NQ100',price:'20,310',chg:'+0.7%',up:true},
-  {sym:'AAPL',price:'224.50',chg:'+1.1%',up:true},{sym:'GOLD',price:'2,918',chg:'+0.5%',up:true},
-  {sym:'SPY',price:'584',chg:'-0.2%',up:false},{sym:'QQQ',price:'493',chg:'+0.9%',up:true},
-  {sym:'VOO',price:'536',chg:'-0.1%',up:false},{sym:'SMH',price:'228',chg:'+3.2%',up:true},
-  {sym:'SCHD',price:'29.4',chg:'+0.4%',up:true},{sym:'VGT',price:'581',chg:'+1.5%',up:true},
+const TICKERS = [
+  {sym:'BTC',  price:'95,240', chg:'+2.4%', up:true},
+  {sym:'ETH',  price:'3,180',  chg:'+1.8%', up:true},
+  {sym:'S&P500',price:'5,842', chg:'-0.3%', up:false},
+  {sym:'NQ100',price:'20,310', chg:'+0.7%', up:true},
+  {sym:'AAPL', price:'224.50', chg:'+1.1%', up:true},
+  {sym:'GOLD', price:'2,918',  chg:'+0.5%', up:true},
+  {sym:'SPY',  price:'584',    chg:'-0.2%', up:false},
+  {sym:'QQQ',  price:'493',    chg:'+0.9%', up:true},
+  {sym:'VOO',  price:'536',    chg:'-0.1%', up:false},
+  {sym:'SMH',  price:'228',    chg:'+3.2%', up:true},
+  {sym:'SCHD', price:'29.4',   chg:'+0.4%', up:true},
+  {sym:'VGT',  price:'581',    chg:'+1.5%', up:true},
 ];
 (function(){
-  const track=document.getElementById('tickerTrack');
-  const items=[...TICKERS,...TICKERS];
-  track.innerHTML=items.map(t=>`<div class="ticker-item"><span class="sym">${t.sym}</span><span>${t.price}</span><span class="${t.up?'up':'dn'}">${t.chg}</span></div>`).join('');
+  const track = document.getElementById('tickerTrack');
+  const items = [...TICKERS, ...TICKERS];
+  track.innerHTML = items.map(t =>
+    `<div class="ticker-item">
+      <span class="sym">${t.sym}</span>
+      <span>${t.price}</span>
+      <span class="${t.up ? 'up' : 'dn'}">${t.chg}</span>
+    </div>`
+  ).join('');
 })();
 
 /* ─── MATRIX RAIN ─── */
 (function(){
-  const canvas=document.getElementById('matrix-canvas');
-  const ctx=canvas.getContext('2d');
-  const chars='アイウエオカキクケコサシスセソタチツテトナニヌネノABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%#@&';
-  let W,H,cols,drops;
-  const fontSize=14;
+  const canvas = document.getElementById('matrix-canvas');
+  const ctx    = canvas.getContext('2d');
+  const chars  = 'アイウエオカキクケコサシスセソタチツテトナニヌネノABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%#@&';
+  let W, H, cols, drops;
+  const fontSize = 14;
 
-  function resize(){
-    W=canvas.width=window.innerWidth;
-    H=canvas.height=window.innerHeight;
-    cols=Math.floor(W/fontSize);
-    drops=new Array(cols).fill(1);
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cols  = Math.floor(W / fontSize);
+    drops = new Array(cols).fill(1);
   }
 
-  function draw(){
-    ctx.fillStyle='rgba(0,0,0,.06)';
-    ctx.fillRect(0,0,W,H);
-    for(let i=0;i<drops.length;i++){
-      const char=chars[Math.floor(Math.random()*chars.length)];
-      // Head char brighter
-      const isHead=drops[i]*fontSize>H*0.9||Math.random()>.97;
-      ctx.fillStyle=isHead?'rgba(0,255,65,1)':'rgba(0,200,50,.75)';
-      ctx.font=`${fontSize}px Share Tech Mono, monospace`;
-      ctx.fillText(char,i*fontSize,drops[i]*fontSize);
-      if(drops[i]*fontSize>H&&Math.random()>.975) drops[i]=0;
+  function draw() {
+    ctx.fillStyle = 'rgba(0,0,0,.06)';
+    ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < drops.length; i++) {
+      const char   = chars[Math.floor(Math.random() * chars.length)];
+      const isHead = drops[i] * fontSize > H * 0.9 || Math.random() > .97;
+      ctx.fillStyle = isHead ? 'rgba(0,255,65,1)' : 'rgba(0,200,50,.75)';
+      ctx.font      = `${fontSize}px Share Tech Mono, monospace`;
+      ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > H && Math.random() > .975) drops[i] = 0;
       drops[i]++;
     }
   }
 
   resize();
-  setInterval(draw,55);
-  window.addEventListener('resize',resize);
+  setInterval(draw, 55);
+  window.addEventListener('resize', resize);
 })();
 
 /* ─── CUPOS ─── */
-async function loadCupos(){
+async function loadCupos() {
   if (!sb) return;
   try {
-    const {count,error}=await sb.from('profiles').select('*',{count:'exact',head:true});
-    if (!error && count!==null){const used=Math.min(count,50);document.getElementById('cuposVal').textContent=`${used}/50`;}
+    const { count, error } = await sb.from('profiles').select('*', { count: 'exact', head: true });
+    if (!error && count !== null) {
+      const used = Math.min(count, 50);
+      document.getElementById('cuposVal').textContent = `${used}/50`;
+    }
   } catch(e) {
     console.debug('Cupos no disponibles');
   }
