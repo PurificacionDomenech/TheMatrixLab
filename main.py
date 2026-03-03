@@ -375,7 +375,6 @@ async def mail_status():
         "mail_to":    mail_to if configured else None,
     }
 
-
 @app.get("/api/notifier-status")
 async def notifier_status():
     """Estado completo del sistema de notificaciones."""
