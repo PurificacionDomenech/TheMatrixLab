@@ -1,18 +1,19 @@
 """
 notifier.py — The Matrix Lab
-Envía alertas a todos los chat_id registrados en Supabase (telegram_subs).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Variables de entorno en Railway:
 
-Variables de entorno necesarias:
-  TELEGRAM_TOKEN    → Token del bot (@BotFather)
-  SUPABASE_URL      → URL de tu proyecto Supabase
-  SUPABASE_KEY      → service_role key (NO la anon/publishable — necesita leer la tabla)
+  TELEGRAM_TOKEN    → 8612499365:AAHSIfREZkEmfQE24tIdo6C2fCkZhXz2mcY
+  SUPABASE_URL      → https://mscvlzxxuawwmltsdxxb.supabase.co
+  SUPABASE_KEY      →eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3Zsenh4dWF3d21sdHNkeHhiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ0ODc5OCwiZXhwIjoyMDg4MDI0Nzk4fQ.cpqxKZFYT2ld6LXNe0ImM9AQse9QSdwIltc412V0LWE
 
 Opcionales (email):
   MAIL_FROM         → tu@gmail.com
   MAIL_PASSWORD     → Contraseña de aplicación Gmail
-  MAIL_TO           → destinatario del email
-  MAIL_SMTP         → smtp.gmail.com (por defecto)
-  MAIL_PORT         → 587 (por defecto)
+  MAIL_TO           → destinatario@email.com
+  MAIL_SMTP         → smtp.gmail.com  (por defecto)
+  MAIL_PORT         → 587             (por defecto)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 import os
@@ -22,13 +23,20 @@ import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+
 import httpx
 
 logger = logging.getLogger("notifier")
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
-SUPABASE_URL   = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY   = os.getenv("SUPABASE_KEY", "")   # service_role key
+# ── Leer variables de entorno ────────────────────────────────
+# Acepta tanto TELEGRAM_TOKEN como TELEGRAM_BOT_TOKEN por compatibilidad
+TELEGRAM_TOKEN = (
+    os.getenv("TELEGRAM_TOKEN") or
+    os.getenv("TELEGRAM_BOT_TOKEN") or
+    ""
+)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")   # service_role key
 
 MAIL_FROM     = os.getenv("MAIL_FROM", "")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
@@ -40,82 +48,109 @@ NIVEL_EMOJI = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
 
 
 # ════════════════════════════════════════════════════════════
-# SUPABASE — obtener lista de chat_ids suscritos
+# DIAGNÓSTICO — imprime estado al importar
 # ════════════════════════════════════════════════════════════
 
-async def get_chat_ids() -> list[int]:
-    """Devuelve todos los chat_id de telegram_subs."""
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        logger.warning("Supabase no configurado (SUPABASE_URL / SUPABASE_KEY)")
-        return []
-    url = f"{SUPABASE_URL}/rest/v1/telegram_subs?select=chat_id"
-    headers = {
+def _log_config():
+    ok_tg   = bool(TELEGRAM_TOKEN)
+    ok_supa = bool(SUPABASE_URL and SUPABASE_KEY)
+    ok_mail = bool(MAIL_FROM and MAIL_PASSWORD and MAIL_TO)
+    logger.info(f"[notifier] Telegram token: {'✅' if ok_tg else '❌ FALTA TELEGRAM_TOKEN'}")
+    logger.info(f"[notifier] Supabase:       {'✅' if ok_supa else '❌ FALTA SUPABASE_URL o SUPABASE_KEY'}")
+    logger.info(f"[notifier] Email:          {'✅' if ok_mail else '⚠️  no configurado (opcional)'}")
+    # También a stdout para que aparezca en logs de Railway
+    print(f"[notifier] Telegram: {'OK' if ok_tg else 'FALTA TELEGRAM_TOKEN'} | "
+          f"Supabase: {'OK' if ok_supa else 'FALTA SUPABASE_URL/KEY'} | "
+          f"Email: {'OK' if ok_mail else 'no configurado'}")
+
+_log_config()
+
+
+# ════════════════════════════════════════════════════════════
+# SUPABASE — suscriptores
+# ════════════════════════════════════════════════════════════
+
+def _supa_headers():
+    return {
         "apikey":        SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type":  "application/json",
     }
+
+async def get_chat_ids() -> list[int]:
+    """Devuelve todos los chat_id registrados en telegram_subs."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[notifier] get_chat_ids: Supabase no configurado")
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/telegram_subs?select=chat_id"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(url, headers=headers)
+            r = await client.get(url, headers=_supa_headers())
             if r.status_code == 200:
                 data = r.json()
                 ids  = [row["chat_id"] for row in data if row.get("chat_id")]
-                logger.info(f"Supabase: {len(ids)} suscriptor(es)")
+                print(f"[notifier] Supabase: {len(ids)} suscriptor(es)")
                 return ids
             else:
-                logger.error(f"Supabase error {r.status_code}: {r.text}")
+                print(f"[notifier] Supabase error {r.status_code}: {r.text[:200]}")
                 return []
     except Exception as e:
-        logger.error(f"Supabase excepción: {e}")
+        print(f"[notifier] Supabase excepción: {e}")
         return []
 
 
 async def register_chat(chat_id: int, username: str = "") -> bool:
-    """Registra o actualiza un chat_id en telegram_subs (upsert)."""
+    """Upsert de un chat_id en telegram_subs."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         return False
-    url = f"{SUPABASE_URL}/rest/v1/telegram_subs"
-    headers = {
-        "apikey":        SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type":  "application/json",
-        "Prefer":        "resolution=merge-duplicates",  # upsert
-    }
-    payload = {"chat_id": chat_id, "username": username}
+    url     = f"{SUPABASE_URL}/rest/v1/telegram_subs"
+    headers = {**_supa_headers(), "Prefer": "resolution=merge-duplicates"}
+    payload = {"chat_id": chat_id, "username": username or ""}
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(url, headers=headers, json=payload)
-            return r.status_code in (200, 201)
+            ok = r.status_code in (200, 201)
+            print(f"[notifier] register_chat {chat_id}: {'OK' if ok else r.status_code + ' ' + r.text[:100]}")
+            return ok
     except Exception as e:
-        logger.error(f"register_chat excepción: {e}")
+        print(f"[notifier] register_chat excepción: {e}")
         return False
 
 
 # ════════════════════════════════════════════════════════════
-# TELEGRAM — envío a un chat_id
+# TELEGRAM
 # ════════════════════════════════════════════════════════════
 
 async def send_telegram_to(chat_id: int, text: str) -> bool:
     if not TELEGRAM_TOKEN:
+        print("[notifier] send_telegram_to: TELEGRAM_TOKEN vacío")
         return False
     url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text,
-                "parse_mode": "HTML", "disable_web_page_preview": True}
+    payload = {
+        "chat_id":                  chat_id,
+        "text":                     text,
+        "parse_mode":               "HTML",
+        "disable_web_page_preview": True,
+    }
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(url, json=payload)
-            return r.status_code == 200
+            d = r.json()
+            if not d.get("ok"):
+                print(f"[notifier] Telegram error chat {chat_id}: {d.get('description')}")
+            return d.get("ok", False)
     except Exception as e:
-        logger.error(f"Telegram excepción chat {chat_id}: {e}")
+        print(f"[notifier] Telegram excepción chat {chat_id}: {e}")
         return False
 
 
 async def broadcast_telegram(text: str, chat_ids: list[int]) -> int:
-    """Envía el mensaje a todos los chat_ids. Devuelve cuántos OK."""
+    """Envía a todos los suscriptores. Devuelve cuántos OK."""
     ok = 0
     for cid in chat_ids:
         if await send_telegram_to(cid, text):
             ok += 1
-        await asyncio.sleep(0.05)   # respetar rate limit de Telegram
+        await asyncio.sleep(0.05)
     return ok
 
 
@@ -123,23 +158,27 @@ async def broadcast_telegram(text: str, chat_ids: list[int]) -> int:
 # EMAIL (opcional)
 # ════════════════════════════════════════════════════════════
 
-def send_email(subject: str, body_html: str) -> bool:
-    if not MAIL_FROM or not MAIL_PASSWORD or not MAIL_TO:
-        return False
+def _send_smtp_sync(subject: str, body_html: str) -> bool:
     try:
-        msg = MIMEMultipart("alternative")
+        msg            = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"]    = MAIL_FROM
         msg["To"]      = MAIL_TO
         msg.attach(MIMEText(body_html, "html"))
-        with smtplib.SMTP(MAIL_SMTP, MAIL_PORT) as server:
-            server.starttls()
-            server.login(MAIL_FROM, MAIL_PASSWORD)
-            server.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
-        logger.info("Email OK")
+        port = int(MAIL_PORT)
+        if port == 465:
+            with smtplib.SMTP_SSL(MAIL_SMTP, port, timeout=10) as s:
+                s.login(MAIL_FROM, MAIL_PASSWORD)
+                s.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
+        else:
+            with smtplib.SMTP(MAIL_SMTP, port, timeout=10) as s:
+                s.starttls()
+                s.login(MAIL_FROM, MAIL_PASSWORD)
+                s.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
+        print("[notifier] Email enviado OK")
         return True
     except Exception as e:
-        logger.error(f"Email excepción: {e}")
+        print(f"[notifier] Email error: {e}")
         return False
 
 
@@ -152,23 +191,25 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
         return
 
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    titulo  = f"⬡ Matrix Lab · {source + ' · ' if source else ''}{now_str}"
+    titulo  = f"⬡ Matrix Lab · {(source + ' · ') if source else ''}{now_str}"
 
-    # ── Texto Telegram ───────────────────────────────────────
+    # ── Texto para Telegram ──────────────────────────────────
     lineas = [f"<b>{titulo}</b>\n"]
     for a in alertas:
         emoji = NIVEL_EMOJI.get(a.get("nivel", "info"), "⚪")
         lineas.append(f"{emoji} {a['msg']}")
     texto_tg = "\n".join(lineas)
 
-    # ── Obtener suscriptores y hacer broadcast ───────────────
+    # ── Broadcast Telegram ───────────────────────────────────
     if TELEGRAM_TOKEN:
         chat_ids = await get_chat_ids()
         if chat_ids:
-            ok = await broadcast_telegram(texto_tg, chat_ids)
-            logger.info(f"Telegram broadcast: {ok}/{len(chat_ids)} enviados")
+            enviados = await broadcast_telegram(texto_tg, chat_ids)
+            print(f"[notifier] Broadcast: {enviados}/{len(chat_ids)} enviados")
         else:
-            logger.warning("Telegram: sin suscriptores en telegram_subs")
+            print("[notifier] Sin suscriptores en telegram_subs — nadie recibe el mensaje")
+    else:
+        print("[notifier] TELEGRAM_TOKEN no configurado — skip Telegram")
 
     # ── Email ────────────────────────────────────────────────
     if MAIL_FROM and MAIL_PASSWORD and MAIL_TO:
@@ -177,12 +218,11 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
         for a in alertas:
             color = color_map.get(a.get("nivel", "info"), "#888")
             emoji = NIVEL_EMOJI.get(a.get("nivel", "info"), "⚪")
-            filas_html += f"""
-            <tr><td style="padding:6px 10px;border-bottom:1px solid #1a2a1a;
-                           color:{color};font-family:monospace;font-size:13px;">
-              {emoji} {a['msg']}
-            </td></tr>"""
-
+            filas_html += (
+                f'<tr><td style="padding:6px 10px;border-bottom:1px solid #1a2a1a;'
+                f'color:{color};font-family:monospace;font-size:13px;">'
+                f'{emoji} {a["msg"]}</td></tr>'
+            )
         body_html = f"""
         <html><body style="background:#000;color:#c8ffd4;font-family:sans-serif;padding:20px;">
           <div style="max-width:600px;margin:auto;background:#010801;
@@ -204,4 +244,4 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
         </body></html>"""
 
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, send_email, titulo, body_html)
+        await loop.run_in_executor(None, _send_smtp_sync, titulo, body_html)
