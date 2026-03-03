@@ -369,22 +369,60 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 <script>
 /* ── PROTECCIÓN DE SESIÓN ── */
 (async function(){
-  const SUPABASE_URL='https://mscvlzxxuawwmltsdxxb.supabase.co';
-  const SUPABASE_KEY='sb_publishable_sEHlzkptuyaVbBrmx8FDGg_3gMcVvi7';
+  const SUPABASE_URL='https://fhuijfysfqzjmzadsace.supabase.co';
+  const SUPABASE_KEY='sb_publishable_TEj5FnpX_bQeIwTODoA8_Q_JFfpIIaF';
   let redirectAttempted=false;
+
+  function goHome(){
+    if(!redirectAttempted){
+      redirectAttempted=true;
+      // Borra sesión guardada para que siempre pida contraseña al volver
+      try{
+        for(let i=localStorage.length-1;i>=0;i--){
+          const k=localStorage.key(i);
+          if(k&&(k.startsWith('sb-')||k.includes('supabase')))localStorage.removeItem(k);
+        }
+        sessionStorage.clear();
+      }catch(e){}
+      window.location.replace('/');
+    }
+  }
+
   try{
-    if(typeof supabase==='undefined'){window.location.replace('/');return}
-    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    sb.auth.onAuthStateChange((event,session)=>{
-      if(event==='SIGNED_OUT'||(!session&&event!=='INITIAL_SESSION')){
-        if(!redirectAttempted){redirectAttempted=true;window.location.replace('/')}
+    if(typeof supabase==='undefined'){goHome();return}
+    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+      auth:{
+        persistSession:true,
+        autoRefreshToken:true,
+        detectSessionInUrl:true
       }
     });
-    setTimeout(async()=>{
+
+    // Solo redirige en logout explícito — no en carga inicial
+    sb.auth.onAuthStateChange((event,session)=>{
+      if(event==='SIGNED_OUT'){goHome()}
+    });
+
+    // Verificación activa: espera hasta 5s a que Supabase cargue la sesión
+    let intentos=0;
+    const check=async()=>{
       const{data:{session}}=await sb.auth.getSession();
-      if(!session&&!redirectAttempted){redirectAttempted=true;window.location.replace('/')}
-    },1500);
-  }catch(e){if(!redirectAttempted){redirectAttempted=true;window.location.replace('/')}}
+      if(session){
+        // Sesión válida — deja entrar
+        return;
+      }
+      intentos++;
+      if(intentos<5){
+        // Reintenta cada 1s hasta 5 veces
+        setTimeout(check,1000);
+      }else{
+        // Después de 5s sin sesión → redirige a login
+        goHome();
+      }
+    };
+    setTimeout(check,800);
+
+  }catch(e){goHome()}
 })();
 
 /* MATRIX RAIN */
