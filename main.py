@@ -5,11 +5,11 @@ import asyncio
 import time
 import os
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# ── Importaciones opcionales (no crashean si faltan) ────────
+# ── Importaciones opcionales ─────────────────────────────────
 try:
     from contextlib import asynccontextmanager
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -19,12 +19,13 @@ except ImportError:
     print("[WARN] apscheduler no instalado — scheduler desactivado")
 
 try:
-    from notifier import notify_alertas
+    from notifier import notify_alertas, register_chat, send_telegram_to
     HAS_NOTIFIER = True
 except Exception as e:
     HAS_NOTIFIER = False
     print(f"[WARN] notifier no disponible: {e}")
 
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 
 # ─── TICKERS VIGILADOS ───────────────────────────────────────
 WATCH_TICKERS = [
@@ -243,6 +244,71 @@ else:
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+# ════════════════════════════════════════════════════════════
+# WEBHOOK DEL BOT DE TELEGRAM
+# Los usuarios envían /start al bot → se registran en Supabase
+# ════════════════════════════════════════════════════════════
+
+@app.post(f"/webhook/telegram")
+async def telegram_webhook(request: Request):
+    """
+    Recibe updates de Telegram.
+    Registra el chat_id cuando el usuario envía /start.
+    """
+    if not HAS_NOTIFIER:
+        return JSONResponse({"ok": False})
+    try:
+        body    = await request.json()
+        message = body.get("message") or body.get("edited_message", {})
+        if not message:
+            return JSONResponse({"ok": True})
+
+        chat_id  = message.get("chat", {}).get("id")
+        username = message.get("from", {}).get("username", "")
+        text     = message.get("text", "").strip()
+
+        if not chat_id:
+            return JSONResponse({"ok": True})
+
+        if text.startswith("/start"):
+            ok = await register_chat(chat_id, username)
+            reply = (
+                "✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
+                "⬡ Recibirás alertas automáticas cada 4H sobre:\n"
+                "· Cruces de EMA 200/800\n"
+                "· Golden Cross / Death Cross\n"
+                "· Toques de niveles fractales\n"
+                "· RSI extremo\n\n"
+                "Activos vigilados: ^DJI, GC=F, ^NDX, USDJPY, GBPJPY, EURUSD, "
+                "AUDUSD, SI=F, CL=F, Bonos y DXY.\n\n"
+                "Envía /stop para cancelar las alertas."
+                if ok else
+                "⚠️ No se pudo registrar. Inténtalo de nuevo."
+            )
+            await send_telegram_to(chat_id, reply)
+
+        elif text.startswith("/stop"):
+            # Aquí podrías eliminar el registro — por ahora solo confirma
+            await send_telegram_to(chat_id,
+                "🔕 Para cancelar tu suscripción, contacta con el administrador.")
+
+        elif text.startswith("/status"):
+            await send_telegram_to(chat_id,
+                "✅ <b>The Matrix Lab activo</b>\n"
+                "Revisión de mercados cada 4 horas.")
+
+        elif text.startswith("/test"):
+            # Prueba manual — envía una alerta de ejemplo al solicitante
+            await send_telegram_to(chat_id,
+                "🟢 <b>[TEST]</b> El sistema de alertas funciona correctamente.\n"
+                "⬡ Recibirás mensajes cuando haya señales reales.")
+
+    except Exception as e:
+        print(f"[webhook] Error: {e}")
+
+    return JSONResponse({"ok": True})
+
+
 # ─── RUTAS ───────────────────────────────────────────────────
 
 @app.get("/")
@@ -260,11 +326,21 @@ async def dashboard():
 
 @app.get("/api/notify")
 async def force_notify():
-    """Fuerza una revisión y envío inmediato. Úsalo para probar."""
+    """Fuerza revisión y envío inmediato (testing)."""
     if not HAS_NOTIFIER:
-        return {"ok": False, "msg": "Notifier no configurado. Revisa TELEGRAM_TOKEN y variables de entorno."}
+        return {"ok": False, "msg": "Notifier no configurado."}
     await scheduled_watch()
     return {"ok": True, "msg": "Revisión completada"}
+
+
+@app.get("/api/subs")
+async def list_subs():
+    """Muestra cuántos suscriptores hay (para debug)."""
+    if not HAS_NOTIFIER:
+        return {"ok": False, "subs": 0}
+    from notifier import get_chat_ids
+    ids = await get_chat_ids()
+    return {"ok": True, "subs": len(ids), "chat_ids": ids}
 
 
 @app.get("/api/chart/{ticker}")
