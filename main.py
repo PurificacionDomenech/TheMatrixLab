@@ -35,7 +35,6 @@ WATCH_TICKERS = [
 _sent_cache: dict = {}
 _DEDUP_SECONDS = 4 * 3600
 
-
 ASSET_CONFIG = {
     "^DJI":    {"key_spacing": 500,   "major_spacing": 1000, "zone_size": 100,   "ema_short": 200, "ema_long": 800},
     "^NDX":    {"key_spacing": 500,   "major_spacing": 1000, "zone_size": 100,   "ema_short": 200, "ema_long": 800},
@@ -246,15 +245,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ════════════════════════════════════════════════════════════
 # WEBHOOK DEL BOT DE TELEGRAM
-# Los usuarios envían /start al bot → se registran en Supabase
 # ════════════════════════════════════════════════════════════
 
-@app.post(f"/webhook/telegram")
+@app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
-    """
-    Recibe updates de Telegram.
-    Registra el chat_id cuando el usuario envía /start.
-    """
     if not HAS_NOTIFIER:
         return JSONResponse({"ok": False})
     try:
@@ -288,7 +282,6 @@ async def telegram_webhook(request: Request):
             await send_telegram_to(chat_id, reply)
 
         elif text.startswith("/stop"):
-            # Aquí podrías eliminar el registro — por ahora solo confirma
             await send_telegram_to(chat_id,
                 "🔕 Para cancelar tu suscripción, contacta con el administrador.")
 
@@ -298,7 +291,6 @@ async def telegram_webhook(request: Request):
                 "Revisión de mercados cada 4 horas.")
 
         elif text.startswith("/test"):
-            # Prueba manual — envía una alerta de ejemplo al solicitante
             await send_telegram_to(chat_id,
                 "🟢 <b>[TEST]</b> El sistema de alertas funciona correctamente.\n"
                 "⬡ Recibirás mensajes cuando haya señales reales.")
@@ -309,7 +301,9 @@ async def telegram_webhook(request: Request):
     return JSONResponse({"ok": True})
 
 
-# ─── RUTAS ───────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────
+# RUTAS PRINCIPALES
+# ────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def splash():
@@ -324,24 +318,86 @@ async def dashboard():
     return FileResponse("templates/index.html")
 
 
+# ────────────────────────────────────────────────────────────
+# ENDPOINTS DE NOTIFICACIONES
+# ────────────────────────────────────────────────────────────
+
 @app.get("/api/notify")
 async def force_notify():
-    """Fuerza revisión y envío inmediato (testing)."""
+    """Fuerza revisión y envío inmediato (testing y botón del panel)."""
     if not HAS_NOTIFIER:
-        return {"ok": False, "msg": "Notifier no configurado."}
+        return {"ok": False, "msg": "Notifier no configurado. Revisa TELEGRAM_TOKEN, SUPABASE_URL y SUPABASE_KEY."}
     await scheduled_watch()
-    return {"ok": True, "msg": "Revisión completada"}
+    return {"ok": True, "msg": "Revisión completada. Alertas enviadas si había señales nuevas."}
 
 
 @app.get("/api/subs")
 async def list_subs():
-    """Muestra cuántos suscriptores hay (para debug)."""
+    """Número de suscriptores en Supabase (para el panel de notificaciones)."""
     if not HAS_NOTIFIER:
-        return {"ok": False, "subs": 0}
+        return {"ok": False, "subs": 0, "msg": "Notifier no disponible"}
     from notifier import get_chat_ids
     ids = await get_chat_ids()
     return {"ok": True, "subs": len(ids), "chat_ids": ids}
 
+
+@app.get("/api/bot-info")
+async def bot_info():
+    """Devuelve el username del bot de Telegram para mostrar el link de suscripción."""
+    token = os.getenv("TELEGRAM_TOKEN", "")
+    if not token:
+        return {"ok": False, "username": None, "msg": "TELEGRAM_TOKEN no configurado"}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+            d = r.json()
+            if d.get("ok"):
+                return {
+                    "ok":       True,
+                    "username": d["result"].get("username"),
+                    "name":     d["result"].get("first_name"),
+                }
+    except Exception as e:
+        print(f"[bot-info] {e}")
+    return {"ok": False, "username": None}
+
+
+@app.get("/api/mail-status")
+async def mail_status():
+    """Comprueba si el email está configurado en las variables de entorno."""
+    mail_from = os.getenv("MAIL_FROM", "")
+    mail_pass = os.getenv("MAIL_PASSWORD", "")
+    mail_to   = os.getenv("MAIL_TO", "")
+    configured = bool(mail_from and mail_pass and mail_to)
+    return {
+        "configured": configured,
+        "mail_to":    mail_to if configured else None,
+    }
+
+
+@app.get("/api/notifier-status")
+async def notifier_status():
+    """Estado completo del sistema de notificaciones."""
+    token    = os.getenv("TELEGRAM_TOKEN", "")
+    supa_url = os.getenv("SUPABASE_URL", "")
+    supa_key = os.getenv("SUPABASE_KEY", "")
+    mail_ok  = bool(os.getenv("MAIL_FROM") and os.getenv("MAIL_PASSWORD") and os.getenv("MAIL_TO"))
+    tg_ok    = bool(token and supa_url and supa_key)
+
+    return {
+        "ok":        tg_ok or mail_ok,
+        "telegram":  tg_ok,
+        "email":     mail_ok,
+        "scheduler": HAS_SCHEDULER,
+        "notifier":  HAS_NOTIFIER,
+        "next_run":  "~4h desde el último ciclo automático",
+    }
+
+
+# ────────────────────────────────────────────────────────────
+# ENDPOINTS DE DATOS DE MERCADO
+# ────────────────────────────────────────────────────────────
 
 @app.get("/api/chart/{ticker}")
 async def get_chart(ticker: str):
