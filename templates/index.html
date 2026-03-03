@@ -182,6 +182,77 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
         <div class="alrt-hdr">⚡ ALERTAS — <span id="asl" style="color:var(--g)"></span></div>
         <div id="alertList" style="display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto"></div>
       </div>
+      <!-- ══════════════════════════════════════════════════════
+  INSTRUCCIONES:
+  1. Pega el bloque HTML justo ANTES de la línea:
+       <div class="card" id="wp">    ← panel "VIGILANCIA"
+  2. Pega el bloque JS justo ANTES de la etiqueta:
+       </script>   ← la última del archivo
+  ══════════════════════════════════════════════════════ -->
+
+
+<!-- ═══════════════════════════════
+     BLOQUE HTML — pégalo en el sidebar
+     Justo ANTES de:  <div class="card" id="wp">
+     ═══════════════════════════════ -->
+<div class="card" id="np" style="padding:12px">
+  <div id="np-hdr" onclick="toggleNP()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;margin-bottom:0">
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.12em;color:rgba(0,255,65,.45);text-transform:uppercase">🔔 NOTIFICACIONES</span>
+      <span id="npDot" style="width:6px;height:6px;border-radius:50%;background:rgba(0,255,65,.15);display:inline-block"></span>
+    </div>
+    <span id="npChv" style="color:rgba(0,255,65,.3);font-size:10px;transition:transform .3s;transform:rotate(-90deg)">▼</span>
+  </div>
+
+  <div id="npBody" style="display:none;margin-top:10px">
+
+    <!-- Estado del sistema -->
+    <div id="npStatus" style="font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.3);margin-bottom:10px;padding:5px 8px;border-radius:4px;background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.08)">
+      Verificando estado…
+    </div>
+
+    <!-- Telegram -->
+    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
+      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">
+        📱 Telegram
+      </div>
+      <div style="font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.4);line-height:1.7;margin-bottom:6px">
+        Envía <span style="color:var(--g);background:rgba(0,255,65,.08);padding:1px 5px;border-radius:3px">/start</span> al bot para suscribirte:<br>
+        <a id="npTgLink" href="#" target="_blank" style="color:rgba(0,200,255,.7);text-decoration:none;font-size:10px">Cargando nombre del bot…</a>
+      </div>
+      <div id="npTgState" style="font-family:var(--fm);font-size:9px;padding:4px 8px;border-radius:4px;background:rgba(0,255,65,.04);color:rgba(0,255,65,.35);border:1px solid rgba(0,255,65,.08)">
+        🔄 Comprobando suscriptores…
+      </div>
+    </div>
+
+    <!-- Test / Forzar envío -->
+    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
+      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">
+        ⚡ Forzar envío ahora
+      </div>
+      <button onclick="forceNotify()" id="btnForce"
+        style="width:100%;padding:7px;border-radius:4px;background:transparent;border:1px solid rgba(0,255,65,.25);color:var(--g);font-family:var(--fm);font-size:10px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:all .2s"
+        onmouseover="this.style.background='rgba(0,255,65,.06)'" onmouseout="this.style.background='transparent'">
+        ▶ REVISAR Y ENVIAR ALERTAS
+      </button>
+      <div id="npForceResult" style="font-family:var(--fm);font-size:9px;margin-top:5px;display:none;padding:4px 8px;border-radius:4px;border:1px solid rgba(0,255,65,.12);background:rgba(0,255,65,.04);color:rgba(0,255,65,.6)"></div>
+    </div>
+
+    <!-- Email -->
+    <div>
+      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">
+        📧 Email
+      </div>
+      <div id="npMailState" style="font-family:var(--fm);font-size:9px;padding:4px 8px;border-radius:4px;background:rgba(0,255,65,.04);color:rgba(0,255,65,.35);border:1px solid rgba(0,255,65,.08)">
+        🔄 Comprobando configuración…
+      </div>
+      <div style="font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.2);margin-top:5px;line-height:1.6">
+        Para activar: añade <span style="color:rgba(0,255,65,.5)">MAIL_FROM</span>, <span style="color:rgba(0,255,65,.5)">MAIL_PASSWORD</span> y <span style="color:rgba(0,255,65,.5)">MAIL_TO</span> en las variables de entorno de Railway/Render.
+      </div>
+    </div>
+
+  </div><!-- /npBody -->
+</div>
 
       <div class="card" id="wp">
         <div id="wp-hdr" onclick="toggleWP()">
@@ -815,6 +886,118 @@ function rZ5d(){
   xR=[new Date(ld.getTime()-5*24*60*60*1000).toISOString(),ld.toISOString()];
   renderP(lastData);
 }
+
+let npOpen = false;
+
+function toggleNP() {
+  npOpen = !npOpen;
+  const body = document.getElementById('npBody');
+  const chv  = document.getElementById('npChv');
+  body.style.display = npOpen ? 'block' : 'none';
+  chv.style.transform = npOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+  if (npOpen) loadNPStatus();
+}
+
+async function loadNPStatus() {
+  // ── 1. Comprobar suscriptores de Telegram ───────────────
+  try {
+    const r = await fetch('/api/subs');
+    const d = await r.json();
+    const el = document.getElementById('npTgState');
+    const dot = document.getElementById('npDot');
+    if (d.ok && d.subs > 0) {
+      el.innerText = `✅ ${d.subs} suscriptor${d.subs > 1 ? 'es' : ''} activo${d.subs > 1 ? 's' : ''}`;
+      el.style.color = '#00ff41';
+      el.style.borderColor = 'rgba(0,255,65,.2)';
+      dot.style.background = '#00ff41';
+      dot.style.boxShadow = '0 0 6px rgba(0,255,65,.6)';
+    } else if (d.ok && d.subs === 0) {
+      el.innerText = '⚠️ Sin suscriptores — envía /start al bot';
+      el.style.color = '#ffaa00';
+      el.style.borderColor = 'rgba(255,170,0,.2)';
+    } else {
+      el.innerText = '❌ Supabase no configurado (SUPABASE_URL / SUPABASE_KEY)';
+      el.style.color = '#ff4455';
+    }
+  } catch(e) {
+    document.getElementById('npTgState').innerText = '❌ Error al conectar con el servidor';
+  }
+
+  // ── 2. Nombre del bot de Telegram (desde TELEGRAM_TOKEN) ─
+  try {
+    const r2 = await fetch('/api/bot-info');
+    const d2 = await r2.json();
+    if (d2.username) {
+      const link = document.getElementById('npTgLink');
+      link.href = `https://t.me/${d2.username}`;
+      link.innerText = `@${d2.username}`;
+    }
+  } catch(e) {
+    document.getElementById('npTgLink').innerText = '(configura TELEGRAM_TOKEN)';
+  }
+
+  // ── 3. Estado del email ──────────────────────────────────
+  try {
+    const r3 = await fetch('/api/mail-status');
+    const d3 = await r3.json();
+    const em = document.getElementById('npMailState');
+    if (d3.configured) {
+      em.innerText = `✅ Email configurado → ${d3.mail_to}`;
+      em.style.color = '#00ff41';
+      em.style.borderColor = 'rgba(0,255,65,.2)';
+    } else {
+      em.innerText = '⚠️ Email no configurado (variables de entorno)';
+      em.style.color = '#ffaa00';
+    }
+  } catch(e) {
+    document.getElementById('npMailState').innerText = '❌ Error al verificar email';
+  }
+
+  // ── 4. Estado general ────────────────────────────────────
+  try {
+    const r4 = await fetch('/api/notifier-status');
+    const d4 = await r4.json();
+    const st = document.getElementById('npStatus');
+    if (d4.ok) {
+      st.innerText = `✅ Notifier activo · Scheduler: ${d4.scheduler ? '▶ corriendo' : '⏸ detenido'} · Próxima revisión: ${d4.next_run || '—'}`;
+      st.style.color = '#00ff41';
+    } else {
+      st.innerText = '⚠️ Notifier parcialmente configurado. Revisa variables de entorno.';
+      st.style.color = '#ffaa00';
+    }
+  } catch(e) {
+    document.getElementById('npStatus').innerText = '⚠️ Servidor respondió — notifier en modo básico';
+  }
+}
+
+async function forceNotify() {
+  const btn = document.getElementById('btnForce');
+  const res = document.getElementById('npForceResult');
+  btn.disabled = true;
+  btn.innerText = '⏳ REVISANDO MERCADOS…';
+  res.style.display = 'none';
+  try {
+    const r = await fetch('/api/notify');
+    const d = await r.json();
+    res.style.display = 'block';
+    if (d.ok) {
+      res.innerText = `✅ ${d.msg}`;
+      res.style.color = '#00ff41';
+      // Refrescar estado de suscriptores
+      setTimeout(loadNPStatus, 500);
+    } else {
+      res.innerText = `⚠️ ${d.msg}`;
+      res.style.color = '#ffaa00';
+    }
+  } catch(e) {
+    res.style.display = 'block';
+    res.innerText = '❌ Error de conexión con el servidor';
+    res.style.color = '#ff4455';
+  }
+  btn.disabled = false;
+  btn.innerText = '▶ REVISAR Y ENVIAR ALERTAS';
+}
+
 </script>
 </body>
 </html>
