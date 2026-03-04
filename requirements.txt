@@ -8,3 +8,14 @@ jinja2
 python-multipart
 httpx
 apscheduler
+apscheduler
+fastapi
+gunicorn
+httpx
+jinja2
+numpy
+pandas
+plotly
+python-multipart
+uvicorn
+yfinance
