@@ -290,10 +290,14 @@ async function doLogin(event) {
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
-    /* Guardar el token manualmente solo para esta sesión de navegación */
-    try { sessionStorage.setItem('tml_session', JSON.stringify(data.session)); } catch(e) {}
+    /* Guardar el token manualmente para esta sesión de navegación */
+    try { 
+      sessionStorage.setItem('tml_session', JSON.stringify(data.session));
+      // También guardamos una marca de tiempo para validar la sesión si fuera necesario
+      sessionStorage.setItem('tml_login_time', Date.now().toString());
+    } catch(e) {}
     showMsg(msg, 'ok', '✓ Acceso concedido. Redirigiendo…');
-    setTimeout(() => window.location.replace('/app'), 900);
+    setTimeout(() => window.location.assign('/app'), 900);
   } catch(e) {
     btn.disabled = false; btn.textContent = 'ACCEDER AL DASHBOARD';
     const errMap = {

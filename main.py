@@ -4,6 +4,7 @@ import numpy as np
 import asyncio
 import time
 import os
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -19,7 +20,7 @@ except ImportError:
     print("[WARN] apscheduler no instalado — scheduler desactivado")
 
 try:
-    from notifier import notify_alertas, register_chat, send_telegram_to
+    from notifier import notify_alertas, register_chat, unregister_chat, send_telegram_to
     HAS_NOTIFIER = True
 except Exception as e:
     HAS_NOTIFIER = False
@@ -33,7 +34,7 @@ WATCH_TICKERS = [
     "EURUSD=X", "AUDUSD=X", "SI=F", "CL=F", "^TYX", "^TNX", "DX=F",
 ]
 _sent_cache: dict = {}
-_DEDUP_SECONDS = 4 * 3600
+_DEDUP_SECONDS = 1 * 3600
 
 ASSET_CONFIG = {
     "^DJI":    {"key_spacing": 500,   "major_spacing": 1000, "zone_size": 100,   "ema_short": 200, "ema_long": 800},
@@ -65,7 +66,6 @@ ASSET_CONFIG = {
     "AAPL":    {"key_spacing": 5,     "major_spacing": 20,   "zone_size": 1,     "ema_short": 200, "ema_long": 800},
     "_default":{"key_spacing": 50,    "major_spacing": 100,  "zone_size": 10,    "ema_short": 200, "ema_long": 800},
 }
-
 
 def get_cfg(ticker):
     return ASSET_CONFIG.get(ticker.upper(), ASSET_CONFIG["_default"])
@@ -179,26 +179,21 @@ def safe(v):
 def ts_ms(idx):
     return [int(t.timestamp() * 1000) for t in idx]
 
-
 # ─── SCHEDULER ───────────────────────────────────────────────
 
 async def scheduled_watch():
     if not HAS_NOTIFIER:
-        print("[scheduler] notifier no disponible, saltando")
         return
     now    = time.time()
     nuevas = []
     for t in WATCH_TICKERS:
         try:
             cfg = get_cfg(t)
-            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
-            if df.empty:
-                continue
+            df  = yf.download(t.upper(), period="6mo", interval="1h", progress=False)
+            if df.empty: continue
             df      = clean_df(df)
             df      = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
-            alertas = detect_alerts(df, ticker=t.upper(),
-                                    ema_short=cfg["ema_short"],
-                                    ema_long=cfg["ema_long"], cfg=cfg)
+            alertas = detect_alerts(df, ticker=t.upper(), ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg)
             for a in alertas:
                 key = a["msg"]
                 if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
@@ -208,344 +203,153 @@ async def scheduled_watch():
             print(f"[scheduler] Error en {t}: {e}")
 
     if nuevas:
-        print(f"[scheduler] Enviando {len(nuevas)} alertas…")
-        await notify_alertas(nuevas, source="Auto 4H")
-    else:
-        print("[scheduler] Sin alertas nuevas.")
+        await notify_alertas(nuevas, source="Auto 1H")
 
+async def get_past_alerts(period: str) -> list[dict]:
+    all_alerts = []
+    for t in WATCH_TICKERS:
+        try:
+            cfg = get_cfg(t)
+            df  = yf.download(t.upper(), period=period, interval="1h", progress=False)
+            if df.empty: continue
+            df = clean_df(df)
+            df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            for i in range(1, len(df)):
+                temp_df = df.iloc[:i+1]
+                alerts_for_candle = detect_alerts(temp_df, ticker=t.upper(), ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg)
+                for alert in alerts_for_candle:
+                    alert_time = temp_df.index[-1].strftime("%d/%m/%Y %H:%M")
+                    alert["msg"] = f"{alert_time} - {alert['msg']}"
+                    all_alerts.append(alert)
+        except Exception: pass
+    return all_alerts
 
-# ─── APP ─────────────────────────────────────────────────────
+# ─── APP ──────────────────────────────────────────────────
 
 if HAS_SCHEDULER:
-    from contextlib import asynccontextmanager
-
     @asynccontextmanager
     async def lifespan(app):
-        scheduler = None
-        try:
-            scheduler = AsyncIOScheduler()
-            scheduler.add_job(scheduled_watch, "interval", hours=4, id="watch_4h")
-            scheduler.start()
-            print("[scheduler] Iniciado · revisión cada 4h")
-        except Exception as e:
-            print(f"[scheduler] Error al iniciar: {e}")
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(scheduled_watch, "interval", hours=1, id="watch_1h")
+        scheduler.start()
         yield
-        if scheduler:
-            try:
-                scheduler.shutdown()
-            except Exception:
-                pass
-
+        scheduler.shutdown()
     app = FastAPI(lifespan=lifespan)
 else:
     app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-# ════════════════════════════════════════════════════════════
-# WEBHOOK DEL BOT DE TELEGRAM
-# ════════════════════════════════════════════════════════════
-
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
-    if not HAS_NOTIFIER:
-        return JSONResponse({"ok": False})
+    if not HAS_NOTIFIER: return JSONResponse({"ok": False})
     try:
-        body    = await request.json()
+        body = await request.json()
         message = body.get("message") or body.get("edited_message", {})
-        if not message:
-            return JSONResponse({"ok": True})
-
-        chat_id  = message.get("chat", {}).get("id")
+        if not message: return JSONResponse({"ok": True})
+        chat_id = message.get("chat", {}).get("id")
         username = message.get("from", {}).get("username", "")
-        text     = message.get("text", "").strip()
-
-        if not chat_id:
-            return JSONResponse({"ok": True})
+        text = message.get("text", "").strip()
 
         if text.startswith("/start"):
             ok = await register_chat(chat_id, username)
-            reply = (
-                "✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
-                "⬡ Recibirás alertas automáticas cada 4H sobre:\n"
-                "· Cruces de EMA 200/800\n"
-                "· Golden Cross / Death Cross\n"
-                "· Toques de niveles fractales\n"
-                "· RSI extremo\n\n"
-                "Activos vigilados: ^DJI, GC=F, ^NDX, USDJPY, GBPJPY, EURUSD, "
-                "AUDUSD, SI=F, CL=F, Bonos y DXY.\n\n"
-                "Envía /stop para cancelar las alertas."
-                if ok else
-                "⚠️ No se pudo registrar. Inténtalo de nuevo."
-            )
+            reply = "✅ <b>¡Suscrito!</b> Recibirás alertas cada 1H.\nEnvía /email tu@email.com para correo.\nEnvía /stop para cancelar."
             await send_telegram_to(chat_id, reply)
-
+            past = await get_past_alerts("1d")
+            if past: await notify_alertas(past, source="Resumen 24H", chat_id=chat_id)
+        elif text.startswith("/email "):
+            email = text.split(" ", 1)[1].strip()
+            if re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                if await register_chat(chat_id, username, email=email):
+                    await send_telegram_to(chat_id, f"✅ Email {email} registrado.")
+            else: await send_telegram_to(chat_id, "⚠️ Formato inválido.")
         elif text.startswith("/stop"):
-            await send_telegram_to(chat_id,
-                "🔕 Para cancelar tu suscripción, contacta con el administrador.")
-
-        elif text.startswith("/status"):
-            await send_telegram_to(chat_id,
-                "✅ <b>The Matrix Lab activo</b>\n"
-                "Revisión de mercados cada 4 horas.")
-
-        elif text.startswith("/test"):
-            await send_telegram_to(chat_id,
-                "🟢 <b>[TEST]</b> El sistema de alertas funciona correctamente.\n"
-                "⬡ Recibirás mensajes cuando haya señales reales.")
-
-    except Exception as e:
-        print(f"[webhook] Error: {e}")
-
+            if await unregister_chat(chat_id):
+                await send_telegram_to(chat_id, "🔕 Suscripción cancelada.")
+    except Exception as e: print(f"[webhook] Error: {e}")
     return JSONResponse({"ok": True})
-
-
-# ────────────────────────────────────────────────────────────
-# RUTAS PRINCIPALES
-# ────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def splash():
-    for name in ("Splash.html", "splash.html"):
-        path = f"templates/{name}"
-        if os.path.exists(path):
-            return FileResponse(path)
-    return FileResponse("templates/index.html")
+    return FileResponse("templates/Splash.html")
 
 @app.get("/app")
 async def dashboard():
     return FileResponse("templates/index.html")
 
-
-# ────────────────────────────────────────────────────────────
-# ENDPOINTS DE NOTIFICACIONES
-# ────────────────────────────────────────────────────────────
-
 @app.get("/api/notify")
 async def force_notify():
-    """Fuerza revisión y envío inmediato (testing y botón del panel)."""
-    if not HAS_NOTIFIER:
-        return {"ok": False, "msg": "Notifier no configurado. Revisa TELEGRAM_TOKEN, SUPABASE_URL y SUPABASE_KEY."}
     await scheduled_watch()
-    return {"ok": True, "msg": "Revisión completada. Alertas enviadas si había señales nuevas."}
-
+    return {"ok": True}
 
 @app.get("/api/subs")
 async def list_subs():
-    """Número de suscriptores en Supabase (para el panel de notificaciones)."""
-    if not HAS_NOTIFIER:
-        return {"ok": False, "subs": 0, "msg": "Notifier no disponible"}
-    from notifier import get_chat_ids
-    ids = await get_chat_ids()
-    return {"ok": True, "subs": len(ids), "chat_ids": ids}
-
+    from notifier import get_subscribers
+    subs = await get_subscribers()
+    return {"ok": True, "subs": len(subs)}
 
 @app.get("/api/bot-info")
 async def bot_info():
-    """Devuelve el username del bot de Telegram para mostrar el link de suscripción."""
     token = os.getenv("TELEGRAM_TOKEN", "")
-    if not token:
-        return {"ok": False, "username": None, "msg": "TELEGRAM_TOKEN no configurado"}
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(f"https://api.telegram.org/bot{token}/getMe")
-            d = r.json()
-            if d.get("ok"):
-                return {
-                    "ok":       True,
-                    "username": d["result"].get("username"),
-                    "name":     d["result"].get("first_name"),
-                }
-    except Exception as e:
-        print(f"[bot-info] {e}")
-    return {"ok": False, "username": None}
-
+    if not token: return {"ok": False}
+    import httpx
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+        return {"ok": True, "username": r.json()["result"]["username"]} if r.json().get("ok") else {"ok": False}
 
 @app.get("/api/mail-status")
 async def mail_status():
-    """Comprueba si el email está configurado en las variables de entorno."""
-    mail_from = os.getenv("MAIL_FROM", "")
-    mail_pass = os.getenv("MAIL_PASSWORD", "")
-    mail_to   = os.getenv("MAIL_TO", "")
-    configured = bool(mail_from and mail_pass and mail_to)
-    return {
-        "configured": configured,
-        "mail_to":    mail_to if configured else None,
-    }
+    return {"configured": bool(os.getenv("MAIL_FROM") and os.getenv("MAIL_PASSWORD"))}
 
 @app.get("/api/notifier-status")
 async def notifier_status():
-    """Estado completo del sistema de notificaciones."""
-    token    = os.getenv("TELEGRAM_TOKEN", "")
-    supa_url = os.getenv("SUPABASE_URL", "")
-    supa_key = os.getenv("SUPABASE_KEY", "")
-    mail_ok  = bool(os.getenv("MAIL_FROM") and os.getenv("MAIL_PASSWORD") and os.getenv("MAIL_TO"))
-    tg_ok    = bool(token and supa_url and supa_key)
-
-    return {
-        "ok":        tg_ok or mail_ok,
-        "telegram":  tg_ok,
-        "email":     mail_ok,
-        "scheduler": HAS_SCHEDULER,
-        "notifier":  HAS_NOTIFIER,
-        "next_run":  "~4h desde el último ciclo automático",
-    }
-
-
-# ────────────────────────────────────────────────────────────
-# ENDPOINTS DE DATOS DE MERCADO
-# ────────────────────────────────────────────────────────────
+    return {"ok": True, "scheduler": HAS_SCHEDULER, "next_run": "1h"}
 
 @app.get("/api/chart/{ticker}")
 async def get_chart(ticker: str):
     try:
         cfg = get_cfg(ticker)
-        es, el = cfg["ema_short"], cfg["ema_long"]
-        df = yf.download(ticker.upper(), period="2y", interval="4h", progress=False)
-        if df.empty:
-            return {"error": "Simbolo no encontrado: " + ticker}
+        df = yf.download(ticker.upper(), period="2y", interval="1h", progress=False)
         df = clean_df(df)
-        df = calc_indicators(df, es, el)
-
-        ultimo     = float(df["Close"].iloc[-1])
-        fractales  = calc_fractales(ultimo, cfg)
-        timestamps = ts_ms(df.index)
-
-        candles = [
-            {"x": timestamps[i], "o": safe(df["Open"].iloc[i]),
-             "h": safe(df["High"].iloc[i]), "l": safe(df["Low"].iloc[i]),
-             "c": safe(df["Close"].iloc[i])}
-            for i in range(len(df))
-        ]
-
-        def ema_series(col):
-            if col not in df.columns: return []
-            return [{"x": timestamps[i], "y": float(df[col].iloc[i])}
-                    for i in range(len(df)) if pd.notna(df[col].iloc[i])]
-
-        rsi_os, rsi_ob = [], []
-        for i in range(len(df)):
-            r = df["RSI"].iloc[i]
-            if pd.notna(r):
-                if r < 30:   rsi_os.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
-                elif r > 70: rsi_ob.append({"x": timestamps[i], "y": float(df["Close"].iloc[i])})
-
-        fractal_touch_candles = []
-        for i in range(len(df)):
-            h = safe(df["High"].iloc[i]); l = safe(df["Low"].iloc[i]); c = safe(df["Close"].iloc[i])
-            if h is None or l is None or c is None: continue
-            ft = detect_fractal_touch(h, l, c, fractales)
-            if ft["touch"] and ft["is_major"]:
-                fractal_touch_candles.append({"x": timestamps[i], "y": c,
-                                              "tipo": ft["tipo"], "price": ft["price"]})
-
-        opens   = calc_opens(df)
-        rsi_s   = df["RSI"].dropna()
-        rsi_c   = float(rsi_s.iloc[-1]) if not rsi_s.empty else 50
-        first   = float(df["Close"].iloc[0])
-        alertas = detect_alerts(df, ticker=ticker.upper(), ema_short=es, ema_long=el, cfg=cfg)
-
+        df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+        last = float(df["Close"].iloc[-1])
         return {
-            "chart": {
-                "candles": candles,
-                f"ema{es}": ema_series(f"EMA{es}"),
-                f"ema{el}": ema_series(f"EMA{el}"),
-                "rsi_os":  rsi_os,
-                "rsi_ob":  rsi_ob,
-                "fractal_touch_candles": fractal_touch_candles,
-            },
-            "fractales":    fractales,
-            "opens":        opens,
-            "last_price":   ultimo,
-            "change":       ultimo - first,
-            "change_pct":   (ultimo - first) / first * 100,
-            "rsi_current":  rsi_c,
-            "alertas":      alertas,
-            "asset_config": {"ema_short": es, "ema_long": el},
+            "chart": {"candles": [{"x": int(t.timestamp()*1000), "o": safe(df["Open"].loc[t]), "h": safe(df["High"].loc[t]), "l": safe(df["Low"].loc[t]), "c": safe(df["Close"].loc[t])} for t in df.index], f"ema{cfg['ema_short']}": [{"x": int(t.timestamp()*1000), "y": float(df[f'EMA{cfg["ema_short"]}'].loc[t])} for t in df.index], f"ema{cfg['ema_long']}": [{"x": int(t.timestamp()*1000), "y": float(df[f'EMA{cfg["ema_long"]}'].loc[t])} for t in df.index]},
+            "fractales": calc_fractales(last, cfg), "opens": calc_opens(df), "last_price": last, "change": last - float(df["Close"].iloc[0]), "change_pct": (last - float(df["Close"].iloc[0])) / float(df["Close"].iloc[0]) * 100, "rsi_current": float(df["RSI"].iloc[-1]), "alertas": detect_alerts(df, ticker=ticker.upper(), cfg=cfg), "asset_config": cfg
         }
-    except Exception as e:
-        return {"error": str(e)}
-
+    except Exception as e: return {"error": str(e)}
 
 @app.get("/api/row/{ticker}")
 async def get_row(ticker: str):
     try:
         cfg = get_cfg(ticker)
-        es, el = cfg["ema_short"], cfg["ema_long"]
-        df = yf.download(ticker.upper(), period="1y", interval="4h", progress=False)
-        if df.empty:
-            return {"error": "not found"}
-        df    = clean_df(df)
-        df    = calc_indicators(df, es, el)
-        last  = float(df["Close"].iloc[-1])
-        first = float(df["Close"].iloc[0])
-        rsi_s = df["RSI"].dropna()
-        rsi   = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
-
-        def last_val(col):
-            if col not in df.columns: return None
-            s = df[col].dropna()
-            return float(s.iloc[-1]) if not s.empty else None
-
-        last_high = float(df["High"].iloc[-1])
-        last_low  = float(df["Low"].iloc[-1])
-        fractales = calc_fractales(last, cfg)
-        ft        = detect_fractal_touch(last_high, last_low, last, fractales)
-
-        return {
-            "ticker":           ticker.upper(),
-            "price":            last,
-            "change_pct":       round((last - first) / first * 100, 2),
-            "rsi":              round(rsi, 1) if rsi is not None else None,
-            "ema_short":        last_val(f"EMA{es}"),
-            "ema_long":         last_val(f"EMA{el}"),
-            "ema_short_name":   f"EMA{es}",
-            "ema_long_name":    f"EMA{el}",
-            "fractal_touch":    ft["touch"],
-            "fractal_price":    ft["price"],
-            "fractal_is_major": ft["is_major"],
-            "fractal_tipo":     ft["tipo"],
-            "fractal_crosses":  ft["crosses"],
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
+        df = yf.download(ticker.upper(), period="1y", interval="1h", progress=False)
+        df = clean_df(df); df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+        last = float(df["Close"].iloc[-1]); first = float(df["Close"].iloc[0])
+        ft = detect_fractal_touch(float(df["High"].iloc[-1]), float(df["Low"].iloc[-1]), last, calc_fractales(last, cfg))
+        return {"ticker": ticker.upper(), "price": last, "change_pct": (last-first)/first*100, "rsi": float(df["RSI"].iloc[-1]), "ema_short": float(df[f'EMA{cfg["ema_short"]}'].iloc[-1]), "ema_long": float(df[f'EMA{cfg["ema_long"]}'].iloc[-1]), "ema_short_name": f"EMA{cfg['ema_short']}", "ema_long_name": f"EMA{cfg['ema_long']}", "fractal_touch": ft["touch"], "fractal_price": ft["price"], "fractal_is_major": ft["is_major"], "fractal_tipo": ft["tipo"], "fractal_crosses": ft["crosses"]}
+    except Exception: return {"error": "err"}
 
 @app.get("/api/watch")
 async def watch(tickers: str = ""):
-    all_alertas = []
+    als = []
     for t in tickers.split(","):
-        t = t.strip()
-        if not t: continue
         try:
             cfg = get_cfg(t)
-            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
-            if not df.empty:
-                df = clean_df(df)
-                df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
-                all_alertas.extend(detect_alerts(df, ticker=t.upper(),
-                    ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg))
-        except Exception:
-            pass
-    return {"alertas": all_alertas}
-
+            df = yf.download(t.upper(), period="1mo", interval="1h", progress=False)
+            df = clean_df(df); df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            als.extend(detect_alerts(df, ticker=t.upper(), cfg=cfg))
+        except: pass
+    return {"alertas": als}
 
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
     try:
         df = yf.download(ticker.upper(), period="1mo", interval="1d", progress=False)
-        if df.empty: return {"closes": [], "pct": 0}
-        df     = clean_df(df)
-        closes = df["Close"].dropna().tolist()
-        pct    = (closes[-1] - closes[0]) / closes[0] * 100 if len(closes) > 1 else 0
-        return {"closes": [float(c) for c in closes], "pct": round(pct, 2)}
-    except Exception:
-        return {"closes": [], "pct": 0}
-
+        cl = clean_df(df)["Close"].dropna().tolist()
+        return {"closes": [float(c) for c in cl], "pct": (cl[-1]-cl[0])/cl[0]*100}
+    except: return {"closes": [], "pct": 0}
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
