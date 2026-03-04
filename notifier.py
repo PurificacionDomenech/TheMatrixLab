@@ -192,48 +192,75 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     """
     alerts_by_ticker = {"^DJI": [alertas], "GC=F": [alertas], ...}
     Envía a cada usuario solo las alertas de sus tickers elegidos.
+    Incluye también a suscriptores básicos de Telegram (vía /start) sin preferencias configuradas.
     """
     if not alerts_by_ticker:
         return
 
-    now_str   = datetime.now().strftime("%d/%m/%Y %H:%M")
-    all_prefs = await get_all_user_prefs()
+    now_str          = datetime.now().strftime("%d/%m/%Y %H:%M")
+    all_alertas_flat = [a for al in alerts_by_ticker.values() for a in al]
 
-    if not all_prefs:
-        print("[notifier] Sin usuarios con notificaciones activas")
-        return
+    # Obtener prefs completas y subs básicas en paralelo
+    all_prefs, basic_chat_ids = await asyncio.gather(
+        get_all_user_prefs(),
+        get_chat_ids()
+    )
 
-    print(f"[notifier] {len(all_prefs)} usuario(s) con notificaciones activas")
     loop = asyncio.get_running_loop()
+    covered_chat_ids: set = set()
 
-    for prefs in all_prefs:
-        user_tickers = [t.upper() for t in (prefs.get("tickers") or [])]
+    # 1 — Usuarios con preferencias configuradas (alertas personalizadas por ticker)
+    if all_prefs:
+        print(f"[notifier] {len(all_prefs)} usuario(s) con preferencias activas")
+        for prefs in all_prefs:
+            user_tickers = [t.upper() for t in (prefs.get("tickers") or [])]
 
-        # Sin tickers configurados → recibe todos
-        if not user_tickers:
-            user_alertas = [a for al in alerts_by_ticker.values() for a in al]
-        else:
-            user_alertas = [a for t in user_tickers for a in alerts_by_ticker.get(t, [])]
+            # Sin tickers configurados → recibe todos
+            if not user_tickers:
+                user_alertas = all_alertas_flat
+            else:
+                user_alertas = [a for t in user_tickers for a in alerts_by_ticker.get(t, [])]
 
-        if not user_alertas:
-            continue
+            if not user_alertas:
+                continue
 
-        texto_tg = (
+            texto_tg = (
+                f"<b>⬡ Matrix Lab · {now_str}</b>\n\n" +
+                "\n".join(f"{NIVEL_EMOJI.get(a.get('nivel','info'),'⚪')} {a['msg']}"
+                          for a in user_alertas)
+            )
+
+            if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
+                cid = int(prefs["telegram_chat_id"])
+                covered_chat_ids.add(cid)
+                await send_telegram_to(cid, texto_tg)
+                await asyncio.sleep(0.05)
+
+            if prefs.get("email_enabled") and prefs.get("email_address"):
+                html = _build_html(user_alertas, now_str)
+                await loop.run_in_executor(
+                    None, _smtp_send, prefs["email_address"],
+                    f"⬡ Matrix Lab · {now_str}", html
+                )
+
+    # 2 — Suscriptores básicos de Telegram (/start) sin preferencias configuradas
+    if TELEGRAM_TOKEN and all_alertas_flat and basic_chat_ids:
+        texto_base = (
             f"<b>⬡ Matrix Lab · {now_str}</b>\n\n" +
             "\n".join(f"{NIVEL_EMOJI.get(a.get('nivel','info'),'⚪')} {a['msg']}"
-                      for a in user_alertas)
+                      for a in all_alertas_flat)
         )
+        nuevos = 0
+        for cid in basic_chat_ids:
+            if int(cid) not in covered_chat_ids:
+                await send_telegram_to(int(cid), texto_base)
+                await asyncio.sleep(0.05)
+                nuevos += 1
+        if nuevos:
+            print(f"[notifier] {nuevos} suscriptor(es) básico(s) notificados")
 
-        if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
-            await send_telegram_to(int(prefs["telegram_chat_id"]), texto_tg)
-            await asyncio.sleep(0.05)
-
-        if prefs.get("email_enabled") and prefs.get("email_address"):
-            html = _build_html(user_alertas, now_str)
-            await loop.run_in_executor(
-                None, _smtp_send, prefs["email_address"],
-                f"⬡ Matrix Lab · {now_str}", html
-            )
+    if not all_prefs and not basic_chat_ids:
+        print("[notifier] Sin usuarios con notificaciones activas")
 
 
 # ── Compatibilidad con scheduler existente ───────────────────
