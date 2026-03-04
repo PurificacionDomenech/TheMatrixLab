@@ -67,6 +67,10 @@ ASSET_CONFIG = {
 }
 
 
+async def async_download(ticker, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: yf.download(ticker, **kwargs))
+
 def get_cfg(t): return ASSET_CONFIG.get(t.upper(), ASSET_CONFIG["_default"])
 def clean_df(df):
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
@@ -78,7 +82,8 @@ def calc_indicators(df, es=200, el=800):
     df[f"EMA{es}"] = df["Close"].ewm(span=es, adjust=False).mean()
     df[f"EMA{el}"] = df["Close"].ewm(span=el, adjust=False).mean()
     d = df["Close"].diff()
-    df["RSI"] = 100-(100/(1+d.where(d>0,0).rolling(14).mean()/(-d.where(d<0,0)).rolling(14).mean()))
+    losses = (-d.where(d<0,0)).rolling(14).mean().replace(0, np.nan)
+    df["RSI"] = 100-(100/(1+d.where(d>0,0).rolling(14).mean()/losses))
     return df
 
 def calc_fractales(precio, cfg, n_above=30, n_below=30):
@@ -156,7 +161,7 @@ async def scheduled_watch():
     for t in WATCH_TICKERS:
         try:
             cfg = get_cfg(t)
-            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
+            df  = await async_download(t.upper(), period="6mo", interval="4h", progress=False)
             if df.empty: continue
             df  = clean_df(df)
             df  = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
@@ -351,7 +356,7 @@ async def save_notif_prefs(request: Request):
 async def get_chart(ticker: str):
     try:
         cfg = get_cfg(ticker); es,el = cfg["ema_short"],cfg["ema_long"]
-        df  = yf.download(ticker.upper(), period="2y", interval="4h", progress=False)
+        df  = await async_download(ticker.upper(), period="2y", interval="4h", progress=False)
         if df.empty: return {"error": "Simbolo no encontrado: "+ticker}
         df  = clean_df(df); df = calc_indicators(df, es, el)
         ult = float(df["Close"].iloc[-1])
@@ -395,7 +400,7 @@ async def get_chart(ticker: str):
 async def get_row(ticker: str):
     try:
         cfg = get_cfg(ticker); es,el = cfg["ema_short"],cfg["ema_long"]
-        df  = yf.download(ticker.upper(), period="1y", interval="4h", progress=False)
+        df  = await async_download(ticker.upper(), period="1y", interval="4h", progress=False)
         if df.empty: return {"error":"not found"}
         df  = clean_df(df); df = calc_indicators(df,es,el)
         last,first = float(df["Close"].iloc[-1]),float(df["Close"].iloc[0])
@@ -426,7 +431,7 @@ async def watch(tickers: str = ""):
         if not t: continue
         try:
             cfg = get_cfg(t)
-            df  = yf.download(t.upper(), period="6mo", interval="4h", progress=False)
+            df  = await async_download(t.upper(), period="6mo", interval="4h", progress=False)
             if not df.empty:
                 df = clean_df(df); df = calc_indicators(df,cfg["ema_short"],cfg["ema_long"])
                 all_alertas.extend(detect_alerts(df,ticker=t.upper(),
@@ -438,7 +443,7 @@ async def watch(tickers: str = ""):
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
     try:
-        df = yf.download(ticker.upper(), period="1mo", interval="1d", progress=False)
+        df = await async_download(ticker.upper(), period="1mo", interval="1d", progress=False)
         if df.empty: return {"closes":[],"pct":0}
         df = clean_df(df); closes = df["Close"].dropna().tolist()
         pct = (closes[-1]-closes[0])/closes[0]*100 if len(closes)>1 else 0

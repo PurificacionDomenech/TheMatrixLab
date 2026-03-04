@@ -204,7 +204,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
         return
 
     print(f"[notifier] {len(all_prefs)} usuario(s) con notificaciones activas")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     for prefs in all_prefs:
         user_tickers = [t.upper() for t in (prefs.get("tickers") or [])]
