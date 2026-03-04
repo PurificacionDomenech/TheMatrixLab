@@ -182,19 +182,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
         <div class="alrt-hdr">⚡ ALERTAS — <span id="asl" style="color:var(--g)"></span></div>
         <div id="alertList" style="display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto"></div>
       </div>
-      <!-- ══════════════════════════════════════════════════════
-  INSTRUCCIONES:
-  1. Pega el bloque HTML justo ANTES de la línea:
-       <div class="card" id="wp">    ← panel "VIGILANCIA"
-  2. Pega el bloque JS justo ANTES de la etiqueta:
-       </script>   ← la última del archivo
-  ══════════════════════════════════════════════════════ -->
 
-
-<!-- ═══════════════════════════════
-     BLOQUE HTML — pégalo en el sidebar
-     Justo ANTES de:  <div class="card" id="wp">
-     ═══════════════════════════════ -->
 <div class="card" id="np" style="padding:12px">
   <div id="np-hdr" onclick="toggleNP()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;margin-bottom:0">
     <div style="display:flex;align-items:center;gap:7px">
@@ -482,6 +470,7 @@ const AA=[
 ];
 
 let sym='^DJI',favsOpen=true;
+  let rowScores={}, spkCache={}; 
 let ind={emaS:true,emaL:true,frac:true,zone:true,open:true,rsi:true,ftm:true};
 let lastData=null,wl=new Set(),abt={},shown=new Set(),xR=null,wpOpen=false;
 
@@ -511,11 +500,17 @@ function toggleChart(){
 
 function buildGrid(){
   const tb=document.getElementById('tb');tb.innerHTML='';
+  const sorted=[...AA].filter(a=>!a.hidden).sort((a,b)=>{
+    const aF=wl.has(a.t)?0:1, bF=wl.has(b.t)?0:1;
+    if(aF!==bF)return aF-bF;
+    const aS=rowScores[a.t]??99, bS=rowScores[b.t]??99;
+    return aS-bS;
+  });
   let lg='';
-  AA.forEach(a=>{
-    if(a.hidden)return;
+  sorted.forEach(a=>{
     const id=fid(a.t),isW=wl.has(a.t);
-    if(a.g&&a.g!==lg){lg=a.g;const s=document.createElement('tr');s.className='grp';s.innerHTML=`<td colspan="8">${a.g}</td>`;tb.appendChild(s)}
+    const sec=isW?'★ Favoritos':a.g||'';
+    if(sec!==lg){lg=sec;const s=document.createElement('tr');s.className='grp';s.innerHTML=`<td colspan="8">${sec}</td>`;tb.appendChild(s)}
     const tr=document.createElement('tr');
     tr.id='fc-'+id;tr.className='ar';
     tr.onclick=e=>{if(e.target.closest('.star'))return;loadSym(a.t)};
@@ -538,7 +533,30 @@ function buildGrid(){
     tb.appendChild(tr);
   });
 }
-
+function rebuildGrid(){
+  const cache={};
+  AA.filter(a=>!a.hidden).forEach(a=>{
+    const id=fid(a.t);
+    cache[a.t]={
+      tp:document.getElementById(`tp-${id}`)?.innerHTML,
+      tc:document.getElementById(`tc-${id}`)?.innerHTML,
+      tr:document.getElementById(`tr-${id}`)?.innerHTML,
+      te:document.getElementById(`te-${id}`)?.innerHTML,
+      tcr:document.getElementById(`tcr-${id}`)?.innerHTML,
+      tft:document.getElementById(`tft-${id}`)?.innerHTML,
+      tes:document.getElementById(`tes-${id}`)?.innerHTML,
+    };
+  });
+  buildGrid();
+  AA.filter(a=>!a.hidden).forEach(a=>{
+    const id=fid(a.t),c=cache[a.t];if(!c)return;
+    const set=(sel,val)=>{const el=document.getElementById(sel);if(el&&val&&val!=='—')el.innerHTML=val};
+    set(`tp-${id}`,c.tp);set(`tc-${id}`,c.tc);set(`tr-${id}`,c.tr);
+    set(`te-${id}`,c.te);set(`tcr-${id}`,c.tcr);set(`tft-${id}`,c.tft);set(`tes-${id}`,c.tes);
+    const cv=document.getElementById(`sp-${id}`);
+    if(cv&&spkCache[a.t])drawSpk(id,spkCache[a.t]);
+  });
+}
 function rStars(){AA.forEach(a=>{const s=document.getElementById('star-'+fid(a.t));if(s)s.className='star '+(wl.has(a.t)?'on':'off')})}
 
 function twl(t,e){
@@ -546,6 +564,7 @@ function twl(t,e){
   if(wl.has(t)){wl.delete(t);toast(`> Eliminado: ${t}`,'info',2500)}
   else{wl.add(t);toast(`> ★ ${t} añadido`,'bullish',2500)}
   sWL();rStars();updateWC();renderWP();
+  rebuildGrid(); 
 }
 function updateWC(){
   const n=wl.size;
@@ -565,6 +584,8 @@ async function loadRow(t){
     const[r,s]=await Promise.all([fetch(`/api/row/${encodeURIComponent(t)}`),fetch(`/api/sparkline/${encodeURIComponent(t)}`)]);
     const d=await r.json(),spk=await s.json();
     if(d.error)return;
+    d.ticker=t;
+    spkCache[t]=spk;
     const id=fid(t);
     drawSpk(id,spk);
     const pe=document.getElementById(`tp-${id}`);if(pe)pe.innerText=fmtP(d.price);
@@ -602,11 +623,12 @@ async function loadRow(t){
     }
     const se=document.getElementById(`tes-${id}`);
     if(se)se.innerHTML=calcEstado(d);
+     rebuildGrid();
   }catch(e){}
 }
-
 function calcEstado(d){
-  if(d.rsi!=null&&d.rsi>68)return '<span class="badge no_favorable">NO AHORA</span>';
+  let score=3;
+  if(d.rsi!=null&&d.rsi>68){rowScores[d.ticker||'']=3;return'<span class="badge no_favorable">NO AHORA</span>'}
   let pts=0;
   const dia=new Date().getDay();
   if(dia>=2&&dia<=4)pts+=1;
@@ -616,11 +638,15 @@ function calcEstado(d){
   if(d.ema_long&&d.price<d.ema_long)pts+=1;
   if(d.ema_short&&d.price<d.ema_short)pts+=1;
   if(d.fractal_touch){pts+=d.fractal_is_major?3:1;if(d.fractal_tipo==='soporte')pts+=1}
-  if(pts>=8)return '<span class="badge favorable">FAVORABLE</span>';
-  if(pts>=5)return '<span class="badge interesante">INTERESANTE</span>';
-  if(pts>=3)return '<span class="badge considerar">CONSIDERAR</span>';
-  return '<span class="badge no_favorable">NO AHORA</span>';
+  let badge,s;
+  if(pts>=8){badge='<span class="badge favorable">FAVORABLE</span>';s=0}
+  else if(pts>=5){badge='<span class="badge interesante">INTERESANTE</span>';s=1}
+  else if(pts>=3){badge='<span class="badge considerar">CONSIDERAR</span>';s=2}
+  else{badge='<span class="badge no_favorable">NO AHORA</span>';s=3}
+  if(d.ticker)rowScores[d.ticker]=s;
+  return badge;
 }
+
 
 function drawSpk(id,spk){
   if(!spk||!spk.closes||spk.closes.length<2)return;
