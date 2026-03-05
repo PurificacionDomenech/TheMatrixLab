@@ -20,6 +20,7 @@ import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import httpx
 
 logger = logging.getLogger("notifier")
@@ -259,7 +260,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     if not alerts_by_ticker:
         return
 
-    now_str          = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now_str          = datetime.now(ZoneInfo('Europe/Madrid')).strftime("%d/%m/%Y %H:%M")
     all_alertas_flat = [a for al in alerts_by_ticker.values() for a in al]
 
     # Obtener prefs completas y subs básicas en paralelo
@@ -331,7 +332,7 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
     """Broadcast a todos los chat_ids registrados."""
     if not alertas:
         return
-    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now_str = datetime.now(ZoneInfo('Europe/Madrid')).strftime("%d/%m/%Y %H:%M")
     # Group by ticker
     by_ticker: dict = {}
     for a in alertas:
