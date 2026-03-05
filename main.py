@@ -152,39 +152,64 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
 
 # ─── SCHEDULER ───────────────────────────────────────────────
 
-async def scheduled_watch():
-    if not HAS_NOTIFIER:
-        print("[scheduler] notifier no disponible")
-        return
+async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -> dict:
+    """
+    Revisa los tickers dados. num_candles controla cuántas velas recientes analizar.
+    Retorna alerts_by_ticker con las alertas nuevas (sin duplicados en cache).
+    """
     now = time.time()
     alerts_by_ticker: dict = {}
-
-    for t in WATCH_TICKERS:
+    for t in tickers:
         try:
             cfg = get_cfg(t)
             df  = await async_download(t.upper(), period="6mo", interval="4h", progress=False)
             if df.empty: continue
             df  = clean_df(df)
             df  = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
-            al  = detect_alerts(df, ticker=t.upper(),
-                                 ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg)
             nuevas = []
-            for a in al:
-                key = a["msg"]
-                if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
-                    nuevas.append(a)
-                    _sent_cache[key] = now
+            # Analizar las últimas num_candles velas
+            for i in range(min(num_candles, len(df))):
+                fila = len(df) - 1 - i
+                df_slice = df.iloc[:fila+1]
+                al = detect_alerts(df_slice, ticker=t.upper(),
+                                   ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg)
+                for a in al:
+                    key = a["msg"]
+                    if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
+                        nuevas.append(a)
+                        _sent_cache[key] = now
             if nuevas:
                 alerts_by_ticker[t.upper()] = nuevas
         except Exception as e:
-            print(f"[scheduler] Error en {t}: {e}")
+            print(f"[{label or 'scheduler'}] Error en {t}: {e}")
+    return alerts_by_ticker
 
+
+async def scheduled_watch():
+    """Revisión periódica — analiza la última vela de cada ticker vigilado."""
+    if not HAS_NOTIFIER:
+        return
+    alerts_by_ticker = await _check_tickers(WATCH_TICKERS, num_candles=1, label="scheduler")
     if alerts_by_ticker:
         total = sum(len(v) for v in alerts_by_ticker.values())
         print(f"[scheduler] {total} alertas nuevas en {len(alerts_by_ticker)} ticker(s)")
         await notify_users_with_alerts(alerts_by_ticker)
     else:
         print("[scheduler] Sin alertas nuevas")
+
+
+async def daily_catchup():
+    """Catch-up al arrancar: revisa las últimas 6 velas (≈24h) y envía lo pendiente."""
+    if not HAS_NOTIFIER:
+        return
+    print("[catchup] Revisando últimas 24h de alertas…")
+    alerts_by_ticker = await _check_tickers(WATCH_TICKERS, num_candles=6, label="catchup")
+    if alerts_by_ticker:
+        total = sum(len(v) for v in alerts_by_ticker.values())
+        print(f"[catchup] {total} alertas del día enviadas")
+        await notify_users_with_alerts(alerts_by_ticker)
+    else:
+        print("[catchup] Sin alertas nuevas en las últimas 24h")
 
 
 # ─── APP ─────────────────────────────────────────────────────
@@ -253,16 +278,19 @@ if HAS_SCHEDULER:
 
     @asynccontextmanager
     async def lifespan(app):
-        scheduler = None
+        scheduler    = None
         polling_task = None
         token = os.getenv("TELEGRAM_TOKEN", "")
         if token:
             polling_task = asyncio.create_task(_tg_polling(token))
         try:
             scheduler = AsyncIOScheduler()
-            scheduler.add_job(scheduled_watch, "interval", hours=4, id="watch_4h")
+            # Revisión cada 30 min para alertas en tiempo real
+            scheduler.add_job(scheduled_watch, "interval", minutes=30, id="watch_30m")
             scheduler.start()
-            print("[scheduler] Iniciado · revisión cada 4h")
+            print("[scheduler] Iniciado · revisión cada 30 min")
+            # Catch-up: enviar alertas de las últimas 24h al arrancar
+            asyncio.create_task(daily_catchup())
         except Exception as e:
             print(f"[scheduler] Error al iniciar: {e}")
         yield
@@ -315,8 +343,8 @@ async def dashboard():
 async def force_notify():
     if not HAS_NOTIFIER:
         return {"ok": False, "msg": "Notifier no configurado."}
-    await scheduled_watch()
-    return {"ok": True, "msg": "Revisión completada."}
+    await daily_catchup()
+    return {"ok": True, "msg": "Revisión de las últimas 24h completada."}
 
 
 @app.get("/api/subs")
