@@ -4,6 +4,7 @@ import numpy as np
 import asyncio
 import time
 import os
+import httpx
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -191,9 +192,33 @@ async def scheduled_watch():
 if HAS_SCHEDULER:
     from contextlib import asynccontextmanager
 
+    async def _register_tg_webhook():
+        token = os.getenv("TELEGRAM_TOKEN", "")
+        if not token:
+            return
+        domain = os.getenv("REPLIT_DOMAINS", "").split(",")[0].strip()
+        if not domain:
+            print("[webhook] Sin REPLIT_DOMAINS — webhook no registrado")
+            return
+        webhook_url = f"https://{domain}/webhook/telegram"
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.post(
+                    f"https://api.telegram.org/bot{token}/setWebhook",
+                    json={"url": webhook_url, "allowed_updates": ["message"]}
+                )
+                d = r.json()
+                if d.get("ok"):
+                    print(f"[webhook] Telegram webhook registrado → {webhook_url}")
+                else:
+                    print(f"[webhook] Error al registrar webhook: {d.get('description')}")
+        except Exception as e:
+            print(f"[webhook] Excepción: {e}")
+
     @asynccontextmanager
     async def lifespan(app):
         scheduler = None
+        await _register_tg_webhook()
         try:
             scheduler = AsyncIOScheduler()
             scheduler.add_job(scheduled_watch, "interval", hours=4, id="watch_4h")
