@@ -192,33 +192,72 @@ async def scheduled_watch():
 if HAS_SCHEDULER:
     from contextlib import asynccontextmanager
 
-    async def _register_tg_webhook():
-        token = os.getenv("TELEGRAM_TOKEN", "")
-        if not token:
+    async def _process_tg_message(message: dict):
+        if not HAS_NOTIFIER or not message:
             return
-        domain = os.getenv("REPLIT_DOMAINS", "").split(",")[0].strip()
-        if not domain:
-            print("[webhook] Sin REPLIT_DOMAINS — webhook no registrado")
-            return
-        webhook_url = f"https://{domain}/webhook/telegram"
+        try:
+            chat_id  = message.get("chat", {}).get("id")
+            username = message.get("from", {}).get("username", "")
+            text     = message.get("text", "").strip()
+            if not chat_id:
+                return
+            if text.startswith("/start"):
+                ok = await register_chat(chat_id, username)
+                await send_telegram_to(chat_id,
+                    f"✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
+                    f"⬡ Recibirás alertas automáticas cada 4H de tus activos favoritos.\n\n"
+                    f"📋 <b>Tu Chat ID es:</b> <code>{chat_id}</code>\n"
+                    f"Cópialo y pégalo en el panel de Notificaciones de la app para personalizar tus alertas.\n\n"
+                    f"Comandos disponibles:\n"
+                    f"/status — estado del sistema\n"
+                    f"/test — prueba de alertas\n"
+                    f"/stop — cancelar suscripción"
+                    if ok else "⚠️ No se pudo registrar. Inténtalo de nuevo."
+                )
+            elif text.startswith("/stop"):
+                await send_telegram_to(chat_id, "🔕 Suscripción cancelada. Envía /start para reactivar.")
+            elif text.startswith("/status"):
+                await send_telegram_to(chat_id, "✅ <b>The Matrix Lab activo</b>\nRevisión cada 4 horas.")
+            elif text.startswith("/test"):
+                await send_telegram_to(chat_id,
+                    "🟢 <b>[TEST]</b> El sistema funciona correctamente.\n"
+                    "⬡ Recibirás mensajes cuando haya señales reales.")
+        except Exception as e:
+            print(f"[telegram] Error procesando mensaje: {e}")
+
+    async def _tg_polling(token: str):
         try:
             async with httpx.AsyncClient(timeout=10) as c:
-                r = await c.post(
-                    f"https://api.telegram.org/bot{token}/setWebhook",
-                    json={"url": webhook_url, "allowed_updates": ["message"]}
-                )
-                d = r.json()
-                if d.get("ok"):
-                    print(f"[webhook] Telegram webhook registrado → {webhook_url}")
-                else:
-                    print(f"[webhook] Error al registrar webhook: {d.get('description')}")
+                await c.post(f"https://api.telegram.org/bot{token}/deleteWebhook",
+                             json={"drop_pending_updates": True})
+            print("[telegram] Polling iniciado (webhook eliminado)")
         except Exception as e:
-            print(f"[webhook] Excepción: {e}")
+            print(f"[telegram] No se pudo eliminar webhook: {e}")
+        offset = 0
+        while True:
+            try:
+                async with httpx.AsyncClient(timeout=35) as c:
+                    r = await c.get(
+                        f"https://api.telegram.org/bot{token}/getUpdates",
+                        params={"offset": offset, "timeout": 30, "allowed_updates": ["message"]}
+                    )
+                    if r.status_code == 200:
+                        for upd in r.json().get("result", []):
+                            offset = upd["update_id"] + 1
+                            await _process_tg_message(upd.get("message", {}))
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"[telegram] Polling error: {e}")
+                await asyncio.sleep(5)
 
     @asynccontextmanager
     async def lifespan(app):
         scheduler = None
-        await _register_tg_webhook()
+        polling_task = None
+        token = os.getenv("TELEGRAM_TOKEN", "")
+        if token:
+            polling_task = asyncio.create_task(_tg_polling(token))
         try:
             scheduler = AsyncIOScheduler()
             scheduler.add_job(scheduled_watch, "interval", hours=4, id="watch_4h")
@@ -227,6 +266,10 @@ if HAS_SCHEDULER:
         except Exception as e:
             print(f"[scheduler] Error al iniciar: {e}")
         yield
+        if polling_task:
+            polling_task.cancel()
+            try: await polling_task
+            except asyncio.CancelledError: pass
         if scheduler:
             try: scheduler.shutdown()
             except: pass
@@ -238,42 +281,15 @@ else:
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# ─── WEBHOOK TELEGRAM ────────────────────────────────────────
+# ─── WEBHOOK TELEGRAM (fallback) ─────────────────────────────
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
-    if not HAS_NOTIFIER:
-        return JSONResponse({"ok": False})
     try:
         body    = await request.json()
         message = body.get("message") or body.get("edited_message", {})
-        if not message: return JSONResponse({"ok": True})
-        chat_id  = message.get("chat", {}).get("id")
-        username = message.get("from", {}).get("username", "")
-        text     = message.get("text", "").strip()
-        if not chat_id: return JSONResponse({"ok": True})
-
-        if text.startswith("/start"):
-            ok = await register_chat(chat_id, username)
-            await send_telegram_to(chat_id,
-                f"✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
-                f"⬡ Recibirás alertas automáticas cada 4H de tus activos favoritos.\n\n"
-                f"📋 <b>Tu Chat ID es:</b> <code>{chat_id}</code>\n"
-                f"Cópialo y pégalo en el panel de Notificaciones de la app para personalizar tus alertas.\n\n"
-                f"Comandos disponibles:\n"
-                f"/status — estado del sistema\n"
-                f"/test — prueba de alertas\n"
-                f"/stop — cancelar suscripción"
-                if ok else "⚠️ No se pudo registrar. Inténtalo de nuevo."
-            )
-        elif text.startswith("/stop"):
-            await send_telegram_to(chat_id, "🔕 Suscripción cancelada. Envía /start para reactivar.")
-        elif text.startswith("/status"):
-            await send_telegram_to(chat_id, "✅ <b>The Matrix Lab activo</b>\nRevisión cada 4 horas.")
-        elif text.startswith("/test"):
-            await send_telegram_to(chat_id,
-                "🟢 <b>[TEST]</b> El sistema funciona correctamente.\n"
-                "⬡ Recibirás mensajes cuando haya señales reales.")
+        if HAS_SCHEDULER and message:
+            await _process_tg_message(message)
     except Exception as e:
         print(f"[webhook] Error: {e}")
     return JSONResponse({"ok": True})
