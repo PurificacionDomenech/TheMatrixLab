@@ -171,12 +171,20 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
             for i in range(min(num_candles, len(df))):
                 fila = len(df) - 1 - i
                 df_slice = df.iloc[:fila+1]
+                ts = df.index[fila]
+                try:
+                    hora = pd.Timestamp(ts).strftime("%d/%m %H:%M")
+                except Exception:
+                    hora = ""
                 al = detect_alerts(df_slice, ticker=t.upper(),
                                    ema_short=cfg["ema_short"], ema_long=cfg["ema_long"], cfg=cfg)
                 for a in al:
                     key = a["msg"]
                     if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
-                        nuevas.append(a)
+                        alerta = dict(a)
+                        if hora:
+                            alerta["msg"] = a["msg"] + f" · {hora}"
+                        nuevas.append(alerta)
                         _sent_cache[key] = now
             if nuevas:
                 alerts_by_ticker[t.upper()] = nuevas
