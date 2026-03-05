@@ -13,6 +13,7 @@ Variables de entorno en Railway:
 """
 
 import os
+import re
 import asyncio
 import smtplib
 import logging
@@ -32,6 +33,59 @@ MAIL_SMTP      = os.getenv("MAIL_SMTP", "smtp.gmail.com")
 MAIL_PORT      = int(os.getenv("MAIL_PORT", "587"))
 
 NIVEL_EMOJI = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
+
+ASSET_NAMES = {
+    '^DJI':'US30 · Dow Jones','^NDX':'NAS100 · Nasdaq','^GSPC':'SPX · S&P 500',
+    '^RUT':'RTY · Russell 2000','GC=F':'XAUUSD · Oro','SI=F':'XAGUSD · Plata',
+    'CL=F':'WTI · Petróleo','USDJPY=X':'USD/JPY','GBPJPY=X':'GBP/JPY',
+    'EURUSD=X':'EUR/USD','AUDUSD=X':'AUD/USD','^TNX':'US10Y · Bono',
+    '^TYX':'US30Y · Bono','DX=F':'DXY · Dólar','BTC-USD':'BTC · Bitcoin',
+    'ETH-USD':'ETH · Ethereum','SPY':'SPY','VOO':'VOO','QQQ':'QQQ',
+    'QQQM':'QQQM','GLD':'GLD','IAU':'IAU','GDX':'GDX','IWM':'IWM',
+    'SMH':'SMH','XLE':'XLE','AAPL':'AAPL · Apple',
+}
+
+def _strip_ticker(msg: str) -> str:
+    return re.sub(r'^\[[^\]]+\]\s*', '', msg)
+
+def _build_tg_grouped(alerts_by_ticker: dict, now_str: str) -> str:
+    lines = [f"<b>⬡ Matrix Lab · {now_str}</b>"]
+    for ticker, alertas in alerts_by_ticker.items():
+        if not alertas:
+            continue
+        name = ASSET_NAMES.get(ticker.upper(), ticker)
+        lines.append(f"\n<b>📊 {name}</b>")
+        for a in alertas:
+            emoji = NIVEL_EMOJI.get(a.get('nivel', 'info'), '⚪')
+            lines.append(f"{emoji} {_strip_ticker(a.get('msg', ''))}")
+    return "\n".join(lines)
+
+def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
+    color_map = {"bullish": "#00cc33", "bearish": "#ff3333", "info": "#4da6ff"}
+    rows = ""
+    for ticker, alertas in alerts_by_ticker.items():
+        if not alertas:
+            continue
+        name = ASSET_NAMES.get(ticker.upper(), ticker)
+        rows += (f'<tr><td style="padding:8px 10px 4px;font-family:monospace;font-size:12px;'
+                 f'color:#00ff41;font-weight:bold;border-top:1px solid #0a1a0a">📊 {name}</td></tr>')
+        for a in alertas:
+            c = color_map.get(a.get("nivel","info"), "#888")
+            e = NIVEL_EMOJI.get(a.get("nivel","info"), "⚪")
+            rows += (f'<tr><td style="padding:3px 10px 3px 20px;border-bottom:1px solid #1a2a1a;'
+                     f'color:{c};font-family:monospace;font-size:13px">'
+                     f'{e} {_strip_ticker(a.get("msg",""))}</td></tr>')
+    return f"""<html><body style="background:#000;padding:20px;">
+      <div style="max-width:600px;margin:auto;background:#010801;border:1px solid #00ff4120;border-radius:8px;overflow:hidden;">
+        <div style="background:#010f01;padding:14px 20px;border-bottom:1px solid #00ff4115;">
+          <span style="font-family:monospace;font-size:14px;color:#00ff41;font-weight:bold;">⬡ THE MATRIX LAB</span>
+          <span style="font-family:monospace;font-size:11px;color:#666;margin-left:10px;">{now_str}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">{rows}</table>
+        <div style="padding:10px 20px;font-size:10px;color:#333;font-family:monospace;border-top:1px solid #00ff4110;text-align:center;">
+          Análisis técnico automatizado · No es asesoría financiera
+        </div>
+      </div></body></html>"""
 
 print(f"[notifier] Telegram: {'OK' if TELEGRAM_TOKEN else 'FALTA TELEGRAM_TOKEN'} | "
       f"Supabase: {'OK' if SUPABASE_URL and SUPABASE_KEY else 'FALTA SUPABASE_URL/KEY'} | "
@@ -224,20 +278,24 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if not user_alertas:
                 continue
 
-            texto_tg = (
-                f"<b>⬡ Matrix Lab · {now_str}</b>\n\n" +
-                "\n".join(f"{NIVEL_EMOJI.get(a.get('nivel','info'),'⚪')} {a['msg']}"
-                          for a in user_alertas)
-            )
+            # Build grouped dict for this user's tickers
+            if not user_tickers:
+                user_by_ticker = alerts_by_ticker
+            else:
+                user_by_ticker = {t: alerts_by_ticker[t] for t in user_tickers if alerts_by_ticker.get(t)}
+
+            if not user_by_ticker:
+                continue
 
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])
                 covered_chat_ids.add(cid)
+                texto_tg = _build_tg_grouped(user_by_ticker, now_str)
                 await send_telegram_to(cid, texto_tg)
                 await asyncio.sleep(0.05)
 
             if prefs.get("email_enabled") and prefs.get("email_address"):
-                html = _build_html(user_alertas, now_str)
+                html = _build_html_grouped(user_by_ticker, now_str)
                 await loop.run_in_executor(
                     None, _smtp_send, prefs["email_address"],
                     f"⬡ Matrix Lab · {now_str}", html
@@ -245,11 +303,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
 
     # 2 — Suscriptores básicos de Telegram (/start) sin preferencias configuradas
     if TELEGRAM_TOKEN and all_alertas_flat and basic_chat_ids:
-        texto_base = (
-            f"<b>⬡ Matrix Lab · {now_str}</b>\n\n" +
-            "\n".join(f"{NIVEL_EMOJI.get(a.get('nivel','info'),'⚪')} {a['msg']}"
-                      for a in all_alertas_flat)
-        )
+        texto_base = _build_tg_grouped(alerts_by_ticker, now_str)
         nuevos = 0
         for cid in basic_chat_ids:
             if int(cid) not in covered_chat_ids:
@@ -270,9 +324,13 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
     if not alertas:
         return
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    texto   = (f"<b>⬡ Matrix Lab · {(source + ' · ') if source else ''}{now_str}</b>\n\n" +
-               "\n".join(f"{NIVEL_EMOJI.get(a.get('nivel','info'),'⚪')} {a['msg']}"
-                         for a in alertas))
+    # Group by ticker
+    by_ticker: dict = {}
+    for a in alertas:
+        m = re.match(r'^\[([^\]]+)\]', a.get('msg', ''))
+        tk = m.group(1) if m else 'GENERAL'
+        by_ticker.setdefault(tk, []).append(a)
+    texto = _build_tg_grouped(by_ticker, now_str)
     if TELEGRAM_TOKEN:
         for cid in await get_chat_ids():
             await send_telegram_to(cid, texto)

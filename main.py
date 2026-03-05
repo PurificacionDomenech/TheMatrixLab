@@ -231,14 +231,14 @@ async def telegram_webhook(request: Request):
         if text.startswith("/start"):
             ok = await register_chat(chat_id, username)
             await send_telegram_to(chat_id,
-                "✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
-                "⬡ Recibirás alertas automáticas cada 4H.\n\n"
-                "Para configurar tus activos y canales, entra en la app:\n"
-                "⚙️ Panel → Notificaciones → Configurar\n\n"
-                "Comandos disponibles:\n"
-                "/status — estado del sistema\n"
-                "/test — prueba de alertas\n"
-                "/stop — cancelar suscripción"
+                f"✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
+                f"⬡ Recibirás alertas automáticas cada 4H de tus activos favoritos.\n\n"
+                f"📋 <b>Tu Chat ID es:</b> <code>{chat_id}</code>\n"
+                f"Cópialo y pégalo en el panel de Notificaciones de la app para personalizar tus alertas.\n\n"
+                f"Comandos disponibles:\n"
+                f"/status — estado del sistema\n"
+                f"/test — prueba de alertas\n"
+                f"/stop — cancelar suscripción"
                 if ok else "⚠️ No se pudo registrar. Inténtalo de nuevo."
             )
         elif text.startswith("/stop"):
