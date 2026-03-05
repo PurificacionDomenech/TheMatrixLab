@@ -32,7 +32,8 @@ MAIL_PASSWORD  = os.getenv("MAIL_PASSWORD", "")
 MAIL_SMTP      = os.getenv("MAIL_SMTP", "smtp.gmail.com")
 MAIL_PORT      = int(os.getenv("MAIL_PORT", "587"))
 
-NIVEL_EMOJI = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
+NIVEL_EMOJI  = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
+NIVEL_LABEL  = {"bullish": "Favorable", "bearish": "Atención", "info": "Interesante"}
 
 ASSET_NAMES = {
     '^DJI':'US30 · Dow Jones','^NDX':'NAS100 · Nasdaq','^GSPC':'SPX · S&P 500',
@@ -56,8 +57,10 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str) -> str:
         name = ASSET_NAMES.get(ticker.upper(), ticker)
         lines.append(f"\n<b>📊 {name}</b>")
         for a in alertas:
-            emoji = NIVEL_EMOJI.get(a.get('nivel', 'info'), '⚪')
-            lines.append(f"{emoji} {_strip_ticker(a.get('msg', ''))}")
+            nivel = a.get('nivel', 'info')
+            emoji = NIVEL_EMOJI.get(nivel, '⚪')
+            label = NIVEL_LABEL.get(nivel, '')
+            lines.append(f"{emoji} {label} · {_strip_ticker(a.get('msg', ''))}")
     return "\n".join(lines)
 
 def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
@@ -70,11 +73,13 @@ def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
         rows += (f'<tr><td style="padding:8px 10px 4px;font-family:monospace;font-size:12px;'
                  f'color:#00ff41;font-weight:bold;border-top:1px solid #0a1a0a">📊 {name}</td></tr>')
         for a in alertas:
-            c = color_map.get(a.get("nivel","info"), "#888")
-            e = NIVEL_EMOJI.get(a.get("nivel","info"), "⚪")
+            nivel = a.get("nivel", "info")
+            c = color_map.get(nivel, "#888")
+            e = NIVEL_EMOJI.get(nivel, "⚪")
+            lbl = NIVEL_LABEL.get(nivel, "")
             rows += (f'<tr><td style="padding:3px 10px 3px 20px;border-bottom:1px solid #1a2a1a;'
                      f'color:{c};font-family:monospace;font-size:13px">'
-                     f'{e} {_strip_ticker(a.get("msg",""))}</td></tr>')
+                     f'{e} {lbl} · {_strip_ticker(a.get("msg",""))}</td></tr>')
     return f"""<html><body style="background:#000;padding:20px;">
       <div style="max-width:600px;margin:auto;background:#010801;border:1px solid #00ff4120;border-radius:8px;overflow:hidden;">
         <div style="background:#010f01;padding:14px 20px;border-bottom:1px solid #00ff4115;">
@@ -227,7 +232,7 @@ def _build_html(alertas: list[dict], now_str: str) -> str:
     filas = "".join(
         f'<tr><td style="padding:6px 10px;border-bottom:1px solid #1a2a1a;'
         f'color:{color_map.get(a.get("nivel","info"),"#888")};font-family:monospace;font-size:13px;">'
-        f'{NIVEL_EMOJI.get(a.get("nivel","info"),"⚪")} {a["msg"]}</td></tr>'
+        f'{NIVEL_EMOJI.get(a.get("nivel","info"),"⚪")} {NIVEL_LABEL.get(a.get("nivel","info"),"")} · {a["msg"]}</td></tr>'
         for a in alertas
     )
     return f"""<html><body style="background:#000;padding:20px;">
