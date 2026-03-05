@@ -40,5 +40,5 @@ waitForPort = 5000
 outputType = "webview"
 
 [deployment]
-deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", "main:app"]
+deploymentTarget = "vm"
+run = ["gunicorn", "--bind=0.0.0.0:8000", "--reuse-port", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", "main:app"]
