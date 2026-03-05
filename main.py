@@ -235,8 +235,10 @@ if HAS_SCHEDULER:
             if not chat_id:
                 return
             if text.startswith("/start"):
+                print(f"[telegram] /start de @{username or '?'} (chat_id={chat_id})")
                 ok = await register_chat(chat_id, username)
-                await send_telegram_to(chat_id,
+                print(f"[telegram] register_chat → {'OK' if ok else 'FALLO'}")
+                sent = await send_telegram_to(chat_id,
                     f"✅ <b>¡Suscrito a The Matrix Lab!</b>\n\n"
                     f"⬡ Recibirás alertas automáticas cada 4H de tus activos favoritos.\n\n"
                     f"📋 <b>Tu Chat ID es:</b> <code>{chat_id}</code>\n"
@@ -247,6 +249,7 @@ if HAS_SCHEDULER:
                     f"/stop — cancelar suscripción"
                     if ok else "⚠️ No se pudo registrar. Inténtalo de nuevo."
                 )
+                print(f"[telegram] Respuesta enviada → {'OK' if sent else 'FALLO'}")
             elif text.startswith("/stop"):
                 await send_telegram_to(chat_id, "🔕 Suscripción cancelada. Envía /start para reactivar.")
             elif text.startswith("/status"):
@@ -262,8 +265,8 @@ if HAS_SCHEDULER:
         try:
             async with httpx.AsyncClient(timeout=10) as c:
                 await c.post(f"https://api.telegram.org/bot{token}/deleteWebhook",
-                             json={"drop_pending_updates": True})
-            print("[telegram] Polling iniciado (webhook eliminado)")
+                             json={"drop_pending_updates": False})
+            print("[telegram] Polling iniciado (webhook eliminado, mensajes pendientes conservados)")
         except Exception as e:
             print(f"[telegram] No se pudo eliminar webhook: {e}")
         offset = 0

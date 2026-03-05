@@ -123,7 +123,10 @@ async def _supa_post(path: str, payload: dict, prefer: str = "") -> bool:
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.post(f"{SUPABASE_URL}/rest/v1/{path}", headers=h, json=payload)
-            return r.status_code in (200, 201)
+            if r.status_code == 409:
+                print(f"[notifier] Supabase 409 en {path} — registro ya existe, se trata como éxito")
+                return True
+            return r.status_code in (200, 201, 204)
     except Exception as e:
         print(f"[notifier] Supabase POST excepción: {e}")
         return False
