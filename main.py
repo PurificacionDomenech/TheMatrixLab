@@ -347,6 +347,14 @@ async def splash():
 async def dashboard():
     return FileResponse("templates/index.html")
 
+@app.get("/en")
+async def splash_en():
+    return FileResponse("templates/Splash_en.html")
+
+@app.get("/en/app")
+async def dashboard_en():
+    return FileResponse("templates/index_en.html")
+
 
 # ─── NOTIFICACIONES ──────────────────────────────────────────
 
