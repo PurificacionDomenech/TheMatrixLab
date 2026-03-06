@@ -33,8 +33,19 @@ MAIL_PASSWORD  = os.getenv("MAIL_PASSWORD", "")
 MAIL_SMTP      = os.getenv("MAIL_SMTP", "smtp.gmail.com")
 MAIL_PORT      = int(os.getenv("MAIL_PORT", "587"))
 
-NIVEL_EMOJI  = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
-NIVEL_LABEL  = {"bullish": "Favorable", "bearish": "Atención", "info": "Interesante"}
+NIVEL_EMOJI    = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
+NIVEL_LABEL    = {"bullish": "Favorable",  "bearish": "Atención",  "info": "Interesante"}
+NIVEL_LABEL_EN = {"bullish": "Bullish",    "bearish": "Bearish",   "info": "Watch"}
+
+def _translate_en(msg: str) -> str:
+    msg = re.sub(r'Precio cruza (EMA\d+) al alza',  r'Price crosses \1 upward',   msg)
+    msg = re.sub(r'Precio cruza (EMA\d+) a la baja', r'Price crosses \1 downward', msg)
+    msg = re.sub(r'Precio tocando (EMA\d+)',          r'Price touching \1',          msg)
+    msg = msg.replace('Vela toca fractal MAYOR SOPORTE',     'Candle touches MAJOR fractal SUPPORT')
+    msg = msg.replace('Vela toca fractal MAYOR RESISTENCIA', 'Candle touches MAJOR fractal RESISTANCE')
+    msg = msg.replace('Vela toca fractal SOPORTE',           'Candle touches fractal SUPPORT')
+    msg = msg.replace('Vela toca fractal RESISTENCIA',       'Candle touches fractal RESISTANCE')
+    return msg
 
 ASSET_NAMES = {
     '^DJI':'US30 · Dow Jones','^NDX':'NAS100 · Nasdaq','^GSPC':'SPX · S&P 500',
@@ -50,7 +61,8 @@ ASSET_NAMES = {
 def _strip_ticker(msg: str) -> str:
     return re.sub(r'^\[[^\]]+\]\s*', '', msg)
 
-def _build_tg_grouped(alerts_by_ticker: dict, now_str: str) -> str:
+def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
+    labels = NIVEL_LABEL_EN if lang == "en" else NIVEL_LABEL
     lines = [f"<b>⬡ Matrix Lab · {now_str}</b>"]
     for ticker, alertas in alerts_by_ticker.items():
         if not alertas:
@@ -60,12 +72,17 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str) -> str:
         for a in alertas:
             nivel = a.get('nivel', 'info')
             emoji = NIVEL_EMOJI.get(nivel, '⚪')
-            label = NIVEL_LABEL.get(nivel, '')
-            lines.append(f"{emoji} {label} · {_strip_ticker(a.get('msg', ''))}")
+            label = labels.get(nivel, '')
+            msg   = _strip_ticker(a.get('msg', ''))
+            if lang == "en":
+                msg = _translate_en(msg)
+            lines.append(f"{emoji} {label} · {msg}")
     return "\n".join(lines)
 
-def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
+def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
     color_map = {"bullish": "#00cc33", "bearish": "#ff3333", "info": "#4da6ff"}
+    labels = NIVEL_LABEL_EN if lang == "en" else NIVEL_LABEL
+    disclaimer = "Automated technical analysis · Not financial advice" if lang == "en" else "Análisis técnico automatizado · No es asesoría financiera"
     rows = ""
     for ticker, alertas in alerts_by_ticker.items():
         if not alertas:
@@ -77,10 +94,13 @@ def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
             nivel = a.get("nivel", "info")
             c = color_map.get(nivel, "#888")
             e = NIVEL_EMOJI.get(nivel, "⚪")
-            lbl = NIVEL_LABEL.get(nivel, "")
+            lbl = labels.get(nivel, "")
+            msg = _strip_ticker(a.get("msg", ""))
+            if lang == "en":
+                msg = _translate_en(msg)
             rows += (f'<tr><td style="padding:3px 10px 3px 20px;border-bottom:1px solid #1a2a1a;'
                      f'color:{c};font-family:monospace;font-size:13px">'
-                     f'{e} {lbl} · {_strip_ticker(a.get("msg",""))}</td></tr>')
+                     f'{e} {lbl} · {msg}</td></tr>')
     return f"""<html><body style="background:#000;padding:20px;">
       <div style="max-width:600px;margin:auto;background:#010801;border:1px solid #00ff4120;border-radius:8px;overflow:hidden;">
         <div style="background:#010f01;padding:14px 20px;border-bottom:1px solid #00ff4115;">
@@ -89,7 +109,7 @@ def _build_html_grouped(alerts_by_ticker: dict, now_str: str) -> str:
         </div>
         <table style="width:100%;border-collapse:collapse;">{rows}</table>
         <div style="padding:10px 20px;font-size:10px;color:#333;font-family:monospace;border-top:1px solid #00ff4110;text-align:center;">
-          Análisis técnico automatizado · No es asesoría financiera
+          {disclaimer}
         </div>
       </div></body></html>"""
 
@@ -168,6 +188,7 @@ async def save_user_prefs(user_id: str, prefs: dict) -> bool:
         "email_address":    prefs.get("email_address", ""),
         "email_enabled":    prefs.get("email_enabled", False),
         "tickers":          prefs.get("tickers", []),
+        "language":         prefs.get("language", "es"),
     }
     return await _supa_post(
         "notification_prefs", payload,
@@ -296,15 +317,17 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if not user_by_ticker:
                 continue
 
+            lang = prefs.get("language", "es")
+
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])
                 covered_chat_ids.add(cid)
-                texto_tg = _build_tg_grouped(user_by_ticker, now_str)
+                texto_tg = _build_tg_grouped(user_by_ticker, now_str, lang=lang)
                 await send_telegram_to(cid, texto_tg)
                 await asyncio.sleep(0.05)
 
             if prefs.get("email_enabled") and prefs.get("email_address"):
-                html = _build_html_grouped(user_by_ticker, now_str)
+                html = _build_html_grouped(user_by_ticker, now_str, lang=lang)
                 await loop.run_in_executor(
                     None, _smtp_send, prefs["email_address"],
                     f"⬡ Matrix Lab · {now_str}", html

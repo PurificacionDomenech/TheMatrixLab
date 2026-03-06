@@ -494,7 +494,7 @@ function lWL(){try{const s=localStorage.getItem('tml3');wl=s?new Set(JSON.parse(
 
 window.onload=()=>{
   lWL();
-  document.getElementById('fc').innerText=`— ${AA.filter(a=>!a.hidden).length} activos`;
+  document.getElementById('fc').innerText=`— ${AA.filter(a=>!a.hidden).length} assets`;
   document.getElementById('fchv').style.transform='rotate(0deg)';
   buildGrid();updateWC();updateNPFavInfo();
   AA.forEach(a=>{if(!a.hidden)loadRow(a.t)});
@@ -584,7 +584,7 @@ function twl(t,e){
 function updateWC(){
   const n=wl.size;
   document.getElementById('wc').innerText=n>0?`— ${n} ★`:'';
-  document.getElementById('wcnt').innerText=n>0?`> ${n} activo${n>1?'s':''} vigilados`:'';
+  document.getElementById('wcnt').innerText=n>0?`> ${n} asset${n>1?'s':''} watched`:'';
 }
 function toggleFavs(){
   favsOpen=!favsOpen;
@@ -697,7 +697,7 @@ async function chkWL(){
     const tot=Object.values(abt).reduce((s,a)=>s+a.length,0);
     setWS(tot>0?'alert':'ok');renderWP();
     (d.alertas||[]).forEach(a=>{
-      if(!shown.has(a.msg)){shown.add(a.msg);toast(a.msg,a.nivel);setTimeout(()=>shown.delete(a.msg),2*3600*1000)}
+      if(!shown.has(a.msg)){shown.add(a.msg);toast(translateAlert(a.msg),a.nivel);setTimeout(()=>shown.delete(a.msg),2*3600*1000)}
     });
     if(wl.has(sym))renderCA();
   }catch(e){setWS('err')}
@@ -715,6 +715,17 @@ function toggleWP(){
   document.getElementById('wbody').classList.toggle('closed',!wpOpen);
   document.getElementById('wchv').style.transform=wpOpen?'rotate(0deg)':'rotate(-90deg)';
 }
+function translateAlert(msg){
+  msg=msg.replace(/^\[[^\]]+\]\s*/,'');
+  msg=msg.replace(/Precio cruza (EMA\d+) al alza/g,'Price crosses $1 upward');
+  msg=msg.replace(/Precio cruza (EMA\d+) a la baja/g,'Price crosses $1 downward');
+  msg=msg.replace(/Precio tocando (EMA\d+)/g,'Price touching $1');
+  msg=msg.replace(/Vela toca fractal MAYOR SOPORTE/g,'Candle touches MAJOR fractal SUPPORT');
+  msg=msg.replace(/Vela toca fractal MAYOR RESISTENCIA/g,'Candle touches MAJOR fractal RESISTANCE');
+  msg=msg.replace(/Vela toca fractal SOPORTE/g,'Candle touches fractal SUPPORT');
+  msg=msg.replace(/Vela toca fractal RESISTENCIA/g,'Candle touches fractal RESISTANCE');
+  return msg;
+}
 function renderWP(){
   const em=document.getElementById('wempty'),li=document.getElementById('wal'),cn=document.getElementById('wcnt');
   if(!wl.size){em.style.display='block';li.innerHTML='';cn.innerText='';return}
@@ -727,20 +738,20 @@ function renderWP(){
     tot+=al.length;
     html+=`<div style="margin-bottom:6px"><div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:3px;display:flex;justify-content:space-between"><span style="color:rgba(0,255,65,.55)">${tk}</span><span style="color:rgba(0,255,65,.2)">${al.length}x</span></div>`;
     al.slice().reverse().forEach(a=>{
-      const fd=new Date(a.ts).toLocaleDateString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-      html+=`<div class="w-alerta ${a.nivel}" onclick="loadSym('${tk}')"><span class="w-t">[${tk}]</span>${a.msg.replace(/^\[[^\]]+\]\s*/,'')}<div style="font-size:8px;opacity:.4;margin-top:2px;display:flex;justify-content:space-between"><span>${fd}</span><span>${rt(a.ts)}</span></div></div>`;
+      const fd=new Date(a.ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      html+=`<div class="w-alerta ${a.nivel}" onclick="loadSym('${tk}')"><span class="w-t">[${tk}]</span>${translateAlert(a.msg)}<div style="font-size:8px;opacity:.4;margin-top:2px;display:flex;justify-content:space-between"><span>${fd}</span><span>${rt(a.ts)}</span></div></div>`;
     });
     html+='</div>';
   });
-  if(!html)html=`<div style="font-family:var(--fm);font-size:10px;color:rgba(0,255,65,.2);padding:4px 0">> Sin alertas en 7 días.</div>`;
+  if(!html)html=`<div style="font-family:var(--fm);font-size:10px;color:rgba(0,255,65,.2);padding:4px 0">> No alerts in 7 days.</div>`;
   li.innerHTML=html;
-  cn.innerText=tot>0?`> ${tot} alerta${tot>1?'s':''} esta semana`:`> ${wl.size} vigilados`;
+  cn.innerText=tot>0?`> ${tot} alert${tot>1?'s':''} this week`:`> ${wl.size} watched`;
 }
-const rt=ts=>{const d=Date.now()-ts;if(d<60000)return'ahora';if(d<3600000)return`${Math.floor(d/60000)}m`;if(d<86400000)return`${Math.floor(d/3600000)}h`;return`${Math.floor(d/86400000)}d`};
+const rt=ts=>{const d=Date.now()-ts;if(d<60000)return'now';if(d<3600000)return`${Math.floor(d/60000)}m`;if(d<86400000)return`${Math.floor(d/3600000)}h`;return`${Math.floor(d/86400000)}d`};
 
 function renderFL(fr,pr){
   const el=document.getElementById('fl');
-  if(!fr||!fr.levels){el.innerHTML='<div style="font-family:var(--fm);font-size:10px;color:rgba(0,255,65,.2)">Sin datos</div>';return}
+  if(!fr||!fr.levels){el.innerHTML='<div style="font-family:var(--fm);font-size:10px;color:rgba(0,255,65,.2)">No data</div>';return}
   const lvls=fr.levels;
   const ab=lvls.filter(l=>l.price>pr).sort((a,b)=>a.price-b.price).slice(0,4);
   const be=lvls.filter(l=>l.price<=pr).sort((a,b)=>b.price-a.price).slice(0,4);
@@ -841,7 +852,7 @@ function renderAlerts(al){
   const b=document.getElementById('alertBox'),l=document.getElementById('alertList');
   if(!al||!al.length){b.style.display='none';return}
   b.style.display='block';
-  l.innerHTML=al.map(a=>`<div class="alerta-item ${a.nivel}">${a.msg.replace(/^\[[^\]]+\]\s*/,'')}</div>`).join('');
+  l.innerHTML=al.map(a=>`<div class="alerta-item ${a.nivel}">${translateAlert(a.msg)}</div>`).join('');
 }
 function toast(msg,nivel,ms=6000){
   const c=document.getElementById('toasts'),t=document.createElement('div');
@@ -979,10 +990,10 @@ function updateNPFavInfo(){
   const el = document.getElementById('npFavInfo');
   if(!el) return;
   if(!wl.size){
-    el.innerText = 'Sin favoritos — marca ★ activos para vigilar';
+    el.innerText = 'No favorites — mark ★ assets to watch';
   } else {
     const names = [...wl].map(t => DN[t] || t).join(', ');
-    el.innerText = `★ ${wl.size} activo${wl.size>1?'s':''}: ${names}`;
+    el.innerText = `★ ${wl.size} asset${wl.size>1?'s':''}: ${names}`;
   }
 }
 
@@ -1099,6 +1110,7 @@ async function saveNPPrefs() {
     email_address:    email || '',
     email_enabled:    !!email,
     tickers:          [...wl],
+    language:         'en',
   };
 
   try {
