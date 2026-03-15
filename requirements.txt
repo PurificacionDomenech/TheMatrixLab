@@ -19,3 +19,14 @@ plotly
 python-multipart
 uvicorn
 yfinance
+apscheduler
+fastapi
+gunicorn
+httpx
+jinja2
+numpy
+pandas
+plotly
+python-multipart
+uvicorn
+yfinance
