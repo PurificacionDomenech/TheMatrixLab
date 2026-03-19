@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Confirmación · The Matrix Lab</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:#00ff41;font-family:'Courier New',monospace;
+       display:flex;align-items:center;justify-content:center;min-height:100vh;
+       padding:20px}
+  .card{max-width:420px;width:100%;text-align:center;padding:40px 30px;
+        border:1px solid rgba(0,255,65,.2);border-radius:12px;
+        background:rgba(0,20,0,.6);backdrop-filter:blur(10px)}
+  .logo{font-size:28px;font-weight:900;letter-spacing:.15em;margin-bottom:6px;
+        text-shadow:0 0 20px rgba(0,255,65,.5)}
+  .sub{font-size:10px;letter-spacing:.3em;color:rgba(0,255,65,.4);
+       text-transform:uppercase;margin-bottom:32px}
+  .icon{font-size:48px;margin-bottom:20px;display:block}
+  .title{font-size:18px;font-weight:700;margin-bottom:10px;color:#00ff41}
+  .desc{font-size:12px;color:rgba(0,255,65,.55);line-height:1.7;margin-bottom:28px}
+  .name{color:#00ff41;font-weight:700}
+  .btn{display:inline-block;width:100%;padding:12px;
+       background:rgba(0,255,65,.12);border:1px solid rgba(0,255,65,.3);
+       border-radius:6px;color:#00ff41;font-family:'Courier New',monospace;
+       font-size:11px;font-weight:700;letter-spacing:.12em;cursor:pointer;
+       text-decoration:none;transition:all .2s;text-transform:uppercase}
+  .btn:hover{background:rgba(0,255,65,.2);border-color:rgba(0,255,65,.6);
+             box-shadow:0 0 15px rgba(0,255,65,.15)}
+  .error-box{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.2);
+             border-radius:6px;padding:12px;margin-bottom:20px;
+             color:rgba(255,120,120,.8);font-size:11px;line-height:1.6;display:none}
+  .spinner{display:inline-block;width:18px;height:18px;
+           border:2px solid rgba(0,255,65,.2);border-top-color:#00ff41;
+           border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;
+           margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading{font-size:12px;color:rgba(0,255,65,.5);margin-bottom:20px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">⬡ MATRIX LAB</div>
+  <div class="sub">Sistema de Análisis Técnico</div>
+
+  <span class="icon" id="ico">⏳</span>
+  <div class="title" id="ttl">Verificando cuenta…</div>
+  <div class="loading" id="load"><span class="spinner"></span> Procesando confirmación</div>
+  <div class="desc" id="dsc"></div>
+  <div class="error-box" id="errBox"></div>
+  <a href="/" class="btn" id="btn" style="display:none">ACCEDER AL DASHBOARD</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://mscvlzxxuawwmltsdxxb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_sEHlzkptuyaVbBrmx8FDGg_3gMcVvi7';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: true,
+  }
+});
+
+function showSuccess(name) {
+  document.getElementById('ico').textContent  = '✅';
+  document.getElementById('load').style.display = 'none';
+  document.getElementById('ttl').textContent  = '¡Bienvenido a Matrix Lab!';
+  const greeting = name ? `Hola <span class="name">${name}</span>, tu` : 'Tu';
+  document.getElementById('dsc').innerHTML =
+    `${greeting} cuenta ha sido confirmada correctamente.<br><br>
+     Ya tienes acceso al sistema de análisis técnico con EMAs, fractales y alertas en tiempo real.<br><br>
+     <span style="color:rgba(0,255,65,.35);font-size:10px">Esta ventana se cerrará en 4 segundos…</span>`;
+  document.getElementById('btn').style.display = 'inline-block';
+  setTimeout(() => { window.location.href = '/'; }, 4000);
+}
+
+function showError(msg) {
+  document.getElementById('ico').textContent  = '⚠️';
+  document.getElementById('load').style.display = 'none';
+  document.getElementById('ttl').textContent  = 'Enlace ya utilizado';
+  document.getElementById('dsc').innerHTML =
+    `Este enlace de confirmación ya fue usado o ha caducado.<br><br>
+     Si ya puedes acceder a tu cuenta, simplemente inicia sesión.`;
+  const eb = document.getElementById('errBox');
+  eb.style.display = 'block';
+  eb.textContent   = msg || 'El token de confirmación no es válido.';
+  document.getElementById('btn').style.display = 'inline-block';
+}
+
+(async () => {
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) { showError(error.message); return; }
+
+    if (data?.session?.user) {
+      const name = data.session.user.user_metadata?.full_name ||
+                   data.session.user.email?.split('@')[0] || '';
+      showSuccess(name);
+      return;
+    }
+
+    // Intentar intercambiar el código si viene como code= en la URL
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get('code');
+    if (code) {
+      const { data: d2, error: e2 } = await sb.auth.exchangeCodeForSession(code);
+      if (e2) { showError(e2.message); return; }
+      const name = d2?.user?.user_metadata?.full_name ||
+                   d2?.user?.email?.split('@')[0] || '';
+      showSuccess(name);
+      return;
+    }
+
+    // Si no hay sesión ni code, el enlace ya fue usado
+    showError('No se encontró un token de confirmación válido en esta URL.');
+  } catch(e) {
+    showError(e.message);
+  }
+})();
+</script>
+</body>
+</html>

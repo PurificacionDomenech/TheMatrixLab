@@ -823,6 +823,11 @@ async def dashboard():
     return FileResponse("templates/index.html")
 
 
+@app.get("/confirm")
+async def confirm_email():
+    return FileResponse("templates/confirm.html")
+
+
 @app.get("/en")
 async def splash_en():
     return FileResponse("templates/Splash_en.html")
