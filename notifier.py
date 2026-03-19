@@ -432,6 +432,83 @@ def _build_html(alertas: list[dict], now_str: str) -> str:
       </div></body></html>"""
 
 
+# ── Mensaje rico por confluencias ────────────────────────────
+
+def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: str, lang: str = "es") -> str:
+    """Construye el mensaje Telegram de la matriz de confluencias."""
+    t      = resultado["ticker"]
+    name   = ASSET_NAMES.get(t, t)
+    precio = resultado["precio"]
+    rsi    = resultado["rsi"]
+    puntos = resultado["puntos"]
+    estado = resultado["estado"]
+    confs  = resultado["confluencias"]
+
+    estado_emoji = {"FAVORABLE": "🟢", "INTERESANTE": "🔵", "CONSIDERAR": "🟡"}.get(estado, "⚪")
+    dia_map_es = {"Monday":"Lunes","Tuesday":"Martes","Wednesday":"Miércoles",
+                  "Thursday":"Jueves","Friday":"Viernes","Saturday":"Sábado","Sunday":"Domingo"}
+    dia_label = dia_map_es.get(dia_name, dia_name) if lang == "es" else dia_name
+
+    if lang == "en":
+        lines = [
+            f"<b>⬡ MATRIX LAB · {now_str}</b>",
+            f"",
+            f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
+            f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluences",
+        ]
+        if hora:
+            lines.insert(3, f"🕐 4H candle · {dia_label}  {hora} UTC")
+        lines += ["", "<b>Active confluences:</b>"]
+        for c in confs:
+            lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
+        lines += ["", "<i>Automated technical analysis · Not financial advice</i>"]
+    else:
+        lines = [
+            f"<b>⬡ MATRIX LAB · {now_str}</b>",
+            f"",
+            f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
+            f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluencias",
+        ]
+        if hora:
+            lines.insert(3, f"🕐 Vela 4H · {dia_label}  {hora} UTC")
+        lines += ["", "<b>Confluencias activas:</b>"]
+        for c in confs:
+            lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
+        lines += ["", "<i>Análisis técnico automatizado · No es asesoría financiera</i>"]
+
+    return "\n".join(lines)
+
+
+def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
+    """
+    Wrapper inteligente: usa _build_confluencia_msg si hay 'resultado',
+    y _build_tg_grouped como fallback para alertas antiguas.
+    """
+    has_resultado = any(
+        a.get("resultado")
+        for al in alerts_by_ticker.values()
+        for a in al
+    )
+    if has_resultado:
+        blocks = [f"<b>⬡ Matrix Lab · {now_str}</b>"]
+        for ticker, alertas in alerts_by_ticker.items():
+            for a in alertas:
+                res = a.get("resultado")
+                if res:
+                    msg = _build_confluencia_msg(
+                        res,
+                        hora=a.get("hora", ""),
+                        dia_name=a.get("dia_name", ""),
+                        now_str=now_str,
+                        lang=lang,
+                    )
+                    # Omitir la primera línea (cabecera) para no duplicarla
+                    body = "\n".join(msg.split("\n")[1:])
+                    blocks.append(body)
+        return "\n".join(blocks)
+    return _build_tg_grouped(alerts_by_ticker, now_str, lang=lang)
+
+
 # ── Función principal — por usuario ─────────────────────────
 
 async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
@@ -484,7 +561,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])
                 covered_chat_ids.add(cid)
-                texto_tg = _build_tg_grouped(user_by_ticker, now_str, lang=lang)
+                texto_tg = _build_tg_for_user(user_by_ticker, now_str, lang=lang)
                 await send_telegram_to(cid, texto_tg)
                 await asyncio.sleep(0.05)
 
@@ -497,7 +574,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
 
     # 2 — Suscriptores básicos de Telegram (/start) sin preferencias configuradas
     if TELEGRAM_TOKEN and all_alertas_flat and basic_chat_ids:
-        texto_base = _build_tg_grouped(alerts_by_ticker, now_str)
+        texto_base = _build_tg_for_user(alerts_by_ticker, now_str)
         nuevos = 0
         for cid in basic_chat_ids:
             if int(cid) not in covered_chat_ids:

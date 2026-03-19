@@ -1,0 +1,201 @@
+Los cambios concretos que necesitas hacer son tres: una función nueva en main.py, un template de mensaje nuevo en notifier.py, y sincronizar calcEstado del frontend con esa misma lógica.
+1. Nueva función evaluate_confluencias() en main.py
+Reemplaza la lógica de detect_alerts para los casos de vigilancia. Esta función evalúa las 5 condiciones de tu matriz y devuelve tanto la puntuación como el detalle de cada confluencia activa:
+pythondef evaluate_confluencias(df, ticker="", cfg=None, opens=None):
+    """
+    Evalúa las 5 confluencias de la matriz y devuelve resultado estructurado.
+    Devuelve alerta solo si se cumplen >= 3 de 5.
+    """
+    if len(df) < 14:
+        return None
+
+    n = len(df) - 1
+    price = float(df["Close"].iloc[n])
+    rsi   = float(df["RSI"].iloc[n]) if pd.notna(df["RSI"].iloc[n]) else 50
+    es    = cfg["ema_short"] if cfg else 200
+    el    = cfg["ema_long"]  if cfg else 800
+
+    ema_s = float(df[f"EMA{es}"].iloc[n])  if f"EMA{es}" in df.columns and pd.notna(df[f"EMA{es}"].iloc[n])  else None
+    ema_l = float(df[f"EMA{el}"].iloc[n])  if f"EMA{el}" in df.columns and pd.notna(df[f"EMA{el}"].iloc[n])  else None
+
+    confluencias = []
+    puntos = 0
+
+    # ① RSI sobrevendido (<30) — o sobrecomprado (>70) para bajistas
+    if rsi < 30:
+        confluencias.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrevendido ({rsi:.1f})", "tipo": "bullish"})
+        puntos += 1
+    elif rsi > 70:
+        confluencias.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrecomprado ({rsi:.1f})", "tipo": "bearish"})
+        puntos += 1
+    else:
+        confluencias.append({"id": 1, "ok": False,
+            "texto": f"RSI neutro ({rsi:.1f})", "tipo": "info"})
+
+    # ② Cruce de medias: EMA200 sobre EMA800 (tendencia alcista)
+    if ema_s and ema_l:
+        if ema_s > ema_l:
+            confluencias.append({"id": 2, "ok": True,
+                "texto": f"EMA{es} ({ema_s:.0f}) > EMA{el} ({ema_l:.0f}) — tendencia alcista", "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 2, "ok": False,
+                "texto": f"EMA{es} < EMA{el} — tendencia bajista", "tipo": "bearish"})
+
+    # ③ Precio respetando nivel clave fractal como soporte
+    fractal_ok = False
+    if cfg:
+        fr  = calc_fractales(price, cfg)
+        ft  = detect_fractal_touch(
+            float(df["High"].iloc[n]), float(df["Low"].iloc[n]), price, fr)
+        if ft["touch"] and ft["tipo"] == "soporte":
+            fractal_ok = True
+            tag = "MAYOR" if ft["is_major"] else "menor"
+            confluencias.append({"id": 3, "ok": True,
+                "texto": f"Nivel clave {tag} actuando como soporte en {ft['price']:.2f}", "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 3, "ok": False,
+                "texto": "Sin nivel clave relevante en precio actual", "tipo": "info"})
+
+    # ④ Precio en zona de apertura anual o semanal
+    if opens:
+        yo = opens.get("year_open")
+        wo = opens.get("week_open")
+        tol = price * 0.003  # 0.3% de tolerancia
+        if yo and abs(price - yo) <= tol:
+            confluencias.append({"id": 4, "ok": True,
+                "texto": f"Precio en apertura anual ({yo:.2f})", "tipo": "bullish"})
+            puntos += 1
+        elif wo and abs(price - wo) <= tol:
+            confluencias.append({"id": 4, "ok": True,
+                "texto": f"Precio en apertura semanal ({wo:.2f})", "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 4, "ok": False,
+                "texto": "Lejos de apertura anual/semanal", "tipo": "info"})
+
+    # ⑤ Retroceso Fibonacci 55.9% (busca si el precio está en esa zona)
+    # Calcula el swing del período disponible
+    high_52w = float(df["High"].max())
+    low_52w  = float(df["Low"].min())
+    fib_559  = high_52w - (high_52w - low_52w) * 0.559
+    tol_fib  = (high_52w - low_52w) * 0.015  # 1.5% del rango
+    if abs(price - fib_559) <= tol_fib:
+        confluencias.append({"id": 5, "ok": True,
+            "texto": f"Fibonacci 55.9% en {fib_559:.2f} (rango {low_52w:.0f}–{high_52w:.0f})", "tipo": "bullish"})
+        puntos += 1
+    else:
+        pct_from_fib = (price - fib_559) / fib_559 * 100
+        confluencias.append({"id": 5, "ok": False,
+            "texto": f"Fib 55.9% en {fib_559:.2f} ({pct_from_fib:+.1f}% de distancia)", "tipo": "info"})
+
+    # Determinar estado
+    if puntos >= 4:
+        estado = "FAVORABLE"
+        nivel  = "bullish"
+    elif puntos == 3:
+        estado = "INTERESANTE"
+        nivel  = "bullish"
+    elif puntos == 2:
+        estado = "CONSIDERAR"
+        nivel  = "info"
+    else:
+        estado = "NO AHORA"
+        nivel  = "info"
+
+    # Solo dispara alerta si ≥ 3 confluencias
+    if puntos < 3:
+        return None
+
+    return {
+        "ticker":       ticker.upper(),
+        "precio":       price,
+        "rsi":          rsi,
+        "puntos":       puntos,
+        "estado":       estado,
+        "nivel":        nivel,
+        "confluencias": confluencias,
+    }
+2. Template de mensaje en notifier.py
+Añade esta función que construye el mensaje rico para Telegram:
+pythondef _build_confluencia_msg(resultado: dict, now_str: str) -> str:
+    """
+    Construye el mensaje Telegram con el formato de la matriz:
+    activo, hora, estado, precio, RSI y las confluencias activas.
+    """
+    t       = resultado["ticker"]
+    name    = ASSET_NAMES.get(t, t)
+    precio  = resultado["precio"]
+    rsi     = resultado["rsi"]
+    puntos  = resultado["puntos"]
+    estado  = resultado["estado"]
+    confs   = resultado["confluencias"]
+
+    estado_emoji = {
+        "FAVORABLE":   "🟢",
+        "INTERESANTE": "🔵",
+        "CONSIDERAR":  "🟡",
+    }.get(estado, "⚪")
+
+    lines = [
+        f"<b>⬡ MATRIX LAB · {now_str}</b>",
+        f"",
+        f"<b>📊 {name}</b>  |  <b>{precio:,.2f}</b>",
+        f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluencias",
+        f"",
+        f"<b>Confluencias activas:</b>",
+    ]
+
+    for c in confs:
+        if c["ok"]:
+            emoji = "✅"
+        else:
+            emoji = "◻️"
+        lines.append(f"{emoji} {c['texto']}")
+
+    lines.append("")
+    lines.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
+
+    return "\n".join(lines)
+```
+
+Un mensaje de ejemplo quedaría así:
+```
+⬡ MATRIX LAB · 19/03/2026 10:00
+
+📊 XAUUSD · Oro  |  2.987,40
+🟢 FAVORABLE  ·  RSI 28.3  ·  4/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (28.3)
+✅ EMA200 (2.941) > EMA800 (2.876) — tendencia alcista
+✅ Nivel clave MAYOR actuando como soporte en 2.950
+✅ Fibonacci 55.9% en 2.991 (rango 2.400–3.200)
+◻️ Lejos de apertura anual/semanal
+3. Integrar en _check_tickers()
+Sustituye la llamada a detect_alerts dentro de _check_tickers por la nueva función:
+python# Dentro de _check_tickers(), reemplaza el bloque de detect_alerts:
+opens_data = calc_opens(df)
+
+resultado = evaluate_confluencias(
+    df_slice,
+    ticker=t.upper(),
+    cfg=cfg,
+    opens=opens_data
+)
+
+if resultado:
+    key = f"{t}_{resultado['estado']}_{round(resultado['precio'], -1)}"
+    if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
+        nuevas.append({
+            "nivel":     resultado["nivel"],
+            "msg":       resultado["ticker"],  # para compatibilidad con sistema actual
+            "resultado": resultado,            # datos completos para el template
+        })
+        _sent_cache[key] = now
+Y en notify_users_with_alerts, cuando construyas el mensaje de Telegram usa _build_confluencia_msg si la alerta tiene el campo resultado, y el formato antiguo para las alertas básicas de cruces de EMA que quieras mantener.
+4. Sincronizar calcEstado del frontend
+La función calcEstado en index.html debe usar exactamente los mismos umbrales. El backend debería exponer el resultado de evaluate_confluencias en el endpoint /api/row/{ticker} con un campo confluencias_puntos para que el frontend no recalcule por su cuenta.

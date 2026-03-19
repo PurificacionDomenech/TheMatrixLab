@@ -445,6 +445,136 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
     return alertas
 
 
+# ─── CONFLUENCIAS ────────────────────────────────────────────
+
+
+def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
+    """
+    Evalúa las 5 confluencias de la matriz y devuelve resultado estructurado.
+    Devuelve alerta solo si se cumplen >= 3 de 5.
+    """
+    if len(df) < 14:
+        return None
+
+    n     = len(df) - 1
+    price = float(df["Close"].iloc[n])
+    es    = cfg["ema_short"] if cfg else 200
+    el    = cfg["ema_long"]  if cfg else 800
+
+    rsi_raw = df["RSI"].iloc[n] if "RSI" in df.columns else None
+    rsi = float(rsi_raw) if pd.notna(rsi_raw) else 50.0
+
+    ema_s_val = None
+    if f"EMA{es}" in df.columns and pd.notna(df[f"EMA{es}"].iloc[n]):
+        ema_s_val = float(df[f"EMA{es}"].iloc[n])
+    ema_l_val = None
+    if f"EMA{el}" in df.columns and pd.notna(df[f"EMA{el}"].iloc[n]):
+        ema_l_val = float(df[f"EMA{el}"].iloc[n])
+
+    confluencias = []
+    puntos = 0
+
+    # ① RSI sobrevendido (<30) o sobrecomprado (>70)
+    if rsi < 30:
+        confluencias.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrevendido ({rsi:.1f})", "tipo": "bullish"})
+        puntos += 1
+    elif rsi > 70:
+        confluencias.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrecomprado ({rsi:.1f})", "tipo": "bearish"})
+        puntos += 1
+    else:
+        confluencias.append({"id": 1, "ok": False,
+            "texto": f"RSI neutro ({rsi:.1f})", "tipo": "info"})
+
+    # ② EMA200 > EMA800 — tendencia alcista
+    if ema_s_val and ema_l_val:
+        if ema_s_val > ema_l_val:
+            confluencias.append({"id": 2, "ok": True,
+                "texto": f"EMA{es} ({ema_s_val:.5g}) > EMA{el} ({ema_l_val:.5g}) — tendencia alcista",
+                "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 2, "ok": False,
+                "texto": f"EMA{es} < EMA{el} — tendencia bajista", "tipo": "bearish"})
+
+    # ③ Precio respetando nivel clave fractal como soporte
+    if cfg:
+        fr = calc_fractales(price, cfg)
+        ft = detect_fractal_touch(
+            float(df["High"].iloc[n]), float(df["Low"].iloc[n]), price, fr)
+        if ft["touch"] and ft["tipo"] == "soporte":
+            tag = "MAYOR" if ft["is_major"] else "menor"
+            confluencias.append({"id": 3, "ok": True,
+                "texto": f"Nivel clave {tag} como soporte en {ft['price']:.5g}",
+                "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 3, "ok": False,
+                "texto": "Sin nivel clave fractal relevante", "tipo": "info"})
+
+    # ④ Precio en zona de apertura anual o semanal (±0.3%)
+    if opens:
+        yo  = opens.get("year_open")
+        wo  = opens.get("week_open")
+        tol = price * 0.003
+        if yo and abs(price - yo) <= tol:
+            confluencias.append({"id": 4, "ok": True,
+                "texto": f"Precio en apertura anual ({yo:.5g})", "tipo": "bullish"})
+            puntos += 1
+        elif wo and abs(price - wo) <= tol:
+            confluencias.append({"id": 4, "ok": True,
+                "texto": f"Precio en apertura semanal ({wo:.5g})", "tipo": "bullish"})
+            puntos += 1
+        else:
+            confluencias.append({"id": 4, "ok": False,
+                "texto": "Lejos de apertura anual/semanal", "tipo": "info"})
+    else:
+        confluencias.append({"id": 4, "ok": False,
+            "texto": "Datos de apertura no disponibles", "tipo": "info"})
+
+    # ⑤ Retroceso Fibonacci 55.9% del rango del período
+    high_p = float(df["High"].max())
+    low_p  = float(df["Low"].min())
+    fib559 = high_p - (high_p - low_p) * 0.559
+    tol_f  = (high_p - low_p) * 0.015
+    if abs(price - fib559) <= tol_f:
+        confluencias.append({"id": 5, "ok": True,
+            "texto": f"Fibonacci 55.9% en {fib559:.5g} (rango {low_p:.5g}–{high_p:.5g})",
+            "tipo": "bullish"})
+        puntos += 1
+    else:
+        pct_dist = (price - fib559) / fib559 * 100
+        confluencias.append({"id": 5, "ok": False,
+            "texto": f"Fib 55.9% en {fib559:.5g} ({pct_dist:+.1f}% de distancia)",
+            "tipo": "info"})
+
+    # Determinar estado
+    if puntos >= 4:
+        estado = "FAVORABLE"
+        nivel  = "bullish"
+    elif puntos == 3:
+        estado = "INTERESANTE"
+        nivel  = "bullish"
+    elif puntos == 2:
+        estado = "CONSIDERAR"
+        nivel  = "info"
+    else:
+        estado = "NO AHORA"
+        nivel  = "info"
+
+    return {
+        "ticker":       ticker.upper(),
+        "precio":       price,
+        "rsi":          rsi,
+        "puntos":       puntos,
+        "estado":       estado,
+        "nivel":        nivel,
+        "confluencias": confluencias,
+        "alert":        puntos >= 3,   # True = enviar notificación
+    }
+
+
 # ─── SCHEDULER ───────────────────────────────────────────────
 
 
@@ -465,6 +595,7 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
                 continue
             df = clean_df(df)
             df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            opens_data = calc_opens(df)
             nuevas = []
             # Analizar las últimas num_candles velas
             for i in range(min(num_candles, len(df))):
@@ -473,52 +604,33 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
                 ts = df.index[fila]
                 try:
                     hora = pd.Timestamp(ts).strftime("%d/%m %H:%M")
-                except Exception:
-                    hora = ""
-                # Día de semana (0=Lun … 4=Vie)
-                try:
                     ts_parsed = pd.Timestamp(ts)
                     dia_num  = ts_parsed.weekday()
-                    dia_name = ts_parsed.strftime("%A")  # English name
+                    dia_name = ts_parsed.strftime("%A")
                 except Exception:
+                    hora     = ""
                     dia_num  = -1
                     dia_name = ""
 
-                al = detect_alerts(
+                resultado = evaluate_confluencias(
                     df_slice,
                     ticker=t.upper(),
-                    ema_short=cfg["ema_short"],
-                    ema_long=cfg["ema_long"],
                     cfg=cfg,
+                    opens=opens_data,
                 )
-                for a in al:
-                    key = a["msg"]
+
+                if resultado and resultado.get("alert"):
+                    # Clave de deduplicación: ticker + estado + precio redondeado
+                    key = f"{t}_{resultado['estado']}_{round(resultado['precio'], -1)}"
                     if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
-                        alerta = dict(a)
-                        # Añadir contexto temporal
-                        alerta["hora"]     = hora
-                        alerta["dia_num"]  = dia_num
-                        alerta["dia_name"] = dia_name
-                        # Puntos por RSI
-                        rsi_v = a.get("rsi")
-                        if rsi_v is not None:
-                            if rsi_v < 30 or rsi_v > 70:
-                                rsi_pts = 3
-                            elif rsi_v < 40 or rsi_v > 60:
-                                rsi_pts = 1
-                            else:
-                                rsi_pts = 0
-                        else:
-                            rsi_pts = 0
-                        alerta["rsi_pts"] = rsi_pts
-                        # Punto extra Martes-Miércoles-Jueves
-                        dia_pts = 1 if dia_num in (1, 2, 3) else 0
-                        alerta["dia_pts"] = dia_pts
-                        # Puntuación total
-                        alerta["score"] = a.get("pts", 0) + rsi_pts + dia_pts
-                        if hora:
-                            alerta["msg"] = a["msg"] + f" · {hora}"
-                        nuevas.append(alerta)
+                        nuevas.append({
+                            "nivel":     resultado["nivel"],
+                            "msg":       f"[{t.upper()}] {resultado['estado']} {hora}".strip(),
+                            "hora":      hora,
+                            "dia_num":   dia_num,
+                            "dia_name":  dia_name,
+                            "resultado": resultado,
+                        })
                         _sent_cache[key] = now
             if nuevas:
                 alerts_by_ticker[t.upper()] = nuevas
@@ -937,6 +1049,8 @@ async def get_row(ticker: str):
         ft = detect_fractal_touch(
             float(df["High"].iloc[-1]), float(df["Low"].iloc[-1]), last, fr
         )
+        opens = calc_opens(df)
+        confl = evaluate_confluencias(df, ticker=ticker.upper(), cfg=cfg, opens=opens)
         return {
             "ticker": ticker.upper(),
             "price": last,
@@ -951,6 +1065,10 @@ async def get_row(ticker: str):
             "fractal_is_major": ft["is_major"],
             "fractal_tipo": ft["tipo"],
             "fractal_crosses": ft["crosses"],
+            "confluencias_puntos": confl["puntos"] if confl else 0,
+            "confluencias_estado": confl["estado"] if confl else "NO AHORA",
+            "confluencias": confl["confluencias"] if confl else [],
+            "confluencias_rsi": confl["rsi"] if confl else None,
         }
     except Exception as e:
         return {"error": str(e)}
