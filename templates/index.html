@@ -210,7 +210,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
       <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">📱 Telegram</div>
       <div style="font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.4);line-height:1.9;margin-bottom:6px">
         1. Abre el bot y envía <span style="color:var(--g);background:rgba(0,255,65,.08);padding:1px 5px;border-radius:3px">/start</span><br>
-        <a id="npTgLink" href="#" target="_blank" style="color:rgba(0,200,255,.7);text-decoration:none;font-size:10px;font-weight:700">Cargando bot…</a><br>
+        <span id="npTgLink" style="color:rgba(0,200,255,.7);font-size:10px;font-weight:700;cursor:default">Cargando bot…</span><br>
         2. El bot te enviará tu <b style="color:rgba(0,255,65,.6)">Chat ID</b> — pégalo aquí:
       </div>
       <input id="npTgIdInput" type="number" placeholder="Tu Chat ID (ej: 123456789)"
@@ -998,13 +998,24 @@ async function loadNPStatus() {
   try {
     const r2 = await fetch('/api/bot-info');
     const d2 = await r2.json();
+    const linkEl = document.getElementById('npTgLink');
     if (d2.username) {
-      const link = document.getElementById('npTgLink');
-      link.href = `https://t.me/${d2.username}`;
-      link.innerText = `@${d2.username}`;
+      const a = document.createElement('a');
+      a.href = `https://t.me/${d2.username}`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.cssText = 'color:rgba(0,200,255,.9);text-decoration:none;font-size:10px;font-weight:700';
+      a.innerText = `🤖 Abrir @${d2.username}`;
+      linkEl.replaceWith(a);
+      a.id = 'npTgLink';
+    } else {
+      linkEl.innerText = '⚠️ Bot no configurado (falta token)';
+      linkEl.style.color = 'rgba(255,170,0,.6)';
+      linkEl.style.cursor = 'default';
     }
   } catch(e) {
-    document.getElementById('npTgLink').innerText = '(sin bot configurado)';
+    const el = document.getElementById('npTgLink');
+    if (el) { el.innerText = '(sin bot configurado)'; el.style.cursor='default'; }
   }
 
   // ── 2. Suscriptores Telegram ─────────────────────────────
