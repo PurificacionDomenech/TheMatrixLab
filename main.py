@@ -349,62 +349,99 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
     pn, pp = float(df["Close"].iloc[n]), float(df["Close"].iloc[n - 1])
     prefix = f"[{ticker}] " if ticker else ""
     cs, cl = f"EMA{ema_short}", f"EMA{ema_long}"
-    for col, nombre in [(cs, f"EMA{ema_short}"), (cl, f"EMA{ema_long}")]:
+
+    # RSI actual
+    rsi_val = None
+    if "RSI" in df.columns:
+        r = df["RSI"].iloc[n]
+        if pd.notna(r):
+            rsi_val = float(r)
+
+    # ── EMA crosses / touches ──────────────────────────────────
+    for col, nombre, pts in [(cs, f"EMA{ema_short}", 2), (cl, f"EMA{ema_long}", 4)]:
         if col not in df.columns:
             continue
         en, ep = df[col].iloc[n], df[col].iloc[n - 1]
         if not (pd.notna(en) and pd.notna(ep)):
             continue
-        if pp < ep and pn >= en:
-            alertas.append(
-                {
-                    "nivel": "bullish",
-                    "msg": prefix + f"Precio cruza {nombre} al alza ${pn:.2f}",
-                }
-            )
-        elif pp > ep and pn <= en:
-            alertas.append(
-                {
-                    "nivel": "bearish",
-                    "msg": prefix + f"Precio cruza {nombre} a la baja ${pn:.2f}",
-                }
-            )
-        elif en > 0 and abs(pn - en) / en * 100 <= 0.4:
-            alertas.append(
-                {"nivel": "info", "msg": prefix + f"Precio tocando {nombre} ${pn:.2f}"}
-            )
+        en_f = float(en)
+        if pp < ep and pn >= en_f:
+            alertas.append({
+                "nivel": "bullish",
+                "tipo": "ema_cross_up",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio cruza {nombre} al alza ${pn:.5g}",
+            })
+        elif pp > ep and pn <= en_f:
+            alertas.append({
+                "nivel": "bearish",
+                "tipo": "ema_cross_down",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio cruza {nombre} a la baja ${pn:.5g}",
+            })
+        elif en_f > 0 and abs(pn - en_f) / en_f * 100 <= 0.4:
+            alertas.append({
+                "nivel": "info",
+                "tipo": "ema_touch",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio tocando {nombre} ${pn:.5g}",
+            })
+
+    # ── Golden / Death Cross ───────────────────────────────────
     esn = df[cs].iloc[n] if cs in df.columns else None
     esp = df[cs].iloc[n - 1] if cs in df.columns else None
     eln = df[cl].iloc[n] if cl in df.columns else None
     elp = df[cl].iloc[n - 1] if cl in df.columns else None
     if all(pd.notna(x) for x in [esn, esp, eln, elp] if x is not None):
         if esp < elp and esn >= eln:
-            alertas.append(
-                {
-                    "nivel": "bullish",
-                    "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}",
-                }
-            )
+            alertas.append({
+                "nivel": "bullish",
+                "tipo": "golden_cross",
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": 3,
+                "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}",
+            })
         elif esp > elp and esn <= eln:
-            alertas.append(
-                {
-                    "nivel": "bearish",
-                    "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}",
-                }
-            )
+            alertas.append({
+                "nivel": "bearish",
+                "tipo": "death_cross",
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": 3,
+                "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}",
+            })
+
+    # ── Fractales ─────────────────────────────────────────────
     if cfg is not None:
         fr = calc_fractales(pn, cfg)
         ft = detect_fractal_touch(
             float(df["High"].iloc[n]), float(df["Low"].iloc[n]), pn, fr
         )
         if ft["touch"]:
-            alertas.append(
-                {
-                    "nivel": "bullish" if ft["tipo"] == "soporte" else "bearish",
-                    "msg": prefix
-                    + f"⬡ Vela toca fractal {'MAYOR ' if ft['is_major'] else ''}{ft['tipo'].upper()} ${ft['price']:.2f}",
-                }
-            )
+            alertas.append({
+                "nivel": "bullish" if ft["tipo"] == "soporte" else "bearish",
+                "tipo": "fractal",
+                "fractal_precio": ft["price"],
+                "fractal_tipo": ft["tipo"],
+                "fractal_mayor": ft["is_major"],
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": 3 if ft["is_major"] else 1,
+                "msg": prefix + f"⬡ Vela toca fractal {'MAYOR ' if ft['is_major'] else ''}{ft['tipo'].upper()} ${ft['price']:.5g}",
+            })
     return alertas
 
 
@@ -438,6 +475,15 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
                     hora = pd.Timestamp(ts).strftime("%d/%m %H:%M")
                 except Exception:
                     hora = ""
+                # Día de semana (0=Lun … 4=Vie)
+                try:
+                    ts_parsed = pd.Timestamp(ts)
+                    dia_num  = ts_parsed.weekday()
+                    dia_name = ts_parsed.strftime("%A")  # English name
+                except Exception:
+                    dia_num  = -1
+                    dia_name = ""
+
                 al = detect_alerts(
                     df_slice,
                     ticker=t.upper(),
@@ -449,6 +495,27 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
                     key = a["msg"]
                     if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
                         alerta = dict(a)
+                        # Añadir contexto temporal
+                        alerta["hora"]     = hora
+                        alerta["dia_num"]  = dia_num
+                        alerta["dia_name"] = dia_name
+                        # Puntos por RSI
+                        rsi_v = a.get("rsi")
+                        if rsi_v is not None:
+                            if rsi_v < 30 or rsi_v > 70:
+                                rsi_pts = 3
+                            elif rsi_v < 40 or rsi_v > 60:
+                                rsi_pts = 1
+                            else:
+                                rsi_pts = 0
+                        else:
+                            rsi_pts = 0
+                        alerta["rsi_pts"] = rsi_pts
+                        # Punto extra Martes-Miércoles-Jueves
+                        dia_pts = 1 if dia_num in (1, 2, 3) else 0
+                        alerta["dia_pts"] = dia_pts
+                        # Puntuación total
+                        alerta["score"] = a.get("pts", 0) + rsi_pts + dia_pts
                         if hora:
                             alerta["msg"] = a["msg"] + f" · {hora}"
                         nuevas.append(alerta)
