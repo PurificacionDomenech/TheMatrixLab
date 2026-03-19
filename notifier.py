@@ -61,23 +61,185 @@ ASSET_NAMES = {
 def _strip_ticker(msg: str) -> str:
     return re.sub(r'^\[[^\]]+\]\s*', '', msg)
 
+_DIA_ES = {
+    "Monday":    "Lunes",
+    "Tuesday":   "Martes",
+    "Wednesday": "Miércoles",
+    "Thursday":  "Jueves",
+    "Friday":    "Viernes",
+    "Saturday":  "Sábado",
+    "Sunday":    "Domingo",
+}
+_DIA_EN = {
+    "Monday": "Monday", "Tuesday": "Tuesday", "Wednesday": "Wednesday",
+    "Thursday": "Thursday", "Friday": "Friday", "Saturday": "Saturday", "Sunday": "Sunday",
+}
+
+def _rsi_ctx(rsi: float, lang: str) -> str:
+    if lang == "en":
+        if rsi > 70:   return "overbought"
+        if rsi < 30:   return "oversold"
+        if rsi > 60:   return "approaching overbought"
+        if rsi < 40:   return "approaching oversold"
+        return "neutral"
+    else:
+        if rsi > 70:   return "sobrecompra"
+        if rsi < 30:   return "sobreventa"
+        if rsi > 60:   return "zona alta"
+        if rsi < 40:   return "zona baja"
+        return "zona neutra"
+
+def _signal_lines(a: dict, lang: str) -> list[str]:
+    """Genera las líneas explicativas para una alerta concreta."""
+    tipo  = a.get("tipo", "")
+    nivel = a.get("nivel", "info")
+    close = a.get("close")
+    lines = []
+
+    if tipo in ("ema_cross_up", "ema_cross_down", "ema_touch"):
+        ema_n = a.get("ema_nombre", "EMA")
+        ema_v = a.get("ema_val")
+        is_800 = "800" in ema_n
+        if lang == "en":
+            if tipo == "ema_cross_up":
+                desc = f"Price breaks above {ema_n}"
+                role = "(key resistance broken)" if is_800 else ""
+            elif tipo == "ema_cross_down":
+                desc = f"Price breaks below {ema_n}"
+                role = "(key support lost)" if is_800 else ""
+            else:
+                desc = f"Price testing {ema_n}"
+                role = "(major support/resistance)" if is_800 else ""
+        else:
+            if tipo == "ema_cross_up":
+                desc = f"Precio supera la {ema_n} al alza"
+                role = "(resistencia clave superada)" if is_800 else ""
+            elif tipo == "ema_cross_down":
+                desc = f"Precio rompe la {ema_n} a la baja"
+                role = "(soporte clave perdido)" if is_800 else ""
+            else:
+                desc = f"Precio testeando la {ema_n}"
+                role = "(soporte/resistencia mayor)" if is_800 else ""
+        ema_str = f"<code>{ema_v:.5g}</code>" if ema_v else ""
+        lines.append(f"📈 {desc} {ema_str} {role}".strip())
+
+    elif tipo in ("golden_cross", "death_cross"):
+        if lang == "en":
+            if tipo == "golden_cross":
+                lines.append("⚡ Golden Cross — bullish EMA crossover")
+            else:
+                lines.append("⚡ Death Cross — bearish EMA crossover")
+        else:
+            if tipo == "golden_cross":
+                lines.append("⚡ Golden Cross — cruce alcista de medias")
+            else:
+                lines.append("⚡ Death Cross — cruce bajista de medias")
+
+    elif tipo == "fractal":
+        f_tipo   = a.get("fractal_tipo", "")
+        f_precio = a.get("fractal_precio")
+        f_mayor  = a.get("fractal_mayor", False)
+        f_str    = f"<code>{f_precio:.5g}</code>" if f_precio else ""
+        mayor_tag = ("MAYOR " if f_mayor else "")
+        if lang == "en":
+            role = "support" if f_tipo == "soporte" else "resistance"
+            lines.append(f"⬡ Candle touches {'major ' if f_mayor else ''}fractal {role.upper()} at {f_str}")
+        else:
+            role = "SOPORTE" if f_tipo == "soporte" else "RESISTENCIA"
+            lines.append(f"⬡ Vela toca fractal {mayor_tag}{role} en {f_str}")
+
+    return lines
+
+
 def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
-    labels = NIVEL_LABEL_EN if lang == "en" else NIVEL_LABEL
-    lines = [f"<b>⬡ Matrix Lab · {now_str}</b>"]
+    labels  = NIVEL_LABEL_EN if lang == "en" else NIVEL_LABEL
+    dia_map = _DIA_EN if lang == "en" else _DIA_ES
+    blocks  = [f"<b>⬡ Matrix Lab · {now_str}</b>"]
+
     for ticker, alertas in alerts_by_ticker.items():
         if not alertas:
             continue
         name = ASSET_NAMES.get(ticker.upper(), ticker)
-        lines.append(f"\n<b>📊 {name}</b>")
+
+        # Agrupar alertas de la misma vela (mismo 'hora')
+        by_candle: dict = {}
         for a in alertas:
-            nivel = a.get('nivel', 'info')
-            emoji = NIVEL_EMOJI.get(nivel, '⚪')
-            label = labels.get(nivel, '')
-            msg   = _strip_ticker(a.get('msg', ''))
+            h = a.get("hora", "")
+            by_candle.setdefault(h, []).append(a)
+
+        for hora, candle_alerts in by_candle.items():
+            # Representante para datos comunes de la vela
+            rep       = candle_alerts[0]
+            nivel_rep = rep.get("nivel", "info")
+            emoji_rep = NIVEL_EMOJI.get(nivel_rep, "⚪")
+            label_rep = labels.get(nivel_rep, "")
+            close_v   = rep.get("close")
+            rsi_v     = rep.get("rsi")
+            dia_name  = rep.get("dia_name", "")
+            dia_num   = rep.get("dia_num", -1)
+            dia_pts   = rep.get("dia_pts", 0)
+            score     = max(a.get("score", 0) for a in candle_alerts)
+
+            # ── Cabecera del bloque ──────────────────────────
+            blocks.append("")
+            blocks.append(f"<b>{emoji_rep} {name}  ·  {label_rep}</b>")
+
+            # Fecha y hora de la vela
+            if hora:
+                dia_es_str = dia_map.get(dia_name, dia_name)
+                if lang == "en":
+                    blocks.append(f"🕐 4H candle · {dia_es_str}  {hora} UTC")
+                else:
+                    blocks.append(f"🕐 Vela 4H · {dia_es_str}  {hora} UTC")
+
+            # Precio actual
+            if close_v is not None:
+                if lang == "en":
+                    blocks.append(f"💰 Price: <code>{close_v:.5g}</code>")
+                else:
+                    blocks.append(f"💰 Precio: <code>{close_v:.5g}</code>")
+
+            # ── Señales técnicas ────────────────────────────
+            for a in candle_alerts:
+                sig_lines = _signal_lines(a, lang)
+                blocks.extend(sig_lines)
+
+            # ── RSI ─────────────────────────────────────────
+            if rsi_v is not None:
+                ctx = _rsi_ctx(rsi_v, lang)
+                rsi_pts = rep.get("rsi_pts", 0)
+                pt_tag  = f"  <i>(+{rsi_pts} pt)</i>" if rsi_pts else ""
+                if lang == "en":
+                    blocks.append(f"📊 RSI: <code>{rsi_v:.1f}</code>  ·  {ctx}{pt_tag}")
+                else:
+                    blocks.append(f"📊 RSI: <code>{rsi_v:.1f}</code>  ·  {ctx}{pt_tag}")
+
+            # ── Día de la semana ─────────────────────────────
+            if dia_name:
+                dia_es_str = dia_map.get(dia_name, dia_name)
+                if dia_pts:
+                    if lang == "en":
+                        blocks.append(f"📅 {dia_es_str}: mid-week session — higher liquidity  <i>(+1 pt)</i>")
+                    else:
+                        blocks.append(f"📅 {dia_es_str}: sesión central — mayor liquidez  <i>(+1 pt)</i>")
+                else:
+                    if lang == "en":
+                        blocks.append(f"📅 {dia_es_str}: low-liquidity session")
+                    else:
+                        blocks.append(f"📅 {dia_es_str}: sesión de menor liquidez")
+
+            # ── Puntuación final ─────────────────────────────
             if lang == "en":
-                msg = _translate_en(msg)
-            lines.append(f"{emoji} {label} · {msg}")
-    return "\n".join(lines)
+                blocks.append(f"⚡ Score: <b>{score}/12</b> pts")
+            else:
+                blocks.append(f"⚡ Puntuación: <b>{score}/12</b> pts")
+
+    blocks.append("")
+    if lang == "en":
+        blocks.append("<i>Automated technical analysis · Not financial advice</i>")
+    else:
+        blocks.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
+    return "\n".join(blocks)
 
 def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
     color_map = {"bullish": "#00cc33", "bearish": "#ff3333", "info": "#4da6ff"}
