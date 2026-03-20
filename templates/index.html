@@ -496,6 +496,18 @@ window.onload=()=>{
   document.getElementById('fchv').style.transform='rotate(0deg)';
   buildGrid();updateWC();updateNPFavInfo();
   AA.forEach(a=>{if(!a.hidden)loadRow(a.t)});
+  AA.filter(a=>a.hidden).forEach((a,i)=>{
+    setTimeout(async()=>{
+      try{
+        const s=await fetch(`/api/sparkline/${encodeURIComponent(a.t)}`);
+        const spk=await s.json();
+        spkCache[a.t]=spk;
+        const id=fid(a.t);
+        const cv=document.getElementById(`sp-${id}`);
+        if(cv)drawSpk(id,spk);
+      }catch(e){}
+    },500+i*150);
+  });
   loadSym('^DJI');
   startW();
 };
@@ -544,6 +556,7 @@ function buildGrid(){
       <td style="text-align:center;min-width:90px" id="tft-${id}"><span class="ftag none">—</span></td>
       <td style="text-align:center" id="tes-${id}">—</td>`;
     tb.appendChild(tr);
+    if(spkCache[a.t]){const cv=document.getElementById(`sp-${id}`);if(cv)drawSpk(id,spkCache[a.t]);}
   });
 }
 function rebuildGrid(){
@@ -589,7 +602,13 @@ function toggleFavs(){
   document.getElementById('fb').classList.toggle('open',favsOpen);
   document.getElementById('fb').classList.toggle('closed',!favsOpen);
   document.getElementById('fchv').style.transform=favsOpen?'rotate(0deg)':'rotate(-90deg)';
-  if(favsOpen)AA.forEach(a=>{if(!a.hidden)loadRow(a.t)});
+  if(favsOpen)AA.forEach(a=>{
+    if(!a.hidden){
+      const id=fid(a.t);
+      if(spkCache[a.t]){const cv=document.getElementById(`sp-${id}`);if(cv)drawSpk(id,spkCache[a.t]);}
+      loadRow(a.t);
+    }
+  });
 }
 
 async function loadRow(t){
