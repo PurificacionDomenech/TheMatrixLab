@@ -223,6 +223,22 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
   </div>
 </div>
 
+<!-- ══ INTERCEPCIÓN DE CONFIRMACIÓN DE EMAIL (máxima prioridad) ══ -->
+<script>
+(function interceptConfirm(){
+  /* Supabase redirige con #access_token=...&type=signup en el hash */
+  const h = window.location.hash.substring(1);
+  const p = new URLSearchParams(h);
+  /* También puede venir como ?type=signup en query string */
+  const q = new URLSearchParams(window.location.search);
+  const type = p.get('type') || q.get('type');
+  if(type === 'signup' || type === 'email_change'){
+    /* Redirigir a /confirm preservando el hash/query para que procese el token */
+    window.location.replace('/confirm' + window.location.search + window.location.hash);
+  }
+})();
+</script>
+
 <!-- ══════════════════════════════════════════════════════════════════════
      IMPORTANTE: este bloque <script> va ANTES de cargar supabase-js
      para que la limpieza del localStorage sea síncrona y no haya
@@ -318,7 +334,7 @@ async function doRegister(event) {
       email, password: pass,
       options: {
         data: { full_name: name },
-        emailRedirectTo: window.location.origin + '/confirm'
+        emailRedirectTo: window.location.origin + '/'
       }
     });
     if (error) throw error;

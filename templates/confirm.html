@@ -3,53 +3,141 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Confirmación · The Matrix Lab</title>
+<title>Bienvenido · The Matrix Lab</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#000;color:#00ff41;font-family:'Courier New',monospace;
-       display:flex;align-items:center;justify-content:center;min-height:100vh;
-       padding:20px}
-  .card{max-width:420px;width:100%;text-align:center;padding:40px 30px;
-        border:1px solid rgba(0,255,65,.2);border-radius:12px;
-        background:rgba(0,20,0,.6);backdrop-filter:blur(10px)}
-  .logo{font-size:28px;font-weight:900;letter-spacing:.15em;margin-bottom:6px;
-        text-shadow:0 0 20px rgba(0,255,65,.5)}
-  .sub{font-size:10px;letter-spacing:.3em;color:rgba(0,255,65,.4);
-       text-transform:uppercase;margin-bottom:32px}
-  .icon{font-size:48px;margin-bottom:20px;display:block}
-  .title{font-size:18px;font-weight:700;margin-bottom:10px;color:#00ff41}
-  .desc{font-size:12px;color:rgba(0,255,65,.55);line-height:1.7;margin-bottom:28px}
-  .name{color:#00ff41;font-weight:700}
-  .btn{display:inline-block;width:100%;padding:12px;
-       background:rgba(0,255,65,.12);border:1px solid rgba(0,255,65,.3);
-       border-radius:6px;color:#00ff41;font-family:'Courier New',monospace;
-       font-size:11px;font-weight:700;letter-spacing:.12em;cursor:pointer;
-       text-decoration:none;transition:all .2s;text-transform:uppercase}
-  .btn:hover{background:rgba(0,255,65,.2);border-color:rgba(0,255,65,.6);
-             box-shadow:0 0 15px rgba(0,255,65,.15)}
-  .error-box{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.2);
-             border-radius:6px;padding:12px;margin-bottom:20px;
-             color:rgba(255,120,120,.8);font-size:11px;line-height:1.6;display:none}
-  .spinner{display:inline-block;width:18px;height:18px;
-           border:2px solid rgba(0,255,65,.2);border-top-color:#00ff41;
-           border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;
-           margin-right:6px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .loading{font-size:12px;color:rgba(0,255,65,.5);margin-bottom:20px}
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#00ff41;--green-dim:rgba(0,255,65,.12);--green-glow:rgba(0,255,65,.25);
+  --red:#ff0033;--bg:#000;
+  --font-display:'Orbitron',monospace;--font-mono:'Share Tech Mono',monospace;
+}
+body{background:var(--bg);font-family:var(--font-mono),'Courier New',monospace;
+     display:flex;align-items:center;justify-content:center;min-height:100vh;
+     overflow:hidden;color:var(--green)}
+
+/* ── matrix rain ── */
+#mc{position:fixed;inset:0;z-index:0;opacity:.13;pointer-events:none}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 25%,rgba(0,0,0,.92) 100%)}
+
+/* ── corners ── */
+.corner{position:fixed;z-index:3;width:60px;height:60px;pointer-events:none}
+.corner-tl{top:0;left:0;border-top:1px solid rgba(0,255,65,.3);border-left:1px solid rgba(0,255,65,.3)}
+.corner-tr{top:0;right:0;border-top:1px solid rgba(0,255,65,.3);border-right:1px solid rgba(0,255,65,.3)}
+.corner-bl{bottom:0;left:0;border-bottom:1px solid rgba(0,255,65,.3);border-left:1px solid rgba(0,255,65,.3)}
+.corner-br{bottom:0;right:0;border-bottom:1px solid rgba(0,255,65,.3);border-right:1px solid rgba(0,255,65,.3)}
+
+/* ── card ── */
+.card{position:relative;z-index:10;max-width:440px;width:100%;margin:20px;
+      text-align:center;padding:44px 36px;
+      border:1px solid rgba(0,255,65,.18);border-radius:14px;
+      background:rgba(0,8,0,.8);backdrop-filter:blur(16px);
+      box-shadow:0 0 60px rgba(0,255,65,.06),inset 0 0 60px rgba(0,255,65,.02)}
+
+.logo{font-family:var(--font-display,'Orbitron',monospace);font-size:22px;
+      font-weight:900;letter-spacing:.12em;margin-bottom:4px;
+      text-shadow:0 0 24px rgba(0,255,65,.5)}
+.logo .x{color:var(--red);text-shadow:0 0 12px rgba(255,0,51,.6)}
+.sub{font-size:9px;letter-spacing:.28em;color:rgba(0,255,65,.35);
+     text-transform:uppercase;margin-bottom:36px}
+
+.icon-wrap{margin-bottom:22px}
+.icon{font-size:52px;display:block;filter:drop-shadow(0 0 12px rgba(0,255,65,.4))}
+
+.title{font-family:var(--font-display,'Orbitron',monospace);font-size:16px;
+       font-weight:700;letter-spacing:.08em;margin-bottom:14px;
+       color:var(--green);text-shadow:0 0 18px rgba(0,255,65,.4)}
+
+.desc{font-size:11.5px;color:rgba(0,255,65,.5);line-height:1.85;margin-bottom:28px}
+.desc strong{color:rgba(0,255,65,.8)}
+.desc .name{color:var(--green);font-weight:700;
+            text-shadow:0 0 12px rgba(0,255,65,.35)}
+
+.features{display:flex;flex-direction:column;gap:7px;margin-bottom:28px;text-align:left}
+.feat{display:flex;align-items:center;gap:10px;
+      font-size:10px;color:rgba(0,255,65,.45);letter-spacing:.04em}
+.feat-dot{width:6px;height:6px;border-radius:50%;background:var(--green);
+          flex-shrink:0;box-shadow:0 0 6px var(--green-glow)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+     width:100%;padding:13px 20px;
+     background:var(--green-dim);border:1px solid rgba(0,255,65,.3);
+     border-radius:7px;color:var(--green);
+     font-family:var(--font-mono),'Courier New',monospace;
+     font-size:11px;font-weight:700;letter-spacing:.14em;cursor:pointer;
+     text-decoration:none;transition:all .22s;text-transform:uppercase}
+.btn:hover{background:rgba(0,255,65,.2);border-color:rgba(0,255,65,.6);
+           box-shadow:0 0 20px rgba(0,255,65,.15);
+           text-shadow:0 0 8px rgba(0,255,65,.5)}
+
+.error-box{background:rgba(255,50,50,.07);border:1px solid rgba(255,50,50,.2);
+           border-radius:6px;padding:12px;margin-bottom:20px;
+           color:rgba(255,120,120,.75);font-size:10.5px;line-height:1.7;display:none}
+
+.spinner{display:inline-block;width:16px;height:16px;
+         border:2px solid rgba(0,255,65,.2);border-top-color:var(--green);
+         border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;
+         margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{font-size:11px;color:rgba(0,255,65,.4);margin-bottom:20px;
+         display:flex;align-items:center;justify-content:center;gap:6px}
+
+.timer{font-size:9px;color:rgba(0,255,65,.28);margin-top:14px;letter-spacing:.06em}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<canvas id="mc"></canvas>
+<div class="vignette"></div>
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
 <div class="card">
-  <div class="logo">⬡ MATRIX LAB</div>
+  <div class="logo">THE MATRI<span class="x">X</span> LAB</div>
   <div class="sub">Sistema de Análisis Técnico</div>
 
-  <span class="icon" id="ico">⏳</span>
+  <div class="icon-wrap">
+    <span class="icon" id="ico">⏳</span>
+  </div>
+
   <div class="title" id="ttl">Verificando cuenta…</div>
-  <div class="loading" id="load"><span class="spinner"></span> Procesando confirmación</div>
+
+  <div class="loading" id="load">
+    <span class="spinner"></span> Procesando confirmación
+  </div>
+
   <div class="desc" id="dsc"></div>
+  <div class="features" id="feats" style="display:none">
+    <div class="feat"><span class="feat-dot"></span>Gráficos con EMA 200/800 y fractales</div>
+    <div class="feat"><span class="feat-dot"></span>RSI con señales de sobrecompra/venta</div>
+    <div class="feat"><span class="feat-dot"></span>Alertas automáticas por Telegram</div>
+    <div class="feat"><span class="feat-dot"></span>9 activos: Forex, Metales, Índices</div>
+  </div>
+
   <div class="error-box" id="errBox"></div>
-  <a href="/" class="btn" id="btn" style="display:none">ACCEDER AL DASHBOARD</a>
+
+  <a href="/" class="btn" id="btn" style="display:none">
+    ▶ INICIAR SESIÓN
+  </a>
+  <div class="timer" id="timer"></div>
 </div>
+
+<script>
+/* ── Matrix rain ── */
+(function(){
+  const c=document.getElementById('mc'),ctx=c.getContext('2d');
+  const ch='アイウエオカキクケコABCDEFG0123456789$%#';
+  let W,H,cols,drops;
+  const sz=13;
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;cols=Math.floor(W/sz);drops=new Array(cols).fill(1)}
+  function draw(){ctx.fillStyle='rgba(0,0,0,.06)';ctx.fillRect(0,0,W,H);for(let i=0;i<drops.length;i++){const ch2=ch[Math.floor(Math.random()*ch.length)];ctx.fillStyle=Math.random()>.97?'rgba(0,255,65,1)':'rgba(0,200,50,.7)';ctx.font=`${sz}px Share Tech Mono,monospace`;ctx.fillText(ch2,i*sz,drops[i]*sz);if(drops[i]*sz>H&&Math.random()>.975)drops[i]=0;drops[i]++}}
+  resize();setInterval(draw,60);window.addEventListener('resize',resize);
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -57,65 +145,94 @@ const SUPABASE_URL = 'https://mscvlzxxuawwmltsdxxb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_sEHlzkptuyaVbBrmx8FDGg_3gMcVvi7';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: true,
-  }
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: true }
 });
 
+let countdown = 6;
+
+function startCountdown() {
+  const el = document.getElementById('timer');
+  el.textContent = `Redirigiendo al login en ${countdown}s…`;
+  const iv = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(iv);
+      window.location.href = '/';
+    } else {
+      el.textContent = `Redirigiendo al login en ${countdown}s…`;
+    }
+  }, 1000);
+}
+
 function showSuccess(name) {
-  document.getElementById('ico').textContent  = '✅';
+  document.getElementById('ico').textContent = '✅';
   document.getElementById('load').style.display = 'none';
-  document.getElementById('ttl').textContent  = '¡Bienvenido a Matrix Lab!';
-  const greeting = name ? `Hola <span class="name">${name}</span>, tu` : 'Tu';
+  document.getElementById('ttl').textContent = '¡Cuenta confirmada!';
+  const greeting = name
+    ? `Hola <span class="name">${name}</span> —`
+    : '';
   document.getElementById('dsc').innerHTML =
-    `${greeting} cuenta ha sido confirmada correctamente.<br><br>
-     Ya tienes acceso al sistema de análisis técnico con EMAs, fractales y alertas en tiempo real.<br><br>
-     <span style="color:rgba(0,255,65,.35);font-size:10px">Esta ventana se cerrará en 4 segundos…</span>`;
-  document.getElementById('btn').style.display = 'inline-block';
-  setTimeout(() => { window.location.href = '/'; }, 4000);
+    `${greeting} tu acceso a <strong>The Matrix Lab</strong> está activo.<br><br>
+     Analiza el mercado con herramientas profesionales y recibe alertas en tiempo real.`;
+  document.getElementById('feats').style.display = 'flex';
+  document.getElementById('btn').style.display = 'inline-flex';
+  startCountdown();
 }
 
 function showError(msg) {
-  document.getElementById('ico').textContent  = '⚠️';
+  document.getElementById('ico').textContent = '⚠️';
   document.getElementById('load').style.display = 'none';
-  document.getElementById('ttl').textContent  = 'Enlace ya utilizado';
+  document.getElementById('ttl').textContent = 'Enlace ya utilizado';
   document.getElementById('dsc').innerHTML =
-    `Este enlace de confirmación ya fue usado o ha caducado.<br><br>
-     Si ya puedes acceder a tu cuenta, simplemente inicia sesión.`;
+    `Este enlace de confirmación ya fue usado o ha caducado.<br>
+     Si ya puedes acceder, simplemente inicia sesión.`;
   const eb = document.getElementById('errBox');
-  eb.style.display = 'block';
-  eb.textContent   = msg || 'El token de confirmación no es válido.';
-  document.getElementById('btn').style.display = 'inline-block';
+  if (msg) { eb.style.display = 'block'; eb.textContent = msg; }
+  document.getElementById('btn').style.display = 'inline-flex';
 }
 
 (async () => {
   try {
-    const { data, error } = await sb.auth.getSession();
-    if (error) { showError(error.message); return; }
-
-    if (data?.session?.user) {
-      const name = data.session.user.user_metadata?.full_name ||
-                   data.session.user.email?.split('@')[0] || '';
+    /* 1. Intentar leer la sesión que detectSessionInUrl procesó automáticamente */
+    const { data: sd } = await sb.auth.getSession();
+    if (sd?.session?.user) {
+      const u = sd.session.user;
+      const name = u.user_metadata?.full_name || u.email?.split('@')[0] || '';
       showSuccess(name);
       return;
     }
 
-    // Intentar intercambiar el código si viene como code= en la URL
-    const params = new URLSearchParams(window.location.search);
-    const code   = params.get('code');
+    /* 2. Flujo PKCE: Supabase redirige con ?code=xxx en la URL */
+    const qp = new URLSearchParams(window.location.search);
+    const code = qp.get('code');
     if (code) {
       const { data: d2, error: e2 } = await sb.auth.exchangeCodeForSession(code);
-      if (e2) { showError(e2.message); return; }
-      const name = d2?.user?.user_metadata?.full_name ||
-                   d2?.user?.email?.split('@')[0] || '';
-      showSuccess(name);
+      if (!e2 && d2?.user) {
+        const name = d2.user.user_metadata?.full_name || d2.user.email?.split('@')[0] || '';
+        showSuccess(name);
+      } else {
+        showError(e2?.message);
+      }
       return;
     }
 
-    // Si no hay sesión ni code, el enlace ya fue usado
-    showError('No se encontró un token de confirmación válido en esta URL.');
+    /* 3. Flujo implícito: token en el hash (#access_token=xxx&type=signup) */
+    const hp = new URLSearchParams(window.location.hash.substring(1));
+    const at = hp.get('access_token');
+    const rt = hp.get('refresh_token');
+    if (at) {
+      const { data: d3, error: e3 } = await sb.auth.setSession({ access_token: at, refresh_token: rt || '' });
+      if (!e3 && d3?.user) {
+        const name = d3.user.user_metadata?.full_name || d3.user.email?.split('@')[0] || '';
+        showSuccess(name);
+      } else {
+        showError(e3?.message);
+      }
+      return;
+    }
+
+    /* 4. Ningún token encontrado — el enlace ya fue usado */
+    showError('No se encontró un token válido en esta URL.');
   } catch(e) {
     showError(e.message);
   }
