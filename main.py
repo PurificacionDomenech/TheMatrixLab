@@ -571,7 +571,7 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         "estado":       estado,
         "nivel":        nivel,
         "confluencias": confluencias,
-        "alert":        puntos >= 3,   # True = enviar notificación
+        "alert":        puntos >= 4,   # True = enviar notificación (solo FAVORABLE)
     }
 
 
