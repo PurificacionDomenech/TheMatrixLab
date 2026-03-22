@@ -450,7 +450,7 @@ async function doRegister(event) {
       email, password: pass,
       options: {
         data: { full_name: name },
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: window.location.origin + '/confirm'
       }
     });
     if (error) throw error;
