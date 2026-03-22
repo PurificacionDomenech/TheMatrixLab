@@ -1,0 +1,148 @@
+[21/03/2026 19:07] The Matrix Lab: ⬡ Matrix Lab · 21/03/2026 19:07
+
+📊 US30 · Dow Jones  |  45,606
+🕐 Vela 4H · Viernes  20/03 17:30 UTC
+🔵 INTERESANTE  ·  RSI 22.1  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (22.1)
+✅ EMA200 (48046) > EMA800 (47125) — tendencia alcista
+✅ Nivel clave menor como soporte en 45500
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 47638 (-4.3% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 US30 · Dow Jones  |  46,022
+🕐 Vela 4H · Jueves  19/03 17:30 UTC
+🔵 INTERESANTE  ·  RSI 23.0  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (23.0)
+✅ EMA200 (48093) > EMA800 (47132) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 46000
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 47684 (-3.5% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 XAUUSD · Oro  |  4,503.8
+🕐 Vela 4H · Viernes  20/03 16:00 UTC
+🔵 INTERESANTE  ·  RSI 20.0  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (20.0)
+✅ EMA200 (4999.5) > EMA800 (4557.3) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 4500
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 4553 (-1.1% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 XAUUSD · Oro  |  4,555.3
+🕐 Vela 4H · Viernes  20/03 12:00 UTC
+🔵 INTERESANTE  ·  RSI 19.6  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (19.6)
+✅ EMA200 (5004.5) > EMA800 (4557.5) — tendencia alcista
+◻️ Sin nivel clave fractal relevante
+◻️ Lejos de apertura anual/semanal
+✅ Fibonacci 55.9% en 4553 (rango 3705.8–5626.8)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 XAUUSD · Oro  |  4,707.2
+🕐 Vela 4H · Viernes  20/03 04:00 UTC
+🔵 INTERESANTE  ·  RSI 25.0  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (25.0)
+✅ EMA200 (5012.4) > EMA800 (4557.2) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 4700
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 4553 (+3.4% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 XAUUSD · Oro  |  4,725.2
+🕐 Vela 4H · Viernes  20/03 00:00 UTC
+🔵 INTERESANTE  ·  RSI 25.9  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (25.9)
+✅ EMA200 (5015.5) > EMA800 (4556.8) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 4700
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 4553 (+3.8% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 NAS100 · Nasdaq  |  24,022
+🕐 Vela 4H · Viernes  20/03 13:30 UTC
+🔵 INTERESANTE  ·  RSI 26.8  ·  3/5 confluencias
+
+Confluencias activas:
+✅ RSI sobrevendido (26.8)
+✅ EMA200 (25058) > EMA800 (24925) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 24000
+◻️ Lejos de apertura anual/semanal
+◻️ Fib 55.9% en 24881 (-3.5% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 NAS100 · Nasdaq  |  24,605
+🕐 Vela 4H · Miércoles  18/03 13:30 UTC
+🔵 INTERESANTE  ·  RSI 50.5  ·  3/5 confluencias
+
+Confluencias activas:
+◻️ RSI neutro (50.5)
+✅ EMA200 (25090) > EMA800 (24932) — tendencia alcista
+✅ Nivel clave menor como soporte en 24500
+✅ Precio en apertura semanal (24642)
+◻️ Fib 55.9% en 24881 (-1.1% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 USD/JPY  |  159.22
+🕐 Vela 4H · Viernes  20/03 20:00 UTC
+🔵 INTERESANTE  ·  RSI 47.0  ·  3/5 confluencias
+
+Confluencias activas:
+◻️ RSI neutro (47.0)
+✅ EMA200 (157.25) > EMA800 (154.79) — tendencia alcista
+✅ Nivel clave menor como soporte en 159
+✅ Precio en apertura semanal (159.55)
+◻️ Fib 55.9% en 152.45 (+4.4% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+
+📊 AUD/USD  |  0.70161
+🕐 Vela 4H · Viernes  20/03 16:00 UTC
+🔵 INTERESANTE  ·  RSI 34.8  ·  3/5 confluencias
+
+Confluencias activas:
+◻️ RSI neutro (34.8)
+✅ EMA200 (0.70307) > EMA800 (0.68127) — tendencia alcista
+✅ Nivel clave MAYOR como soporte en 0.7
+✅ Precio en apertura semanal (0.70103)
+◻️ Fib 55.9% en 0.67599 (+3.8% de distancia)
+
+Análisis técnico automatizado · No es asesoría financiera
+[21/03/2026 20:22] The Matrix Lab: ⬡ Matrix Lab · 21/03/2026 20:22
+
+📊 WTI · Petróleo
+🟢 Favorable · ⬡ Vela toca fractal SOPORTE $98.00 · 20/03 20:00
+[21/03/2026 21:22] The Matrix Lab: ⬡ Matrix Lab · 21/03/2026 21:22
+
+📊 US30 · Dow Jones
+🟢 Favorable · ⬡ Vela toca fractal SOPORTE $45500.00 · 20/03 17:30
+
+📊 NAS100 · Nasdaq
+🔴 Atención · ⬡ Vela toca fractal MAYOR RESISTENCIA $24000.00 · 20/03 17:30
+
+📊 USD/JPY
+🟢 Favorable · ⬡ Vela toca fractal SOPORTE $159.00 · 20/03 20:00
+
+📊 AUD/USD
+🔵 Interesante · Precio tocando EMA200 $0.70 · 20/03 20:00
