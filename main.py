@@ -451,7 +451,7 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
 def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
     """
     Evalúa las 5 confluencias de la matriz y devuelve resultado estructurado.
-    Devuelve alerta solo si se cumplen >= 3 de 5.
+    Devuelve alerta si se cumplen >= 3 de 5 (INTERESANTE o FAVORABLE).
     """
     if len(df) < 14:
         return None
@@ -474,12 +474,12 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
     confluencias = []
     puntos = 0
 
-    # ① RSI sobrevendido (<30) o sobrecomprado (>70)
-    if rsi < 30:
+    # ① RSI sobrevendido (<47) o sobrecomprado (>53)
+    if rsi < 47:
         confluencias.append({"id": 1, "ok": True,
             "texto": f"RSI sobrevendido ({rsi:.1f})", "tipo": "bullish"})
         puntos += 1
-    elif rsi > 70:
+    elif rsi > 53:
         confluencias.append({"id": 1, "ok": True,
             "texto": f"RSI sobrecomprado ({rsi:.1f})", "tipo": "bearish"})
         puntos += 1
@@ -533,20 +533,27 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         confluencias.append({"id": 4, "ok": False,
             "texto": "Datos de apertura no disponibles", "tipo": "info"})
 
-    # ⑤ Retroceso Fibonacci 55.9% del rango del período
+    # ⑤ Retroceso Fibonacci 55.9% o 78.6% del rango del período
     high_p = float(df["High"].max())
     low_p  = float(df["Low"].min())
     fib559 = high_p - (high_p - low_p) * 0.559
+    fib786 = high_p - (high_p - low_p) * 0.786
     tol_f  = (high_p - low_p) * 0.015
     if abs(price - fib559) <= tol_f:
         confluencias.append({"id": 5, "ok": True,
             "texto": f"Fibonacci 55.9% en {fib559:.5g} (rango {low_p:.5g}–{high_p:.5g})",
             "tipo": "bullish"})
         puntos += 1
+    elif abs(price - fib786) <= tol_f:
+        confluencias.append({"id": 5, "ok": True,
+            "texto": f"Fibonacci 78.6% en {fib786:.5g} (rango {low_p:.5g}–{high_p:.5g})",
+            "tipo": "bullish"})
+        puntos += 1
     else:
-        pct_dist = (price - fib559) / fib559 * 100
+        pct_559 = (price - fib559) / fib559 * 100
+        pct_786 = (price - fib786) / fib786 * 100
         confluencias.append({"id": 5, "ok": False,
-            "texto": f"Fib 55.9% en {fib559:.5g} ({pct_dist:+.1f}% de distancia)",
+            "texto": f"Fib 55.9% en {fib559:.5g} ({pct_559:+.1f}%) · Fib 78.6% en {fib786:.5g} ({pct_786:+.1f}%)",
             "tipo": "info"})
 
     # Determinar estado
@@ -571,16 +578,18 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         "estado":       estado,
         "nivel":        nivel,
         "confluencias": confluencias,
-        "alert":        puntos >= 4,   # True = enviar notificación (solo FAVORABLE)
+        "alert":        puntos >= 3,   # True = enviar notificación (INTERESANTE o FAVORABLE)
     }
 
 
 # ─── SCHEDULER ───────────────────────────────────────────────
 
 
-async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -> dict:
+async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
+                         max_per_ticker: int = 0) -> dict:
     """
     Revisa los tickers dados. num_candles controla cuántas velas recientes analizar.
+    max_per_ticker: si > 0, limita las alertas enviadas por activo (0 = sin límite).
     Retorna alerts_by_ticker con las alertas nuevas (sin duplicados en cache).
     """
     now = time.time()
@@ -632,6 +641,8 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "") -
                             "resultado": resultado,
                         })
                         _sent_cache[key] = now
+            if max_per_ticker > 0:
+                nuevas = nuevas[:max_per_ticker]
             if nuevas:
                 alerts_by_ticker[t.upper()] = nuevas
         except Exception as e:
@@ -662,7 +673,7 @@ async def daily_catchup():
         return
     print("[catchup] Revisando últimas 24h de alertas…")
     alerts_by_ticker = await _check_tickers(
-        WATCH_TICKERS, num_candles=6, label="catchup"
+        WATCH_TICKERS, num_candles=6, label="catchup", max_per_ticker=1
     )
     if alerts_by_ticker:
         total = sum(len(v) for v in alerts_by_ticker.values())

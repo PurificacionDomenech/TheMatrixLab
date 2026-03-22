@@ -561,9 +561,11 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])
                 covered_chat_ids.add(cid)
-                texto_tg = _build_tg_for_user(user_by_ticker, now_str, lang=lang)
-                await send_telegram_to(cid, texto_tg)
-                await asyncio.sleep(0.05)
+                for tkr, tkr_alertas in user_by_ticker.items():
+                    if tkr_alertas:
+                        texto_tg = _build_tg_for_user({tkr: tkr_alertas}, now_str, lang=lang)
+                        await send_telegram_to(cid, texto_tg)
+                        await asyncio.sleep(0.3)
 
             if prefs.get("email_enabled") and prefs.get("email_address"):
                 html = _build_html_grouped(user_by_ticker, now_str, lang=lang)
@@ -574,12 +576,14 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
 
     # 2 — Suscriptores básicos de Telegram (/start) sin preferencias configuradas
     if TELEGRAM_TOKEN and all_alertas_flat and basic_chat_ids:
-        texto_base = _build_tg_for_user(alerts_by_ticker, now_str)
         nuevos = 0
         for cid in basic_chat_ids:
             if int(cid) not in covered_chat_ids:
-                await send_telegram_to(int(cid), texto_base)
-                await asyncio.sleep(0.05)
+                for tkr, tkr_alertas in alerts_by_ticker.items():
+                    if tkr_alertas:
+                        texto_base = _build_tg_for_user({tkr: tkr_alertas}, now_str)
+                        await send_telegram_to(int(cid), texto_base)
+                        await asyncio.sleep(0.3)
                 nuevos += 1
         if nuevos:
             print(f"[notifier] {nuevos} suscriptor(es) básico(s) notificados")
