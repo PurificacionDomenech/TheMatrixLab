@@ -120,6 +120,69 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
 @keyframes glitch1{0%,85%,100%{transform:none;opacity:0}87%{transform:translate(-3px,1px);opacity:.9}89%{transform:translate(3px,-1px);opacity:.9}91%{transform:none;opacity:0}}
 @keyframes glitch2{0%,87%,100%{transform:none;opacity:0}89%{transform:translate(2px,2px);opacity:.7}91%{transform:translate(-2px,-1px);opacity:.7}93%{transform:none;opacity:0}}
 @media(max-width:600px){nav{padding:10px 14px}h1{font-size:1.65rem}.stats-row{flex-wrap:wrap}.stat-item{min-width:calc(50% - 1px)}.features-strip{gap:14px}}
+
+/* ── WELCOME OVERLAY ── */
+#welcomeOverlay{
+  position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.96);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+  padding:20px;overflow-y:auto;
+}
+#welcomeOverlay.show{display:flex}
+.wov-card{
+  max-width:540px;width:100%;text-align:center;
+  border:1px solid rgba(0,255,65,.18);border-radius:16px;
+  background:rgba(0,10,0,.85);padding:40px 32px;
+  animation:scaleIn .4s ease-out;
+}
+@keyframes scaleIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.wov-check{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:64px;height:64px;border-radius:50%;margin-bottom:22px;
+  background:rgba(0,255,65,.08);border:2px solid rgba(0,255,65,.35);
+  animation:checkIn .5s ease-out .1s both;
+}
+@keyframes checkIn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.wov-check svg{width:30px;height:30px;color:#00ff41}
+.wov-title{
+  font-family:var(--font-display);font-size:26px;font-weight:900;
+  color:#00ff41;margin-bottom:6px;letter-spacing:.05em;
+  text-shadow:0 0 30px rgba(0,255,65,.4);
+}
+.wov-sub{color:rgba(0,255,65,.45);font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px}
+.wov-features{
+  background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.08);
+  border-radius:10px;padding:20px;margin-bottom:26px;text-align:left;
+}
+.wov-features h3{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;
+  color:rgba(0,255,65,.4);text-transform:uppercase;margin-bottom:14px;
+  text-align:center;
+}
+.wov-feat{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.wov-feat:last-child{margin-bottom:0}
+.wov-feat-ico{
+  flex-shrink:0;width:34px;height:34px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;background:rgba(0,255,65,.07);
+}
+.wov-feat-txt h4{font-size:13px;font-weight:600;color:rgba(200,255,210,.85);margin-bottom:2px}
+.wov-feat-txt p{font-size:11.5px;color:rgba(0,255,65,.35);line-height:1.5}
+.wov-cta{
+  display:inline-flex;align-items:center;gap:10px;width:100%;
+  justify-content:center;padding:14px 24px;border-radius:8px;
+  border:1px solid rgba(0,255,65,.4);cursor:pointer;
+  background:rgba(0,255,65,.1);color:#00ff41;
+  font-family:var(--font-mono);font-size:12px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+  transition:all .22s;text-decoration:none;
+}
+.wov-cta:hover{background:rgba(0,255,65,.2);border-color:var(--green);
+  box-shadow:0 0 24px rgba(0,255,65,.15)}
+.wov-cta svg{width:16px;height:16px}
+.wov-note{margin-top:16px;font-size:10px;color:rgba(0,255,65,.25);
+  font-family:var(--font-mono);line-height:1.7}
 </style>
 </head>
 <body>
@@ -183,6 +246,60 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
   </div>
 </main>
 
+<!-- ══ OVERLAY DE BIENVENIDA (confirmación de email) ══ -->
+<div id="welcomeOverlay">
+  <div class="wov-card">
+    <div class="wov-check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <div class="wov-title">¡Cuenta Confirmada!</div>
+    <div class="wov-sub" id="wovName">Tu email ha sido verificado correctamente</div>
+    <div class="wov-features">
+      <h3>¿Qué es The Matrix Lab?</h3>
+      <div class="wov-feat">
+        <div class="wov-feat-ico">📈</div>
+        <div class="wov-feat-txt">
+          <h4>Gráficos EMA 200/800</h4>
+          <p>Visualiza tendencias con EMAs de largo plazo y detecta cruces clave en temporalidad 4H.</p>
+        </div>
+      </div>
+      <div class="wov-feat">
+        <div class="wov-feat-ico">⬡</div>
+        <div class="wov-feat-txt">
+          <h4>Fractales y RSI</h4>
+          <p>Niveles de soporte y resistencia automáticos más RSI con señales de sobrecompra y sobreventa.</p>
+        </div>
+      </div>
+      <div class="wov-feat">
+        <div class="wov-feat-ico">🔔</div>
+        <div class="wov-feat-txt">
+          <h4>Alertas por Telegram</h4>
+          <p>Recibe avisos automáticos cuando se detectan 4 o más confluencias técnicas favorables.</p>
+        </div>
+      </div>
+      <div class="wov-feat">
+        <div class="wov-feat-ico">★</div>
+        <div class="wov-feat-txt">
+          <h4>9 Activos vigilados</h4>
+          <p>Forex, metales y principales índices: USDJPY, GBPJPY, EURUSD, Oro, Plata, Petróleo, Dow Jones y Nasdaq.</p>
+        </div>
+      </div>
+    </div>
+    <button class="wov-cta" onclick="closeWelcome()">
+      ▶ INICIAR SESIÓN
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </button>
+    <div class="wov-note">
+      Ya puedes acceder con tu email y contraseña.<br>
+      ⬡ The Matrix Lab · Análisis técnico automatizado
+    </div>
+  </div>
+</div>
+
 <div class="scroll-hint">
   <div class="scroll-mouse"><div class="scroll-dot"></div></div>
   <span>explorar</span>
@@ -233,8 +350,7 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
   const q = new URLSearchParams(window.location.search);
   const type = p.get('type') || q.get('type');
   if(type === 'signup' || type === 'email_change'){
-    /* Redirigir a /confirm preservando el hash/query para que procese el token */
-    window.location.replace('/confirm' + window.location.search + window.location.hash);
+    window._emailConfirmed = true; /* marcar — se mostrará bienvenida tras cargar Supabase */
   }
 })();
 </script>
@@ -334,7 +450,7 @@ async function doRegister(event) {
       email, password: pass,
       options: {
         data: { full_name: name },
-        emailRedirectTo: window.location.origin + '/'
+        emailRedirectTo: window.location.origin
       }
     });
     if (error) throw error;
@@ -454,6 +570,60 @@ async function loadCupos() {
   } catch(e) {}
 }
 loadCupos();
+
+/* ── BIENVENIDA POST-CONFIRMACIÓN ── */
+function closeWelcome() {
+  document.getElementById('welcomeOverlay').classList.remove('show');
+  history.replaceState(null, '', window.location.pathname);
+  openModal('login');
+}
+
+(async function checkEmailConfirm() {
+  if (!window._emailConfirmed || !sb) return;
+  try {
+    await new Promise(r => setTimeout(r, 200));
+    let name = '';
+
+    /* 1. Flujo implícito: access_token en el hash */
+    const hp = new URLSearchParams(window.location.hash.substring(1));
+    const at = hp.get('access_token');
+    const rt = hp.get('refresh_token') || '';
+    if (at) {
+      const { data: d1 } = await sb.auth.setSession({ access_token: at, refresh_token: rt });
+      if (d1?.user) {
+        name = d1.user.user_metadata?.full_name || d1.user.email?.split('@')[0] || '';
+      }
+    }
+
+    /* 2. Flujo PKCE: code en query string */
+    if (!name) {
+      const qp = new URLSearchParams(window.location.search);
+      const code = qp.get('code');
+      if (code) {
+        try {
+          const { data: d2 } = await sb.auth.exchangeCodeForSession(code);
+          if (d2?.user) name = d2.user.user_metadata?.full_name || d2.user.email?.split('@')[0] || '';
+        } catch(e) {}
+      }
+    }
+
+    /* 3. Sesión ya procesada (fallback) */
+    if (!name) {
+      const { data: sd } = await sb.auth.getSession();
+      if (sd?.session?.user) {
+        name = sd.session.user.user_metadata?.full_name || sd.session.user.email?.split('@')[0] || '';
+      }
+    }
+
+    if (name) {
+      document.getElementById('wovName').textContent =
+        `Hola ${name} — tu email ha sido verificado correctamente`;
+    }
+    document.getElementById('welcomeOverlay').classList.add('show');
+  } catch(e) {
+    document.getElementById('welcomeOverlay').classList.add('show');
+  }
+})();
 </script>
 </body>
 </html>
