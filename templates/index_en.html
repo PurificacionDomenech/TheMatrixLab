@@ -420,48 +420,29 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
   }
 
   try{
-    if(typeof supabase==='undefined'){goHome();return}
-    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-      auth:{
-        persistSession:true,
-        autoRefreshToken:true,
-        detectSessionInUrl:true
+    // Source of truth: only sessionStorage (tml_session) — cleared when browser closes.
+    // We do NOT rely on Supabase persistSession in localStorage to avoid bypassing the splash.
+    try {
+      const raw = sessionStorage.getItem('tml_session');
+      if (raw) {
+        // Extract user.id from session token for notification prefs
+        try {
+          const parsed = JSON.parse(raw);
+          const uid = parsed?.user?.id;
+          if (uid) localStorage.setItem('tml_uid', uid);
+        } catch(e) {}
+        // Valid session — nothing else to do
+      } else {
+        // No session — wait 800ms then redirect if still no session
+        setTimeout(() => {
+          if (!sessionStorage.getItem('tml_session')) {
+            window.location.replace('/');
+          }
+        }, 800);
       }
-    });
-
-    // Solo redirige en logout explícito — no en carga inicial
-    sb.auth.onAuthStateChange((event,session)=>{
-      if(event==='SIGNED_OUT'){goHome()}
-    });
-
-    // Verificación activa: espera hasta 5s a que Supabase cargue la sesión
-    let intentos=0;
-    const check=async()=>{
-      const{data:{session}}=await sb.auth.getSession();
-      if(session){
-        // Sesión válida — guarda el UUID real de Supabase para las prefs
-        if(session.user?.id){
-          try{localStorage.setItem('tml_uid', session.user.id)}catch(e){}
-        }
-        return;
-      }
-      
-      // Si no hay sesión en Supabase, comprobamos sessionStorage (nuestro login manual)
-      try {
-        const localSess = sessionStorage.getItem('tml_session');
-        if (localSess) return; // Tenemos sesión manual
-      } catch(e) {}
-
-      intentos++;
-      if(intentos<5){
-        // Reintenta cada 1s hasta 5 veces
-        setTimeout(check,1000);
-      }else{
-        // Después de 5s sin sesión → redirige a login
-        goHome();
-      }
-    };
-    setTimeout(check,800);
+    } catch(e) {
+      window.location.replace('/');
+    }
 
   }catch(e){goHome()}
 })();
