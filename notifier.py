@@ -37,6 +37,11 @@ NIVEL_EMOJI    = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
 NIVEL_LABEL    = {"bullish": "Favorable",  "bearish": "Atención",  "info": "Interesante"}
 NIVEL_LABEL_EN = {"bullish": "Bullish",    "bearish": "Bearish",   "info": "Watch"}
 
+RISK_WARNING = (
+    "\n❗️ <b>No arriesgar más de un 1% del balance de tu cuenta en un trade!</b>\n"
+    "❗️ <b>Don't risk more than 1% of the balance of your account in any trade!</b>"
+)
+
 def _translate_en(msg: str) -> str:
     msg = re.sub(r'Precio cruza (EMA\d+) al alza',  r'Price crosses \1 upward',   msg)
     msg = re.sub(r'Precio cruza (EMA\d+) a la baja', r'Price crosses \1 downward', msg)
@@ -239,6 +244,7 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") ->
         blocks.append("<i>Automated technical analysis · Not financial advice</i>")
     else:
         blocks.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
+    blocks.append(RISK_WARNING)
     return "\n".join(blocks)
 
 def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
@@ -263,13 +269,20 @@ def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") 
             rows += (f'<tr><td style="padding:3px 10px 3px 20px;border-bottom:1px solid #1a2a1a;'
                      f'color:{c};font-family:monospace;font-size:13px">'
                      f'{e} {lbl} · {msg}</td></tr>')
+    risk_row = (
+        '<tr><td style="padding:10px;font-family:monospace;font-size:11px;'
+        'color:#ffaa00;border-top:1px solid #2a2000;background:rgba(255,170,0,0.05);">'
+        '❗️ No arriesgar más de un 1% del balance de tu cuenta en un trade!<br>'
+        '❗️ Don\'t risk more than 1% of the balance of your account in any trade!'
+        '</td></tr>'
+    )
     return f"""<html><body style="background:#000;padding:20px;">
       <div style="max-width:600px;margin:auto;background:#010801;border:1px solid #00ff4120;border-radius:8px;overflow:hidden;">
         <div style="background:#010f01;padding:14px 20px;border-bottom:1px solid #00ff4115;">
           <span style="font-family:monospace;font-size:14px;color:#00ff41;font-weight:bold;">⬡ THE MATRIX LAB</span>
           <span style="font-family:monospace;font-size:11px;color:#666;margin-left:10px;">{now_str}</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;">{rows}</table>
+        <table style="width:100%;border-collapse:collapse;">{rows}{risk_row}</table>
         <div style="padding:10px 20px;font-size:10px;color:#333;font-family:monospace;border-top:1px solid #00ff4110;text-align:center;">
           {disclaimer}
         </div>
@@ -432,9 +445,138 @@ def _build_html(alertas: list[dict], now_str: str) -> str:
       </div></body></html>"""
 
 
+# ── Contexto informativo (precio vs aperturas y componentes) ─
+
+def _build_day_context_lines(resultado: dict, lang: str) -> list[str]:
+    """
+    Genera líneas de contexto sobre la posición del precio vs apertura del día
+    y de la semana. Informativo, no es confluencia.
+    """
+    lines = []
+    day_ctx  = resultado.get("day_context")
+    week_ctx = resultado.get("week_context")
+    if not day_ctx and not week_ctx:
+        return lines
+
+    if lang == "en":
+        lines.append("")
+        lines.append("📌 <b>Price context (informational):</b>")
+        if day_ctx:
+            do  = day_ctx["open"]
+            pct = day_ctx["pct"]
+            if day_ctx["direction"] == "above":
+                lines.append(f"  📈 Price <b>above</b> today's open (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>longs</b>")
+            elif day_ctx["direction"] == "below":
+                lines.append(f"  📉 Price <b>below</b> today's open (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>shorts</b>")
+            else:
+                lines.append(f"  ↔️ Price near today's open (<code>{do:.5g}</code>)")
+        if week_ctx:
+            wo  = week_ctx["open"]
+            pct = week_ctx["pct"]
+            if week_ctx["direction"] == "above":
+                lines.append(f"  📈 Price <b>above</b> weekly open (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>longs</b>")
+            elif week_ctx["direction"] == "below":
+                lines.append(f"  📉 Price <b>below</b> weekly open (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>shorts</b>")
+            else:
+                lines.append(f"  ↔️ Price near weekly open (<code>{wo:.5g}</code>)")
+    else:
+        lines.append("")
+        lines.append("📌 <b>Contexto del precio (informativo):</b>")
+        if day_ctx:
+            do  = day_ctx["open"]
+            pct = day_ctx["pct"]
+            if day_ctx["direction"] == "above":
+                lines.append(f"  📈 Precio <b>por encima</b> de la apertura del día (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>largos</b>")
+            elif day_ctx["direction"] == "below":
+                lines.append(f"  📉 Precio <b>por debajo</b> de la apertura del día (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>cortos</b>")
+            else:
+                lines.append(f"  ↔️ Precio cerca de la apertura del día (<code>{do:.5g}</code>)")
+        if week_ctx:
+            wo  = week_ctx["open"]
+            pct = week_ctx["pct"]
+            if week_ctx["direction"] == "above":
+                lines.append(f"  📈 Precio <b>por encima</b> de la apertura semanal (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>largos</b>")
+            elif week_ctx["direction"] == "below":
+                lines.append(f"  📉 Precio <b>por debajo</b> de la apertura semanal (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>cortos</b>")
+            else:
+                lines.append(f"  ↔️ Precio cerca de la apertura semanal (<code>{wo:.5g}</code>)")
+    return lines
+
+
+def _build_components_context_lines(ticker: str, components_ctx: dict | None, lang: str) -> list[str]:
+    """
+    Para ^DJI y ^NDX: muestra cuántos componentes clave están alcistas/bajistas
+    respecto a la apertura del día. Informativo, no confluencia.
+    """
+    if not components_ctx:
+        return []
+
+    bulls     = components_ctx.get("bulls", [])
+    bears     = components_ctx.get("bears", [])
+    neutral   = components_ctx.get("neutral", [])
+    bull_pct  = components_ctx.get("bull_pct", 0)
+    bear_pct  = components_ctx.get("bear_pct", 0)
+    direction = components_ctx.get("direction", "mixed")
+    total     = components_ctx.get("total", 0)
+
+    if total == 0:
+        return []
+
+    if direction == "bullish":
+        dir_emoji    = "🟢"
+        dir_label_es = "alcista"
+        dir_label_en = "bullish"
+    elif direction == "bearish":
+        dir_emoji    = "🔴"
+        dir_label_es = "bajista"
+        dir_label_en = "bearish"
+    else:
+        dir_emoji    = "🟡"
+        dir_label_es = "mixta"
+        dir_label_en = "mixed"
+
+    index_name = ASSET_NAMES.get(ticker.upper(), ticker)
+    lines = []
+    lines.append("")
+    if lang == "en":
+        lines.append(f"🏢 <b>Key components of {index_name} (vs today's open):</b>")
+        lines.append(
+            f"  {dir_emoji} {bull_pct}% bullish · {bear_pct}% bearish · "
+            f"{len(neutral)} neutral  —  dominant: <b>{dir_label_en}</b>"
+        )
+        if bulls:
+            lines.append(f"  🟢 Up: {', '.join(bulls[:5])}{'…' if len(bulls) > 5 else ''}")
+        if bears:
+            lines.append(f"  🔴 Down: {', '.join(bears[:5])}{'…' if len(bears) > 5 else ''}")
+        if direction == "bullish":
+            lines.append("  ✅ Components confirm bullish bias → reinforces long entries")
+        elif direction == "bearish":
+            lines.append("  ⚠️ Components confirm bearish bias → reinforces short entries")
+        else:
+            lines.append("  ⚠️ Mixed components — less directional conviction")
+    else:
+        lines.append(f"🏢 <b>Componentes clave de {index_name} (vs apertura del día):</b>")
+        lines.append(
+            f"  {dir_emoji} {bull_pct}% alcistas · {bear_pct}% bajistas · "
+            f"{len(neutral)} neutrales  —  dirección: <b>{dir_label_es}</b>"
+        )
+        if bulls:
+            lines.append(f"  🟢 Subiendo: {', '.join(bulls[:5])}{'…' if len(bulls) > 5 else ''}")
+        if bears:
+            lines.append(f"  🔴 Bajando: {', '.join(bears[:5])}{'…' if len(bears) > 5 else ''}")
+        if direction == "bullish":
+            lines.append("  ✅ Componentes confirman sesgo alcista → refuerza entradas largas")
+        elif direction == "bearish":
+            lines.append("  ⚠️ Componentes confirman sesgo bajista → refuerza entradas cortas")
+        else:
+            lines.append("  ⚠️ Componentes mixtos — menor convicción direccional")
+    return lines
+
+
 # ── Mensaje rico por confluencias ────────────────────────────
 
-def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: str, lang: str = "es") -> str:
+def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: str,
+                           lang: str = "es", components_ctx: dict | None = None) -> str:
     """Construye el mensaje Telegram de la matriz de confluencias."""
     t      = resultado["ticker"]
     name   = ASSET_NAMES.get(t, t)
@@ -461,6 +603,8 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
         lines += ["", "<b>Active confluences:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
+        lines += _build_day_context_lines(resultado, lang)
+        lines += _build_components_context_lines(t, components_ctx, lang)
         lines += ["", "<i>Automated technical analysis · Not financial advice</i>"]
     else:
         lines = [
@@ -474,8 +618,11 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
         lines += ["", "<b>Confluencias activas:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
+        lines += _build_day_context_lines(resultado, lang)
+        lines += _build_components_context_lines(t, components_ctx, lang)
         lines += ["", "<i>Análisis técnico automatizado · No es asesoría financiera</i>"]
 
+    lines.append(RISK_WARNING)
     return "\n".join(lines)
 
 
@@ -501,6 +648,7 @@ def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es") -
                         dia_name=a.get("dia_name", ""),
                         now_str=now_str,
                         lang=lang,
+                        components_ctx=a.get("components_ctx"),
                     )
                     # Omitir la primera línea (cabecera) para no duplicarla
                     body = "\n".join(msg.split("\n")[1:])

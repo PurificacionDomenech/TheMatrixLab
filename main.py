@@ -249,6 +249,12 @@ ASSET_CONFIG = {
     },
 }
 
+# ── Componentes clave de índices para contexto ──────────────
+INDEX_COMPONENTS = {
+    "^DJI": ["AAPL", "MSFT", "JPM", "V", "UNH", "GS", "HD", "MCD", "CAT", "AXP"],
+    "^NDX": ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AVGO", "COST", "NFLX"],
+}
+
 
 async def async_download(ticker, **kwargs):
     loop = asyncio.get_running_loop()
@@ -274,9 +280,12 @@ def ts_ms(idx):
 
 
 def calc_indicators(df, es=200, el=800):
-    df[f"EMA{es}"] = df["Close"].ewm(span=es, adjust=False).mean()
-    df[f"EMA{el}"] = df["Close"].ewm(span=el, adjust=False).mean()
-    d = df["Close"].diff()
+    close = df["Close"]
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    df[f"EMA{es}"] = close.ewm(span=es, adjust=False).mean()
+    df[f"EMA{el}"] = close.ewm(span=el, adjust=False).mean()
+    d = close.diff()
     losses = (-d.where(d < 0, 0)).rolling(14).mean().replace(0, np.nan)
     df["RSI"] = 100 - (100 / (1 + d.where(d > 0, 0).rolling(14).mean() / losses))
     return df
@@ -326,19 +335,91 @@ def detect_fractal_touch(high, low, close, fractales):
 
 
 def calc_opens(df):
-    result = {"year_open": None, "week_open": None}
+    """Calcula aperturas de año, semana y día."""
+    result = {"year_open": None, "week_open": None, "day_open": None}
     if df.empty:
         return result
     now = df.index[-1]
+
+    # Apertura anual
     ys = pd.Timestamp(year=now.year, month=1, day=1, tz=now.tz if now.tz else None)
     ydf = df[df.index >= ys]
     if not ydf.empty:
         result["year_open"] = float(ydf["Open"].iloc[0])
+
+    # Apertura semanal
     ws = (now - pd.Timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0)
     wdf = df[df.index >= ws]
     if not wdf.empty:
         result["week_open"] = float(wdf["Open"].iloc[0])
+
+    # Apertura del día (primera vela del día actual)
+    ds = pd.Timestamp(year=now.year, month=now.month, day=now.day,
+                      tz=now.tz if now.tz else None)
+    ddf = df[df.index >= ds]
+    if not ddf.empty:
+        result["day_open"] = float(ddf["Open"].iloc[0])
+
     return result
+
+
+async def get_index_components_context(ticker: str) -> dict | None:
+    """
+    Para ^DJI y ^NDX: obtiene el % de componentes clave alcistas vs bajistas
+    respecto al precio actual vs apertura del día.
+    Retorna dict con bulls, bears, neutral, porcentajes y dirección dominante.
+    """
+    components = INDEX_COMPONENTS.get(ticker.upper())
+    if not components:
+        return None
+
+    bulls, bears, neutral = [], [], []
+
+    async def check_component(sym):
+        try:
+            df = await async_download(sym, period="2d", interval="1d", progress=False)
+            if df.empty:
+                return
+            df = clean_df(df)
+            if len(df) < 1:
+                return
+            last_close = float(df["Close"].iloc[-1])
+            last_open  = float(df["Open"].iloc[-1])
+            if last_close > last_open * 1.001:
+                bulls.append(sym)
+            elif last_close < last_open * 0.999:
+                bears.append(sym)
+            else:
+                neutral.append(sym)
+        except Exception:
+            pass
+
+    for s in components:
+        await check_component(s)
+
+    total = len(bulls) + len(bears) + len(neutral)
+    if total == 0:
+        return None
+
+    bull_pct = round(len(bulls) / total * 100)
+    bear_pct = round(len(bears) / total * 100)
+
+    if bull_pct >= 60:
+        direction = "bullish"
+    elif bear_pct >= 60:
+        direction = "bearish"
+    else:
+        direction = "mixed"
+
+    return {
+        "bulls":     bulls,
+        "bears":     bears,
+        "neutral":   neutral,
+        "bull_pct":  bull_pct,
+        "bear_pct":  bear_pct,
+        "direction": direction,
+        "total":     total,
+    }
 
 
 def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
@@ -570,6 +651,27 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         estado = "NO AHORA"
         nivel  = "info"
 
+    # ── Contexto adicional: precio vs apertura del día y semana ──
+    day_context  = None
+    week_context = None
+    if opens:
+        do = opens.get("day_open")
+        wo = opens.get("week_open")
+        if do and do > 0:
+            if price > do * 1.0005:
+                day_context = {"direction": "above", "open": do, "pct": round((price - do) / do * 100, 3)}
+            elif price < do * 0.9995:
+                day_context = {"direction": "below", "open": do, "pct": round((price - do) / do * 100, 3)}
+            else:
+                day_context = {"direction": "at", "open": do, "pct": 0.0}
+        if wo and wo > 0:
+            if price > wo * 1.0005:
+                week_context = {"direction": "above", "open": wo, "pct": round((price - wo) / wo * 100, 3)}
+            elif price < wo * 0.9995:
+                week_context = {"direction": "below", "open": wo, "pct": round((price - wo) / wo * 100, 3)}
+            else:
+                week_context = {"direction": "at", "open": wo, "pct": 0.0}
+
     return {
         "ticker":       ticker.upper(),
         "precio":       price,
@@ -579,6 +681,8 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         "nivel":        nivel,
         "confluencias": confluencias,
         "alert":        puntos >= 3,   # True = enviar notificación (INTERESANTE o FAVORABLE)
+        "day_context":  day_context,
+        "week_context": week_context,
     }
 
 
@@ -605,6 +709,15 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
             df = clean_df(df)
             df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
             opens_data = calc_opens(df)
+
+            # Obtener contexto de componentes para índices (una vez por ticker)
+            components_ctx = None
+            if t.upper() in INDEX_COMPONENTS:
+                try:
+                    components_ctx = await get_index_components_context(t.upper())
+                except Exception:
+                    pass
+
             nuevas = []
             # Analizar las últimas num_candles velas
             for i in range(min(num_candles, len(df))):
@@ -633,12 +746,13 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
                     key = f"{t}_{resultado['estado']}_{round(resultado['precio'], -1)}"
                     if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
                         nuevas.append({
-                            "nivel":     resultado["nivel"],
-                            "msg":       f"[{t.upper()}] {resultado['estado']} {hora}".strip(),
-                            "hora":      hora,
-                            "dia_num":   dia_num,
-                            "dia_name":  dia_name,
-                            "resultado": resultado,
+                            "nivel":          resultado["nivel"],
+                            "msg":            f"[{t.upper()}] {resultado['estado']} {hora}".strip(),
+                            "hora":           hora,
+                            "dia_num":        dia_num,
+                            "dia_name":       dia_name,
+                            "resultado":      resultado,
+                            "components_ctx": components_ctx,
                         })
                         _sent_cache[key] = now
             if max_per_ticker > 0:
