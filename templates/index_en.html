@@ -1107,7 +1107,8 @@ async function loadNPStatus() {
         if(p.telegram_chat_id && tgInput && !tgInput.value) tgInput.value = p.telegram_chat_id;
         if(p.email_address && emInput && !emInput.value) emInput.value = p.email_address;
         const tzSel = document.getElementById('npTzSelect');
-        if(p.timezone && tzSel) tzSel.value = p.timezone;
+        const tzVal = p.timezone || localStorage.getItem('matrixlab_tz');
+        if(tzVal && tzSel) tzSel.value = tzVal;
         const em = document.getElementById('npMailState');
         if(p.email_address && p.email_enabled){
           em.innerText = `✅ Email active → ${p.email_address}`;
@@ -1161,6 +1162,7 @@ async function saveNPPrefs() {
   res.style.display='none';
 
   const tz = document.getElementById('npTzSelect')?.value || 'UTC';
+  localStorage.setItem('matrixlab_tz', tz);
   const prefs = {
     telegram_chat_id: tgId ? parseInt(tgId) : null,
     telegram_enabled: !!tgId,
