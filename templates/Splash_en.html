@@ -186,10 +186,9 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
     Fractal levels. Real signals. Smart decisions.
   </p>
   <div class="stats-row">
-    <div class="stat-item"><span class="stat-label">Spots</span><span class="stat-value" id="cuposVal">43/50</span><span class="stat-sub">available</span></div>
-    <div class="stat-item"><span class="stat-label">Waiting</span><span class="stat-value" id="esperaVal">0</span><span class="stat-sub">people</span></div>
-    <div class="stat-item"><span class="stat-label">Assets</span><span class="stat-value">43</span><span class="stat-sub">monitored</span></div>
-    <div class="stat-item"><span class="stat-label">Update</span><span class="stat-value">4H</span><span class="stat-sub">real time</span></div>
+    <div class="stat-item"><span class="stat-label">Assets</span><span class="stat-value">9</span><span class="stat-sub">monitored</span></div>
+    <div class="stat-item"><span class="stat-label">Alerts</span><span class="stat-value" id="tgSubsVal">—</span><span class="stat-sub">via Telegram</span></div>
+    <div class="stat-item"><span class="stat-label">Alerts</span><span class="stat-value" id="mailSubsVal">—</span><span class="stat-sub">via Email</span></div>
   </div>
   <div class="cta-wrap">
     <button class="btn-primary" onclick="openModal('register')">▶ START FREE TRIAL</button>
@@ -517,16 +516,29 @@ const TICKERS = [
 })();
 
 /* ─── CUPOS ─── */
-async function loadCupos() {
-  if (!sb) return;
+async function loadStats() {
+  // Alerts via Telegram
   try {
-    const { count, error } = await sb.from('profiles').select('*', { count: 'exact', head: true });
-    if (!error && count !== null) {
-      document.getElementById('cuposVal').textContent = `${Math.min(count, 50)}/50`;
-    }
-  } catch(e) {}
+    const r = await fetch('/api/subs');
+    const d = await r.json();
+    const tgEl = document.getElementById('tgSubsVal');
+    if (tgEl) tgEl.textContent = d.ok ? (d.subs || 0) : '—';
+  } catch(e) {
+    const tgEl = document.getElementById('tgSubsVal');
+    if (tgEl) tgEl.textContent = '—';
+  }
+  // Alerts via Email
+  try {
+    const r = await fetch('/api/mail-subs');
+    const d = await r.json();
+    const mEl = document.getElementById('mailSubsVal');
+    if (mEl) mEl.textContent = d.ok ? (d.subs || 0) : '—';
+  } catch(e) {
+    const mEl = document.getElementById('mailSubsVal');
+    if (mEl) mEl.textContent = '—';
+  }
 }
-loadCupos();
+loadStats();
 
 /* ── WELCOME AFTER EMAIL CONFIRMATION ── */
 function closeWelcome() {

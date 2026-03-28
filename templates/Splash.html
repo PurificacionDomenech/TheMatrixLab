@@ -227,10 +227,9 @@ h1 .rx{color:var(--red);text-shadow:0 0 20px rgba(255,0,51,.6),0 0 40px rgba(255
     Niveles fractales. Señales reales. Decisiones inteligentes.
   </p>
   <div class="stats-row">
-    <div class="stat-item"><span class="stat-label">Cupos</span><span class="stat-value" id="cuposVal">43/50</span><span class="stat-sub">disponibles</span></div>
-    <div class="stat-item"><span class="stat-label">En espera</span><span class="stat-value" id="esperaVal">0</span><span class="stat-sub">personas</span></div>
-    <div class="stat-item"><span class="stat-label">Activos</span><span class="stat-value">43</span><span class="stat-sub">vigilados</span></div>
-    <div class="stat-item"><span class="stat-label">Actualiz.</span><span class="stat-value">4H</span><span class="stat-sub">tiempo real</span></div>
+    <div class="stat-item"><span class="stat-label">Activos</span><span class="stat-value">9</span><span class="stat-sub">vigilados</span></div>
+    <div class="stat-item"><span class="stat-label">Avisos</span><span class="stat-value" id="tgSubsVal">—</span><span class="stat-sub">vía Telegram</span></div>
+    <div class="stat-item"><span class="stat-label">Avisos</span><span class="stat-value" id="mailSubsVal">—</span><span class="stat-sub">vía Email</span></div>
   </div>
   <div class="cta-wrap">
     <button class="btn-primary" onclick="openModal('register')">▶ COMENZAR PRUEBA GRATUITA</button>
@@ -560,16 +559,29 @@ const TICKERS = [
 })();
 
 /* ─── CUPOS ─── */
-async function loadCupos() {
-  if (!sb) return;
+async function loadStats() {
+  // Avisos Telegram
   try {
-    const { count, error } = await sb.from('profiles').select('*', { count: 'exact', head: true });
-    if (!error && count !== null) {
-      document.getElementById('cuposVal').textContent = `${Math.min(count, 50)}/50`;
-    }
-  } catch(e) {}
+    const r = await fetch('/api/subs');
+    const d = await r.json();
+    const tgEl = document.getElementById('tgSubsVal');
+    if (tgEl) tgEl.textContent = d.ok ? (d.subs || 0) : '—';
+  } catch(e) {
+    const tgEl = document.getElementById('tgSubsVal');
+    if (tgEl) tgEl.textContent = '—';
+  }
+  // Avisos Email
+  try {
+    const r = await fetch('/api/mail-subs');
+    const d = await r.json();
+    const mEl = document.getElementById('mailSubsVal');
+    if (mEl) mEl.textContent = d.ok ? (d.subs || 0) : '—';
+  } catch(e) {
+    const mEl = document.getElementById('mailSubsVal');
+    if (mEl) mEl.textContent = '—';
+  }
 }
-loadCupos();
+loadStats();
 
 /* ── BIENVENIDA POST-CONFIRMACIÓN ── */
 function closeWelcome() {

@@ -988,6 +988,19 @@ async def list_subs():
     return {"ok": True, "subs": len(ids), "chat_ids": ids}
 
 
+@app.get("/api/mail-subs")
+async def mail_subs():
+    if not HAS_NOTIFIER:
+        return {"ok": False, "subs": 0}
+    from notifier import get_all_user_prefs
+    try:
+        prefs = await get_all_user_prefs()
+        count = sum(1 for p in prefs if p.get("email_enabled") and p.get("email_address"))
+        return {"ok": True, "subs": count}
+    except Exception:
+        return {"ok": False, "subs": 0}
+
+
 @app.get("/api/bot-info")
 async def bot_info():
     token = os.getenv("TELEGRAM_TOKEN", "")
