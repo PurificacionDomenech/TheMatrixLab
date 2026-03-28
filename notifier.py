@@ -104,7 +104,8 @@ def _format_hora_tz(ts_utc_iso: str, tz_str: str) -> tuple[str, str, str]:
         sign = "+" if total_mins >= 0 else "-"
         tz_label = f"UTC{sign}{h}" if m == 0 else f"UTC{sign}{h}:{m:02d}"
         return hora_local, dia_name, tz_label
-    except Exception:
+    except Exception as e:
+        print(f"[tz] Error convirtiendo {ts_utc_iso!r} → {tz_str!r}: {e}")
         return "", "", "UTC"
 
 
@@ -763,11 +764,22 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     now_str          = datetime.now(ZoneInfo('Europe/Madrid')).strftime("%d/%m/%Y %H:%M")
     all_alertas_flat = [a for al in alerts_by_ticker.values() for a in al]
 
-    # Obtener prefs completas y subs básicas en paralelo
-    all_prefs, basic_chat_ids = await asyncio.gather(
+    # Obtener prefs completas, subs básicas, y mapa timezone para subs básicos en paralelo
+    all_prefs, basic_chat_ids, extra_prefs_raw = await asyncio.gather(
         get_all_user_prefs(),
-        get_chat_ids()
+        get_chat_ids(),
+        _supa_get(
+            "notification_prefs"
+            "?telegram_chat_id=not.is.null"
+            "&select=telegram_chat_id,timezone,language"
+        )
     )
+    # Mapa chat_id → {timezone, language} para usuarios que guardaron prefs aunque no tengan telegram_enabled
+    chat_prefs_map: dict = {}
+    for p in (extra_prefs_raw or []):
+        cid_p = p.get("telegram_chat_id")
+        if cid_p:
+            chat_prefs_map[int(cid_p)] = p
 
     loop = asyncio.get_running_loop()
     covered_chat_ids: set = set()
@@ -822,11 +834,22 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     if TELEGRAM_TOKEN and all_alertas_flat and basic_chat_ids:
         nuevos = 0
         for cid in basic_chat_ids:
-            if int(cid) not in covered_chat_ids:
+            cid_int = int(cid)
+            if cid_int not in covered_chat_ids:
+                user_p   = chat_prefs_map.get(cid_int, {})
+                user_tz  = user_p.get("timezone") or "UTC"
+                user_lang = user_p.get("language") or "es"
+                if "|" in user_lang:
+                    user_lang = user_lang.split("|", 1)[0]
+                if user_tz != "UTC":
+                    print(f"[notifier] Suscriptor básico {cid_int}: usando timezone={user_tz}, lang={user_lang}")
                 for tkr, tkr_alertas in alerts_by_ticker.items():
                     if tkr_alertas:
-                        texto_base = _build_tg_for_user({tkr: tkr_alertas}, now_str)
-                        await send_telegram_to(int(cid), texto_base)
+                        texto_base = _build_tg_for_user(
+                            {tkr: tkr_alertas}, now_str,
+                            lang=user_lang, timezone=user_tz
+                        )
+                        await send_telegram_to(cid_int, texto_base)
                         await asyncio.sleep(0.3)
                 nuevos += 1
         if nuevos:
