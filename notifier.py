@@ -479,6 +479,14 @@ def _build_day_context_lines(resultado: dict, lang: str) -> list[str]:
                 lines.append(f"  📉 Price <b>below</b> weekly open (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>shorts</b>")
             else:
                 lines.append(f"  ↔️ Price near weekly open (<code>{wo:.5g}</code>)")
+
+        # Conflict detection
+        if day_ctx and week_ctx:
+            d_dir = day_ctx.get("direction", "at")
+            w_dir = week_ctx.get("direction", "at")
+            if (d_dir == "above" and w_dir == "below") or (d_dir == "below" and w_dir == "above"):
+                lines.append("  ⚠️ <i>Context shows indecision zone</i>")
+
     else:
         lines.append("")
         lines.append("📌 <b>Contexto del precio (informativo):</b>")
@@ -500,6 +508,14 @@ def _build_day_context_lines(resultado: dict, lang: str) -> list[str]:
                 lines.append(f"  📉 Precio <b>por debajo</b> de la apertura semanal (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>cortos</b>")
             else:
                 lines.append(f"  ↔️ Precio cerca de la apertura semanal (<code>{wo:.5g}</code>)")
+
+        # Detectar conflicto entre apertura del día y semana
+        if day_ctx and week_ctx:
+            d_dir = day_ctx.get("direction", "at")
+            w_dir = week_ctx.get("direction", "at")
+            if (d_dir == "above" and w_dir == "below") or (d_dir == "below" and w_dir == "above"):
+                lines.append("  ⚠️ <i>Contexto muestra zona de indecisión</i>")
+
     return lines
 
 
