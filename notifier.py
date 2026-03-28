@@ -387,48 +387,21 @@ async def get_user_prefs(user_id: str) -> dict:
     return rows[0] if rows else {}
 
 
-def _encode_lang_tz(lang: str, tz: str) -> str:
-    """Codifica lang y timezone en un solo campo: 'es|Europe/Madrid'."""
-    tz = (tz or "UTC").strip()
-    lang = (lang or "es").strip()
-    if tz and tz != "UTC":
-        return f"{lang}|{tz}"
-    return lang
-
-
-def _decode_lang_tz(raw: str) -> tuple[str, str]:
-    """Decodifica 'es|Europe/Madrid' → ('es', 'Europe/Madrid')."""
-    if raw and "|" in raw:
-        lang, tz = raw.split("|", 1)
-        return lang.strip(), tz.strip()
-    return (raw or "es").strip(), "UTC"
-
-
 async def save_user_prefs(user_id: str, prefs: dict) -> bool:
-    lang     = prefs.get("language", "es") or "es"
-    timezone = prefs.get("timezone", "UTC") or "UTC"
+    """Guarda preferencias de notificación del usuario."""
     payload = {
         "user_id":          user_id,
         "telegram_chat_id": prefs.get("telegram_chat_id"),
-        "telegram_enabled": prefs.get("telegram_enabled", False),
-        "email_address":    prefs.get("email_address", ""),
-        "email_enabled":    prefs.get("email_enabled", False),
+        "telegram_enabled": bool(prefs.get("telegram_enabled", False)),
+        "email_address":    prefs.get("email_address", "") or "",
+        "email_enabled":    bool(prefs.get("email_enabled", False)),
         "tickers":          prefs.get("tickers", []),
-        "language":         _encode_lang_tz(lang, timezone),
+        "timezone":         prefs.get("timezone", "UTC") or "UTC",
     }
-    ok = await _supa_post(
+    return await _supa_post(
         "notification_prefs", payload,
         prefer="resolution=merge-duplicates"
     )
-    if not ok:
-        # Reintenta con language simple por si hay algún otro error
-        payload["language"] = lang
-        print("[notifier] Reintentando save_user_prefs con language simple…")
-        ok = await _supa_post(
-            "notification_prefs", payload,
-            prefer="resolution=merge-duplicates"
-        )
-    return ok
 
 
 async def get_all_user_prefs() -> list[dict]:
@@ -796,7 +769,11 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if not user_by_ticker:
                 continue
 
-            lang, timezone = _decode_lang_tz(prefs.get("language", "es"))
+            lang     = prefs.get("language", "es") or "es"
+            # language field may not exist in DB — strip any legacy encoding
+            if "|" in lang:
+                lang = lang.split("|", 1)[0]
+            timezone = prefs.get("timezone", "UTC") or "UTC"
 
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])

@@ -27,7 +27,6 @@ try:
         send_telegram_to,
         get_user_prefs,
         save_user_prefs,
-        _decode_lang_tz,
     )
 
     HAS_NOTIFIER = True
@@ -1052,13 +1051,6 @@ async def get_notif_prefs(request: Request):
     if not HAS_NOTIFIER:
         return {"ok": False, "prefs": {}}
     prefs = await get_user_prefs(user_id)
-    # Decodificar language|timezone → campos separados para el frontend
-    if prefs:
-        raw_lang = prefs.get("language", "es")
-        lang, tz  = _decode_lang_tz(raw_lang)
-        prefs = dict(prefs)
-        prefs["language"] = lang
-        prefs["timezone"] = tz
     return {"ok": True, "prefs": prefs}
 
 

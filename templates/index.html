@@ -207,27 +207,36 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
 
     <!-- Telegram -->
     <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
-      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">📱 Telegram</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase">📱 Telegram</div>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.5)">
+          <input type="checkbox" id="npTgEnabled" onchange="npDirty=true" style="accent-color:#00ff41;width:13px;height:13px;cursor:pointer">
+          Activo
+        </label>
+      </div>
       <div style="font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.4);line-height:1.9;margin-bottom:6px">
-        1. Abre el bot y envía <span style="color:var(--g);background:rgba(0,255,65,.08);padding:1px 5px;border-radius:3px">/start</span><br>
-        <span id="npTgLink" style="color:rgba(0,200,255,.7);font-size:10px;font-weight:700;cursor:default">Cargando bot…</span><br>
-        2. El bot te enviará tu <b style="color:rgba(0,255,65,.6)">Chat ID</b> — pégalo aquí:
+        1. Envía <span style="color:var(--g);background:rgba(0,255,65,.08);padding:1px 5px;border-radius:3px">/start</span> al bot:
+        <span id="npTgLink" style="color:rgba(0,200,255,.7);font-size:10px;font-weight:700;cursor:default">Cargando…</span><br>
+        2. El bot te da tu <b style="color:rgba(0,255,65,.6)">Chat ID</b>:
       </div>
-      <input id="npTgIdInput" type="number" placeholder="Tu Chat ID (ej: 123456789)"
-        style="width:100%;padding:6px 10px;border-radius:4px;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.15);color:rgba(0,255,65,.8);font-family:var(--fm);font-size:10px;outline:none;box-sizing:border-box;margin-bottom:5px"
-        oninput="npDirty=true">
-      <div id="npTgState" style="font-family:var(--fm);font-size:9px;padding:4px 8px;border-radius:4px;background:rgba(0,255,65,.04);color:rgba(0,255,65,.35);border:1px solid rgba(0,255,65,.08)">
-        🔄 Comprobando…
-      </div>
+      <input id="npTgIdInput" type="number" placeholder="Chat ID (ej: 123456789)"
+        style="width:100%;padding:6px 10px;border-radius:4px;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.15);color:rgba(0,255,65,.8);font-family:var(--fm);font-size:10px;outline:none;box-sizing:border-box"
+        oninput="npDirty=true;document.getElementById('npTgEnabled').checked=!!this.value.trim()">
     </div>
 
     <!-- Email -->
     <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
-      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">📧 Email</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase">📧 Email</div>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--fm);font-size:9px;color:rgba(0,255,65,.5)">
+          <input type="checkbox" id="npEmailEnabled" onchange="npDirty=true" style="accent-color:#00ff41;width:13px;height:13px;cursor:pointer">
+          Activo
+        </label>
+      </div>
       <input id="npEmailInput" type="email" placeholder="tu@email.com"
-        style="width:100%;padding:6px 10px;border-radius:4px;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.15);color:rgba(0,255,65,.8);font-family:var(--fm);font-size:10px;outline:none;box-sizing:border-box;margin-bottom:5px"
-        oninput="npDirty=true">
-      <div id="npMailState" style="font-family:var(--fm);font-size:9px;padding:4px 8px;border-radius:4px;background:rgba(0,255,65,.04);color:rgba(0,255,65,.35);border:1px solid rgba(0,255,65,.08)">
+        style="width:100%;padding:6px 10px;border-radius:4px;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.15);color:rgba(0,255,65,.8);font-family:var(--fm);font-size:10px;outline:none;box-sizing:border-box"
+        oninput="npDirty=true;document.getElementById('npEmailEnabled').checked=!!this.value.trim()">
+      <div id="npMailState" style="font-family:var(--fm);font-size:9px;padding:4px 8px;border-radius:4px;background:rgba(0,255,65,.04);color:rgba(0,255,65,.35);border:1px solid rgba(0,255,65,.08);margin-top:5px">
         🔄 Comprobando…
       </div>
     </div>
@@ -265,7 +274,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
       <button onclick="saveNPPrefs()" id="btnSaveNP"
         style="width:100%;padding:7px;border-radius:4px;background:transparent;border:1px solid rgba(0,255,65,.25);color:var(--g);font-family:var(--fm);font-size:10px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:all .2s"
         onmouseover="this.style.background='rgba(0,255,65,.06)'" onmouseout="this.style.background='transparent'">
-        💾 GUARDAR Y ACTIVAR ALERTAS
+        💾 GUARDAR CAMBIOS
       </button>
       <div id="npSaveResult" style="font-family:var(--fm);font-size:9px;margin-top:5px;display:none;padding:4px 8px;border-radius:4px;border:1px solid rgba(0,255,65,.12);background:rgba(0,255,65,.04);color:rgba(0,255,65,.6)"></div>
     </div>
@@ -430,7 +439,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
     const check=async()=>{
       const{data:{session}}=await sb.auth.getSession();
       if(session){
-        // Sesión válida — deja entrar
+        // Sesión válida — guarda el UUID real de Supabase para las prefs
+        if(session.user?.id){
+          try{localStorage.setItem('tml_uid', session.user.id)}catch(e){}
+        }
         return;
       }
       
@@ -1098,6 +1110,10 @@ async function loadNPStatus() {
         const tzSel = document.getElementById('npTzSelect');
         const tzVal = p.timezone || localStorage.getItem('matrixlab_tz');
         if(tzVal && tzSel) tzSel.value = tzVal;
+        const tgChk = document.getElementById('npTgEnabled');
+        const emChk = document.getElementById('npEmailEnabled');
+        if(tgChk) tgChk.checked = !!(p.telegram_enabled && p.telegram_chat_id);
+        if(emChk) emChk.checked = !!(p.email_enabled && p.email_address);
         const em = document.getElementById('npMailState');
         if(p.email_address && p.email_enabled){
           em.innerText = `✅ Email activo → ${p.email_address}`;
@@ -1136,15 +1152,10 @@ async function saveNPPrefs() {
   const uid     = getUserId();
   const tgId    = document.getElementById('npTgIdInput')?.value?.trim();
   const email   = document.getElementById('npEmailInput')?.value?.trim();
+  const tgOn    = document.getElementById('npTgEnabled')?.checked;
+  const emOn    = document.getElementById('npEmailEnabled')?.checked;
   const btn     = document.getElementById('btnSaveNP');
   const res     = document.getElementById('npSaveResult');
-
-  if(!tgId && !email){
-    res.style.display='block';
-    res.innerText='⚠️ Introduce tu Chat ID de Telegram y/o tu email';
-    res.style.color='#ffaa00';
-    return;
-  }
 
   btn.disabled=true;
   btn.innerText='⏳ GUARDANDO…';
@@ -1154,9 +1165,9 @@ async function saveNPPrefs() {
   localStorage.setItem('matrixlab_tz', tz);
   const prefs = {
     telegram_chat_id: tgId ? parseInt(tgId) : null,
-    telegram_enabled: !!tgId,
+    telegram_enabled: !!(tgId && tgOn),
     email_address:    email || '',
-    email_enabled:    !!email,
+    email_enabled:    !!(email && emOn),
     tickers:          [...wl],
     timezone:         tz,
   };
