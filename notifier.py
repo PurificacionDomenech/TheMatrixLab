@@ -239,12 +239,12 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") ->
             else:
                 blocks.append(f"⚡ Puntuación: <b>{score}/12</b> pts")
 
+    blocks.append(RISK_WARNING)
     blocks.append("")
     if lang == "en":
         blocks.append("<i>Automated technical analysis · Not financial advice</i>")
     else:
         blocks.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
-    blocks.append(RISK_WARNING)
     return "\n".join(blocks)
 
 def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
@@ -605,6 +605,7 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
         lines += _build_day_context_lines(resultado, lang)
         lines += _build_components_context_lines(t, components_ctx, lang)
+        lines.append(RISK_WARNING)
         lines += ["", "<i>Automated technical analysis · Not financial advice</i>"]
     else:
         lines = [
@@ -620,9 +621,9 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
         lines += _build_day_context_lines(resultado, lang)
         lines += _build_components_context_lines(t, components_ctx, lang)
+        lines.append(RISK_WARNING)
         lines += ["", "<i>Análisis técnico automatizado · No es asesoría financiera</i>"]
 
-    lines.append(RISK_WARNING)
     return "\n".join(lines)
 
 
