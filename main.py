@@ -725,14 +725,17 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
                 df_slice = df.iloc[: fila + 1]
                 ts = df.index[fila]
                 try:
-                    hora = pd.Timestamp(ts).strftime("%d/%m %H:%M")
-                    ts_parsed = pd.Timestamp(ts)
-                    dia_num  = ts_parsed.weekday()
-                    dia_name = ts_parsed.strftime("%A")
+                    ts_parsed   = pd.Timestamp(ts)
+                    ts_utc      = ts_parsed.tz_localize("UTC") if ts_parsed.tzinfo is None else ts_parsed.tz_convert("UTC")
+                    ts_utc_iso  = ts_utc.isoformat()
+                    hora        = ts_utc.strftime("%d/%m %H:%M")
+                    dia_num     = ts_parsed.weekday()
+                    dia_name    = ts_parsed.strftime("%A")
                 except Exception:
-                    hora     = ""
-                    dia_num  = -1
-                    dia_name = ""
+                    hora       = ""
+                    ts_utc_iso = ""
+                    dia_num    = -1
+                    dia_name   = ""
 
                 resultado = evaluate_confluencias(
                     df_slice,
@@ -749,6 +752,7 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
                             "nivel":          resultado["nivel"],
                             "msg":            f"[{t.upper()}] {resultado['estado']} {hora}".strip(),
                             "hora":           hora,
+                            "ts_utc_iso":     ts_utc_iso,
                             "dia_num":        dia_num,
                             "dia_name":       dia_name,
                             "resultado":      resultado,

@@ -232,6 +232,32 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
       </div>
     </div>
 
+    <!-- Zona horaria -->
+    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
+      <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:6px">🕐 Zona horaria de alertas</div>
+      <select id="npTzSelect" oninput="npDirty=true"
+        style="width:100%;padding:6px 10px;border-radius:4px;background:rgba(0,10,0,.9);border:1px solid rgba(0,255,65,.15);color:rgba(0,255,65,.8);font-family:var(--fm);font-size:10px;outline:none;box-sizing:border-box;cursor:pointer">
+        <option value="UTC">UTC (sin conversión)</option>
+        <option value="Europe/Madrid">Madrid / España (UTC+1/+2)</option>
+        <option value="Europe/London">Londres (UTC+0/+1)</option>
+        <option value="Europe/Paris">París / Europa Central (UTC+1/+2)</option>
+        <option value="America/New_York">Nueva York (UTC-5/-4)</option>
+        <option value="America/Chicago">Chicago (UTC-6/-5)</option>
+        <option value="America/Denver">Denver (UTC-7/-6)</option>
+        <option value="America/Los_Angeles">Los Ángeles (UTC-8/-7)</option>
+        <option value="America/Sao_Paulo">São Paulo (UTC-3/-2)</option>
+        <option value="America/Mexico_City">Ciudad de México (UTC-6/-5)</option>
+        <option value="America/Bogota">Bogotá / Lima (UTC-5)</option>
+        <option value="America/Santiago">Santiago de Chile (UTC-4/-3)</option>
+        <option value="America/Argentina/Buenos_Aires">Buenos Aires (UTC-3)</option>
+        <option value="Asia/Dubai">Dubái (UTC+4)</option>
+        <option value="Asia/Kolkata">India (UTC+5:30)</option>
+        <option value="Asia/Singapore">Singapur / HK (UTC+8)</option>
+        <option value="Asia/Tokyo">Tokio (UTC+9)</option>
+        <option value="Australia/Sydney">Sídney (UTC+10/+11)</option>
+      </select>
+    </div>
+
     <!-- Favoritos + Guardar -->
     <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(0,255,65,.07)">
       <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:.1em;color:rgba(0,255,65,.3);text-transform:uppercase;margin-bottom:4px">⭐ Activos vigilados</div>
@@ -1069,6 +1095,8 @@ async function loadNPStatus() {
         const emInput = document.getElementById('npEmailInput');
         if(p.telegram_chat_id && tgInput && !tgInput.value) tgInput.value = p.telegram_chat_id;
         if(p.email_address && emInput && !emInput.value) emInput.value = p.email_address;
+        const tzSel = document.getElementById('npTzSelect');
+        if(p.timezone && tzSel) tzSel.value = p.timezone;
         const em = document.getElementById('npMailState');
         if(p.email_address && p.email_enabled){
           em.innerText = `✅ Email activo → ${p.email_address}`;
@@ -1121,12 +1149,14 @@ async function saveNPPrefs() {
   btn.innerText='⏳ GUARDANDO…';
   res.style.display='none';
 
+  const tz = document.getElementById('npTzSelect')?.value || 'UTC';
   const prefs = {
     telegram_chat_id: tgId ? parseInt(tgId) : null,
     telegram_enabled: !!tgId,
     email_address:    email || '',
     email_enabled:    !!email,
     tickers:          [...wl],
+    timezone:         tz,
   };
 
   try {

@@ -80,6 +80,35 @@ _DIA_EN = {
     "Thursday": "Thursday", "Friday": "Friday", "Saturday": "Saturday", "Sunday": "Sunday",
 }
 
+def _format_hora_tz(ts_utc_iso: str, tz_str: str) -> tuple[str, str, str]:
+    """
+    Convierte un timestamp UTC ISO al timezone del usuario.
+    Retorna (hora_local_str, dia_name_en, tz_label).
+    """
+    if not ts_utc_iso or not tz_str or tz_str == "UTC":
+        return "", "", "UTC"
+    try:
+        from datetime import datetime, timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+        # Parsear el timestamp UTC
+        dt_utc = datetime.fromisoformat(ts_utc_iso)
+        if dt_utc.tzinfo is None:
+            dt_utc = dt_utc.replace(tzinfo=dt_timezone.utc)
+        tz = ZoneInfo(tz_str)
+        dt_local = dt_utc.astimezone(tz)
+        hora_local = dt_local.strftime("%d/%m %H:%M")
+        dia_name   = dt_local.strftime("%A")   # English day name
+        # Construir etiqueta de offset, ej: UTC+2, UTC-5
+        offset_secs = dt_local.utcoffset().total_seconds()
+        total_mins  = int(offset_secs // 60)
+        h, m = divmod(abs(total_mins), 60)
+        sign = "+" if total_mins >= 0 else "-"
+        tz_label = f"UTC{sign}{h}" if m == 0 else f"UTC{sign}{h}:{m:02d}"
+        return hora_local, dia_name, tz_label
+    except Exception:
+        return "", "", "UTC"
+
+
 def _rsi_ctx(rsi: float, lang: str) -> str:
     if lang == "en":
         if rsi > 70:   return "overbought"
@@ -364,6 +393,7 @@ async def save_user_prefs(user_id: str, prefs: dict) -> bool:
         "email_enabled":    prefs.get("email_enabled", False),
         "tickers":          prefs.get("tickers", []),
         "language":         prefs.get("language", "es"),
+        "timezone":         prefs.get("timezone", "UTC"),
     }
     return await _supa_post(
         "notification_prefs", payload,
@@ -592,7 +622,8 @@ def _build_components_context_lines(ticker: str, components_ctx: dict | None, la
 # ── Mensaje rico por confluencias ────────────────────────────
 
 def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: str,
-                           lang: str = "es", components_ctx: dict | None = None) -> str:
+                           lang: str = "es", components_ctx: dict | None = None,
+                           ts_utc_iso: str = "", timezone: str = "UTC") -> str:
     """Construye el mensaje Telegram de la matriz de confluencias."""
     t      = resultado["ticker"]
     name   = ASSET_NAMES.get(t, t)
@@ -602,10 +633,21 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
     estado = resultado["estado"]
     confs  = resultado["confluencias"]
 
+    # Convertir hora al timezone del usuario si está configurado
+    hora_display = hora
+    tz_label     = "UTC"
+    dia_display  = dia_name
+    if ts_utc_iso and timezone and timezone != "UTC":
+        h_local, d_local, tz_lbl = _format_hora_tz(ts_utc_iso, timezone)
+        if h_local:
+            hora_display = h_local
+            dia_display  = d_local
+            tz_label     = tz_lbl
+
     estado_emoji = {"FAVORABLE": "🟢", "INTERESANTE": "🔵", "CONSIDERAR": "🟡"}.get(estado, "⚪")
     dia_map_es = {"Monday":"Lunes","Tuesday":"Martes","Wednesday":"Miércoles",
                   "Thursday":"Jueves","Friday":"Viernes","Saturday":"Sábado","Sunday":"Domingo"}
-    dia_label = dia_map_es.get(dia_name, dia_name) if lang == "es" else dia_name
+    dia_label = dia_map_es.get(dia_display, dia_display) if lang == "es" else dia_display
 
     if lang == "en":
         lines = [
@@ -614,8 +656,8 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
             f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluences",
         ]
-        if hora:
-            lines.insert(3, f"🕐 4H candle · {dia_label}  {hora} UTC")
+        if hora_display:
+            lines.insert(3, f"🕐 4H candle · {dia_label}  {hora_display} {tz_label}")
         lines += ["", "<b>Active confluences:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
@@ -630,8 +672,8 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
             f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluencias",
         ]
-        if hora:
-            lines.insert(3, f"🕐 Vela 4H · {dia_label}  {hora} UTC")
+        if hora_display:
+            lines.insert(3, f"🕐 Vela 4H · {dia_label}  {hora_display} {tz_label}")
         lines += ["", "<b>Confluencias activas:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
@@ -643,7 +685,8 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
     return "\n".join(lines)
 
 
-def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
+def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es",
+                       timezone: str = "UTC") -> str:
     """
     Wrapper inteligente: usa _build_confluencia_msg si hay 'resultado',
     y _build_tg_grouped como fallback para alertas antiguas.
@@ -666,6 +709,8 @@ def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es") -
                         now_str=now_str,
                         lang=lang,
                         components_ctx=a.get("components_ctx"),
+                        ts_utc_iso=a.get("ts_utc_iso", ""),
+                        timezone=timezone,
                     )
                     # Omitir la primera línea (cabecera) para no duplicarla
                     body = "\n".join(msg.split("\n")[1:])
@@ -721,14 +766,15 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if not user_by_ticker:
                 continue
 
-            lang = prefs.get("language", "es")
+            lang     = prefs.get("language", "es")
+            timezone = prefs.get("timezone", "UTC") or "UTC"
 
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
                 cid = int(prefs["telegram_chat_id"])
                 covered_chat_ids.add(cid)
                 for tkr, tkr_alertas in user_by_ticker.items():
                     if tkr_alertas:
-                        texto_tg = _build_tg_for_user({tkr: tkr_alertas}, now_str, lang=lang)
+                        texto_tg = _build_tg_for_user({tkr: tkr_alertas}, now_str, lang=lang, timezone=timezone)
                         await send_telegram_to(cid, texto_tg)
                         await asyncio.sleep(0.3)
 
