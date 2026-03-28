@@ -37,10 +37,9 @@ NIVEL_EMOJI    = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
 NIVEL_LABEL    = {"bullish": "Favorable",  "bearish": "Atención",  "info": "Interesante"}
 NIVEL_LABEL_EN = {"bullish": "Bullish",    "bearish": "Bearish",   "info": "Watch"}
 
-RISK_WARNING = (
-    "\n❗️ <b>No arriesgar más de un 1% del balance de tu cuenta en un trade!</b>\n"
-    "❗️ <b>Don't risk more than 1% of the balance of your account in any trade!</b>"
-)
+RISK_WARNING_ES = "\n❗️ <b>No arriesgar más de un 1% del balance de tu cuenta en un trade!</b>"
+RISK_WARNING_EN = "\n❗️ <b>Don't risk more than 1% of the balance of your account in any trade!</b>"
+RISK_WARNING = RISK_WARNING_ES  
 
 def _translate_en(msg: str) -> str:
     msg = re.sub(r'Precio cruza (EMA\d+) al alza',  r'Price crosses \1 upward',   msg)
@@ -268,7 +267,7 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") ->
             else:
                 blocks.append(f"⚡ Puntuación: <b>{score}/12</b> pts")
 
-    blocks.append(RISK_WARNING)
+    blocks.append(RISK_WARNING_EN if lang == "en" else RISK_WARNING_ES)
     blocks.append("")
     if lang == "en":
         blocks.append("<i>Automated technical analysis · Not financial advice</i>")
@@ -694,7 +693,7 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
         lines += _build_day_context_lines(resultado, lang)
         lines += _build_components_context_lines(t, components_ctx, lang)
-        lines.append(RISK_WARNING)
+        lines.append(RISK_WARNING_EN)
         lines += ["", "<i>Automated technical analysis · Not financial advice</i>"]
     else:
         lines = [
@@ -710,7 +709,7 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
         lines += _build_day_context_lines(resultado, lang)
         lines += _build_components_context_lines(t, components_ctx, lang)
-        lines.append(RISK_WARNING)
+        lines.append(RISK_WARNING_ES)
         lines += ["", "<i>Análisis técnico automatizado · No es asesoría financiera</i>"]
 
     return "\n".join(lines)
