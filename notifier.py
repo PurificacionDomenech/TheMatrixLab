@@ -97,12 +97,8 @@ def _format_hora_tz(ts_utc_iso: str, tz_str: str) -> tuple[str, str, str]:
         dt_local = dt_utc.astimezone(tz)
         hora_local = dt_local.strftime("%d/%m %H:%M")
         dia_name   = dt_local.strftime("%A")   # English day name
-        # Construir etiqueta de offset, ej: UTC+2, UTC-5
-        offset_secs = dt_local.utcoffset().total_seconds()
-        total_mins  = int(offset_secs // 60)
-        h, m = divmod(abs(total_mins), 60)
-        sign = "+" if total_mins >= 0 else "-"
-        tz_label = f"UTC{sign}{h}" if m == 0 else f"UTC{sign}{h}:{m:02d}"
+        # Usar el nombre de la ciudad como etiqueta (Europe/Madrid → Madrid)
+        tz_label = tz_str.split("/")[-1].replace("_", " ")
         return hora_local, dia_name, tz_label
     except Exception as e:
         print(f"[tz] Error convirtiendo {ts_utc_iso!r} → {tz_str!r}: {e}")
