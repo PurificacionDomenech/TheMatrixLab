@@ -1051,6 +1051,12 @@ function toggleNP() {
 }
 
 async function loadNPStatus() {
+  // ── 0. Restaurar timezone desde localStorage inmediatamente ──
+  try {
+    const savedTz = localStorage.getItem('matrixlab_tz');
+    if(savedTz){const s=document.getElementById('npTzSelect');if(s)s.value=savedTz;}
+  } catch(e){}
+
   // ── 1. Nombre e info del bot ─────────────────────────────
   try {
     const r2 = await fetch('/api/bot-info');
@@ -1079,21 +1085,11 @@ async function loadNPStatus() {
   try {
     const r = await fetch('/api/subs');
     const d = await r.json();
-    const el = document.getElementById('npTgState');
     const dot = document.getElementById('npDot');
     if (d.ok && d.subs > 0) {
-      el.innerText = `✅ ${d.subs} suscriptor${d.subs>1?'es':''} activo${d.subs>1?'s':''} vía bot`;
-      el.style.color = '#00ff41';
-      el.style.borderColor = 'rgba(0,255,65,.2)';
-      dot.style.background = '#00ff41';
-      dot.style.boxShadow = '0 0 6px rgba(0,255,65,.6)';
-    } else {
-      el.innerText = d.ok ? '⚠️ Sin suscriptores aún — envía /start al bot' : '⚠️ Supabase no configurado';
-      el.style.color = '#ffaa00';
+      if(dot){dot.style.background='#00ff41';dot.style.boxShadow='0 0 6px rgba(0,255,65,.6)';}
     }
-  } catch(e) {
-    document.getElementById('npTgState').innerText = '❌ Error al conectar';
-  }
+  } catch(e) {}
 
   // ── 3. Cargar prefs guardadas ────────────────────────────
   try {

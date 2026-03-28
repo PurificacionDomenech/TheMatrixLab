@@ -365,6 +365,24 @@ async def _supa_post(path: str, payload: dict, prefer: str = "") -> bool:
         return False
 
 
+async def _supa_patch(path: str, payload: dict) -> bool:
+    """PATCH (UPDATE) a existing row in Supabase."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return False
+    h = _headers()
+    h["Prefer"] = "return=minimal"
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.patch(f"{SUPABASE_URL}/rest/v1/{path}", headers=h, json=payload)
+            if r.status_code not in (200, 201, 204):
+                print(f"[notifier] Supabase PATCH {path} → {r.status_code}: {r.text[:300]}")
+                return False
+            return True
+    except Exception as e:
+        print(f"[notifier] Supabase PATCH excepción: {e}")
+        return False
+
+
 # ── Telegram subs (registro via /start) ─────────────────────
 
 async def get_chat_ids() -> list[int]:
@@ -388,9 +406,8 @@ async def get_user_prefs(user_id: str) -> dict:
 
 
 async def save_user_prefs(user_id: str, prefs: dict) -> bool:
-    """Guarda preferencias de notificación del usuario."""
+    """Guarda preferencias de notificación del usuario (INSERT o UPDATE según exista)."""
     payload = {
-        "user_id":          user_id,
         "telegram_chat_id": prefs.get("telegram_chat_id"),
         "telegram_enabled": bool(prefs.get("telegram_enabled", False)),
         "email_address":    prefs.get("email_address", "") or "",
@@ -398,10 +415,21 @@ async def save_user_prefs(user_id: str, prefs: dict) -> bool:
         "tickers":          prefs.get("tickers", []),
         "timezone":         prefs.get("timezone", "UTC") or "UTC",
     }
-    return await _supa_post(
-        "notification_prefs", payload,
-        prefer="resolution=merge-duplicates"
-    )
+    # ¿Ya existe el registro?
+    existing = await _supa_get(f"notification_prefs?user_id=eq.{user_id}&select=id")
+    if existing:
+        # UPDATE — PATCH con filtro por user_id
+        ok = await _supa_patch(f"notification_prefs?user_id=eq.{user_id}", payload)
+        if ok:
+            print(f"[notifier] Prefs actualizadas para {user_id[:8]}…")
+        return ok
+    else:
+        # INSERT — POST con user_id incluido
+        payload["user_id"] = user_id
+        ok = await _supa_post("notification_prefs", payload, prefer="")
+        if ok:
+            print(f"[notifier] Prefs creadas para {user_id[:8]}…")
+        return ok
 
 
 async def get_all_user_prefs() -> list[dict]:
