@@ -50,6 +50,10 @@ WATCH_TICKERS = [
 _sent_cache: dict = {}
 _DEDUP_SECONDS = 4 * 3600
 
+_row_cache: dict = {}
+_ROW_TTL = 300
+_yf_lock = asyncio.Lock()
+
 ASSET_CONFIG = {
     "^DJI": {
         "key_spacing": 500,
@@ -258,7 +262,8 @@ INDEX_COMPONENTS = {
 
 async def async_download(ticker, **kwargs):
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: yf.download(ticker, **kwargs))
+    async with _yf_lock:
+        return await loop.run_in_executor(None, lambda: yf.download(ticker, **kwargs))
 
 
 def get_cfg(t):
@@ -884,6 +889,15 @@ if HAS_SCHEDULER:
                 print(f"[telegram] Polling error: {e}")
                 await asyncio.sleep(5)
 
+    async def _warm_row_cache():
+        print("[cache] Pre-calentando datos de los 9 activos…")
+        for t in WATCH_TICKERS:
+            try:
+                await _compute_row(t)
+            except Exception as e:
+                print(f"[cache] Error calentando {t}: {e}")
+        print("[cache] Cache de activos lista")
+
     @asynccontextmanager
     async def lifespan(app):
         scheduler = None
@@ -899,6 +913,7 @@ if HAS_SCHEDULER:
             print("[scheduler] Iniciado · revisión cada 30 min")
             # Catch-up: enviar alertas de las últimas 24h al arrancar
             asyncio.create_task(daily_catchup())
+            asyncio.create_task(_warm_row_cache())
         except Exception as e:
             print(f"[scheduler] Error al iniciar: {e}")
         yield
@@ -1170,53 +1185,62 @@ async def get_chart(ticker: str):
         return {"error": str(e)}
 
 
+async def _compute_row(ticker: str) -> dict:
+    key = ticker.upper()
+    now = time.time()
+    cached = _row_cache.get(key)
+    if cached and now - cached["ts"] < _ROW_TTL:
+        return cached["data"]
+    cfg = get_cfg(ticker)
+    es, el = cfg["ema_short"], cfg["ema_long"]
+    df = await async_download(key, period="1y", interval="4h", progress=False)
+    if df.empty:
+        return {"error": "not found"}
+    df = clean_df(df)
+    df = calc_indicators(df, es, el)
+    last, first = float(df["Close"].iloc[-1]), float(df["Close"].iloc[0])
+    rsi_s = df["RSI"].dropna()
+    rsi = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
+
+    def lv(col):
+        if col not in df.columns:
+            return None
+        s = df[col].dropna()
+        return float(s.iloc[-1]) if not s.empty else None
+
+    fr = calc_fractales(last, cfg)
+    ft = detect_fractal_touch(
+        float(df["High"].iloc[-1]), float(df["Low"].iloc[-1]), last, fr
+    )
+    opens = calc_opens(df)
+    confl = evaluate_confluencias(df, ticker=key, cfg=cfg, opens=opens)
+    result = {
+        "ticker": key,
+        "price": last,
+        "change_pct": round((last - first) / first * 100, 2),
+        "rsi": round(rsi, 1) if rsi else None,
+        "ema_short": lv(f"EMA{es}"),
+        "ema_long": lv(f"EMA{el}"),
+        "ema_short_name": f"EMA{es}",
+        "ema_long_name": f"EMA{el}",
+        "fractal_touch": ft["touch"],
+        "fractal_price": ft["price"],
+        "fractal_is_major": ft["is_major"],
+        "fractal_tipo": ft["tipo"],
+        "fractal_crosses": ft["crosses"],
+        "confluencias_puntos": confl["puntos"] if confl else 0,
+        "confluencias_estado": confl["estado"] if confl else "NO AHORA",
+        "confluencias": confl["confluencias"] if confl else [],
+        "confluencias_rsi": confl["rsi"] if confl else None,
+    }
+    _row_cache[key] = {"ts": now, "data": result}
+    return result
+
+
 @app.get("/api/row/{ticker}")
 async def get_row(ticker: str):
     try:
-        cfg = get_cfg(ticker)
-        es, el = cfg["ema_short"], cfg["ema_long"]
-        df = await async_download(
-            ticker.upper(), period="1y", interval="4h", progress=False
-        )
-        if df.empty:
-            return {"error": "not found"}
-        df = clean_df(df)
-        df = calc_indicators(df, es, el)
-        last, first = float(df["Close"].iloc[-1]), float(df["Close"].iloc[0])
-        rsi_s = df["RSI"].dropna()
-        rsi = float(rsi_s.iloc[-1]) if not rsi_s.empty else None
-
-        def lv(col):
-            if col not in df.columns:
-                return None
-            s = df[col].dropna()
-            return float(s.iloc[-1]) if not s.empty else None
-
-        fr = calc_fractales(last, cfg)
-        ft = detect_fractal_touch(
-            float(df["High"].iloc[-1]), float(df["Low"].iloc[-1]), last, fr
-        )
-        opens = calc_opens(df)
-        confl = evaluate_confluencias(df, ticker=ticker.upper(), cfg=cfg, opens=opens)
-        return {
-            "ticker": ticker.upper(),
-            "price": last,
-            "change_pct": round((last - first) / first * 100, 2),
-            "rsi": round(rsi, 1) if rsi else None,
-            "ema_short": lv(f"EMA{es}"),
-            "ema_long": lv(f"EMA{el}"),
-            "ema_short_name": f"EMA{es}",
-            "ema_long_name": f"EMA{el}",
-            "fractal_touch": ft["touch"],
-            "fractal_price": ft["price"],
-            "fractal_is_major": ft["is_major"],
-            "fractal_tipo": ft["tipo"],
-            "fractal_crosses": ft["crosses"],
-            "confluencias_puntos": confl["puntos"] if confl else 0,
-            "confluencias_estado": confl["estado"] if confl else "NO AHORA",
-            "confluencias": confl["confluencias"] if confl else [],
-            "confluencias_rsi": confl["rsi"] if confl else None,
-        }
+        return await _compute_row(ticker)
     except Exception as e:
         return {"error": str(e)}
 

@@ -510,22 +510,40 @@ function switchTab(tab) {
   else       document.getElementById('logEmail').focus();
 }
 
-/* ─── TICKER ─── */
-const TICKERS = [
-  {sym:'BTC',price:'95,240',chg:'+2.4%',up:true},{sym:'ETH',price:'3,180',chg:'+1.8%',up:true},
-  {sym:'S&P500',price:'5,842',chg:'-0.3%',up:false},{sym:'NQ100',price:'20,310',chg:'+0.7%',up:true},
-  {sym:'AAPL',price:'224.50',chg:'+1.1%',up:true},{sym:'GOLD',price:'2,918',chg:'+0.5%',up:true},
-  {sym:'SPY',price:'584',chg:'-0.2%',up:false},{sym:'QQQ',price:'493',chg:'+0.9%',up:true},
-  {sym:'VOO',price:'536',chg:'-0.1%',up:false},{sym:'SMH',price:'228',chg:'+3.2%',up:true},
-  {sym:'SCHD',price:'29.4',chg:'+0.4%',up:true},{sym:'VGT',price:'581',chg:'+1.5%',up:true},
+/* ─── TICKER — 9 activos vigilados ─── */
+const WATCH_TICKERS = [
+  {ticker:'USDJPY=X', sym:'USD/JPY'},
+  {ticker:'GBPJPY=X', sym:'GBP/JPY'},
+  {ticker:'EURUSD=X', sym:'EUR/USD'},
+  {ticker:'AUDUSD=X', sym:'AUD/USD'},
+  {ticker:'GC=F',     sym:'XAUUSD · Oro'},
+  {ticker:'SI=F',     sym:'XAGUSD · Plata'},
+  {ticker:'CL=F',     sym:'WTI · Petróleo'},
+  {ticker:'^DJI',     sym:'US30 · Dow'},
+  {ticker:'^NDX',     sym:'NAS100 · Nasdaq'},
 ];
-(function(){
+async function loadTicker() {
   const track = document.getElementById('tickerTrack');
-  const items = [...TICKERS, ...TICKERS];
-  track.innerHTML = items.map(t =>
-    `<div class="ticker-item"><span class="sym">${t.sym}</span><span>${t.price}</span><span class="${t.up?'up':'dn'}">${t.chg}</span></div>`
-  ).join('');
-})();
+  const results = await Promise.allSettled(
+    WATCH_TICKERS.map(w =>
+      fetch(`/api/row/${encodeURIComponent(w.ticker)}`, {cache:'no-store'})
+        .then(r => r.json())
+        .then(d => ({...w, price: d.price, chg_pct: d.change_pct}))
+    )
+  );
+  const items = results
+    .filter(r => r.status === 'fulfilled' && r.value.price != null)
+    .map(r => r.value);
+  if (!items.length) return;
+  const all = [...items, ...items];
+  track.innerHTML = all.map(t => {
+    const up = (t.chg_pct ?? 0) >= 0;
+    const chg = t.chg_pct != null ? `${up?'+':''}${t.chg_pct.toFixed(2)}%` : '';
+    const price = t.price >= 100 ? t.price.toLocaleString('en',{maximumFractionDigits:2}) : t.price.toFixed(4);
+    return `<div class="ticker-item"><span class="sym">${t.sym}</span><span>${price}</span><span class="${up?'up':'dn'}">${chg}</span></div>`;
+  }).join('');
+}
+loadTicker();
 
 /* ─── MATRIX RAIN ─── */
 (function(){
