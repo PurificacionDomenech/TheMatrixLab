@@ -688,7 +688,7 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluences",
         ]
         if hora_display:
-            lines.insert(3, f"🕐 4H candle · {dia_label}  {hora_display} {tz_label}")
+            lines.insert(3, f"🕐 4H candle · {dia_label} {hora_display} {tz_label}")
         lines += ["", "<b>Active confluences:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
@@ -704,7 +704,7 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluencias",
         ]
         if hora_display:
-            lines.insert(3, f"🕐 Vela 4H · {dia_label}  {hora_display} {tz_label}")
+            lines.insert(3, f"🕐 Vela 4H · {dia_label} {hora_display} {tz_label}")
         lines += ["", "<b>Confluencias activas:</b>"]
         for c in confs:
             lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
