@@ -356,7 +356,10 @@ async def _supa_post(path: str, payload: dict, prefer: str = "") -> bool:
             if r.status_code == 409:
                 print(f"[notifier] Supabase 409 en {path} — registro ya existe, se trata como éxito")
                 return True
-            return r.status_code in (200, 201, 204)
+            if r.status_code not in (200, 201, 204):
+                print(f"[notifier] Supabase POST {path} → {r.status_code}: {r.text[:300]}")
+                return False
+            return True
     except Exception as e:
         print(f"[notifier] Supabase POST excepción: {e}")
         return False
@@ -395,10 +398,19 @@ async def save_user_prefs(user_id: str, prefs: dict) -> bool:
         "language":         prefs.get("language", "es"),
         "timezone":         prefs.get("timezone", "UTC"),
     }
-    return await _supa_post(
+    ok = await _supa_post(
         "notification_prefs", payload,
         prefer="resolution=merge-duplicates"
     )
+    if not ok:
+        # Columna timezone puede no existir aún — reintenta sin ella
+        payload.pop("timezone", None)
+        print("[notifier] Reintentando save_user_prefs sin campo timezone…")
+        ok = await _supa_post(
+            "notification_prefs", payload,
+            prefer="resolution=merge-duplicates"
+        )
+    return ok
 
 
 async def get_all_user_prefs() -> list[dict]:
