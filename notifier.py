@@ -506,143 +506,81 @@ def _build_html(alertas: list[dict], now_str: str) -> str:
 
 def _build_day_context_lines(resultado: dict, lang: str) -> list[str]:
     """
-    Genera líneas de contexto sobre la posición del precio vs apertura del día
-    y de la semana. Informativo, no es confluencia.
+    Muestra los valores numéricos de apertura día/semana/año como referencia.
+    La conclusión direccional ya se incluye en la confluencia ④, por lo que
+    aquí solo se muestran los datos crudos para que el trader los tenga a mano.
     """
     lines = []
     day_ctx  = resultado.get("day_context")
     week_ctx = resultado.get("week_context")
+
     if not day_ctx and not week_ctx:
         return lines
 
+    def dir_arrow(d):
+        return "📈" if d == "above" else ("📉" if d == "below" else "↔️")
+
     if lang == "en":
         lines.append("")
-        lines.append("📌 <b>Price context (informational):</b>")
+        lines.append("📌 <b>Reference opens:</b>")
         if day_ctx:
             do  = day_ctx["open"]
             pct = day_ctx["pct"]
-            if day_ctx["direction"] == "above":
-                lines.append(f"  📈 Price <b>above</b> today's open (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>longs</b>")
-            elif day_ctx["direction"] == "below":
-                lines.append(f"  📉 Price <b>below</b> today's open (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>shorts</b>")
-            else:
-                lines.append(f"  ↔️ Price near today's open (<code>{do:.5g}</code>)")
+            arr = dir_arrow(day_ctx["direction"])
+            lines.append(f"  {arr} Day open: <code>{do:.5g}</code>  <i>{pct:+.2f}%</i>")
         if week_ctx:
             wo  = week_ctx["open"]
             pct = week_ctx["pct"]
-            if week_ctx["direction"] == "above":
-                lines.append(f"  📈 Price <b>above</b> weekly open (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>longs</b>")
-            elif week_ctx["direction"] == "below":
-                lines.append(f"  📉 Price <b>below</b> weekly open (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favors <b>shorts</b>")
-            else:
-                lines.append(f"  ↔️ Price near weekly open (<code>{wo:.5g}</code>)")
-
-        # Conflict detection
-        if day_ctx and week_ctx:
-            d_dir = day_ctx.get("direction", "at")
-            w_dir = week_ctx.get("direction", "at")
-            if (d_dir == "above" and w_dir == "below") or (d_dir == "below" and w_dir == "above"):
-                lines.append("  ⚠️ <i>Context shows indecision zone</i>")
-
+            arr = dir_arrow(week_ctx["direction"])
+            lines.append(f"  {arr} Week open: <code>{wo:.5g}</code>  <i>{pct:+.2f}%</i>")
     else:
         lines.append("")
-        lines.append("📌 <b>Contexto del precio (informativo):</b>")
+        lines.append("📌 <b>Referencias de apertura:</b>")
         if day_ctx:
             do  = day_ctx["open"]
             pct = day_ctx["pct"]
-            if day_ctx["direction"] == "above":
-                lines.append(f"  📈 Precio <b>por encima</b> de la apertura del día (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>largos</b>")
-            elif day_ctx["direction"] == "below":
-                lines.append(f"  📉 Precio <b>por debajo</b> de la apertura del día (<code>{do:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>cortos</b>")
-            else:
-                lines.append(f"  ↔️ Precio cerca de la apertura del día (<code>{do:.5g}</code>)")
+            arr = dir_arrow(day_ctx["direction"])
+            lines.append(f"  {arr} Apertura día: <code>{do:.5g}</code>  <i>{pct:+.2f}%</i>")
         if week_ctx:
             wo  = week_ctx["open"]
             pct = week_ctx["pct"]
-            if week_ctx["direction"] == "above":
-                lines.append(f"  📈 Precio <b>por encima</b> de la apertura semanal (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>largos</b>")
-            elif week_ctx["direction"] == "below":
-                lines.append(f"  📉 Precio <b>por debajo</b> de la apertura semanal (<code>{wo:.5g}</code>) <i>{pct:+.2f}%</i> → Favorece <b>cortos</b>")
-            else:
-                lines.append(f"  ↔️ Precio cerca de la apertura semanal (<code>{wo:.5g}</code>)")
-
-        # Detectar conflicto entre apertura del día y semana
-        if day_ctx and week_ctx:
-            d_dir = day_ctx.get("direction", "at")
-            w_dir = week_ctx.get("direction", "at")
-            if (d_dir == "above" and w_dir == "below") or (d_dir == "below" and w_dir == "above"):
-                lines.append("  ⚠️ <i>Contexto muestra zona de indecisión</i>")
+            arr = dir_arrow(week_ctx["direction"])
+            lines.append(f"  {arr} Apertura semana: <code>{wo:.5g}</code>  <i>{pct:+.2f}%</i>")
 
     return lines
 
 
 def _build_components_context_lines(ticker: str, components_ctx: dict | None, lang: str) -> list[str]:
     """
-    Para ^DJI y ^NDX: muestra cuántos componentes clave están alcistas/bajistas
-    respecto a la apertura del día. Informativo, no confluencia.
+    Muestra los tickers concretos que suben/bajan dentro del índice.
+    La conclusión direccional ya está en la confluencia ⑥ de la matriz.
+    Solo se muestra si hay datos (^DJI / ^NDX).
     """
     if not components_ctx:
         return []
 
-    bulls     = components_ctx.get("bulls", [])
-    bears     = components_ctx.get("bears", [])
-    neutral   = components_ctx.get("neutral", [])
-    bull_pct  = components_ctx.get("bull_pct", 0)
-    bear_pct  = components_ctx.get("bear_pct", 0)
-    direction = components_ctx.get("direction", "mixed")
-    total     = components_ctx.get("total", 0)
-
+    bulls  = components_ctx.get("bulls", [])
+    bears  = components_ctx.get("bears", [])
+    total  = components_ctx.get("total", 0)
     if total == 0:
         return []
 
-    if direction == "bullish":
-        dir_emoji    = "🟢"
-        dir_label_es = "alcista"
-        dir_label_en = "bullish"
-    elif direction == "bearish":
-        dir_emoji    = "🔴"
-        dir_label_es = "bajista"
-        dir_label_en = "bearish"
-    else:
-        dir_emoji    = "🟡"
-        dir_label_es = "mixta"
-        dir_label_en = "mixed"
-
     index_name = ASSET_NAMES.get(ticker.upper(), ticker)
-    lines = []
-    lines.append("")
+    lines = [""]
+
     if lang == "en":
-        lines.append(f"🏢 <b>Key components of {index_name} (vs today's open):</b>")
-        lines.append(
-            f"  {dir_emoji} {bull_pct}% bullish · {bear_pct}% bearish · "
-            f"{len(neutral)} neutral  —  dominant: <b>{dir_label_en}</b>"
-        )
+        lines.append(f"🏢 <b>{index_name} components (vs today's open):</b>")
         if bulls:
-            lines.append(f"  🟢 Up: {', '.join(bulls[:5])}{'…' if len(bulls) > 5 else ''}")
+            lines.append(f"  🟢 Up: {', '.join(bulls[:6])}{'…' if len(bulls) > 6 else ''}")
         if bears:
-            lines.append(f"  🔴 Down: {', '.join(bears[:5])}{'…' if len(bears) > 5 else ''}")
-        if direction == "bullish":
-            lines.append("  ✅ Components confirm bullish bias → reinforces long entries")
-        elif direction == "bearish":
-            lines.append("  ⚠️ Components confirm bearish bias → reinforces short entries")
-        else:
-            lines.append("  ⚠️ Mixed components — less directional conviction")
+            lines.append(f"  🔴 Down: {', '.join(bears[:6])}{'…' if len(bears) > 6 else ''}")
     else:
-        lines.append(f"🏢 <b>Componentes clave de {index_name} (vs apertura del día):</b>")
-        lines.append(
-            f"  {dir_emoji} {bull_pct}% alcistas · {bear_pct}% bajistas · "
-            f"{len(neutral)} neutrales  —  dirección: <b>{dir_label_es}</b>"
-        )
+        lines.append(f"🏢 <b>Componentes {index_name} (vs apertura del día):</b>")
         if bulls:
-            lines.append(f"  🟢 Subiendo: {', '.join(bulls[:5])}{'…' if len(bulls) > 5 else ''}")
+            lines.append(f"  🟢 Subiendo: {', '.join(bulls[:6])}{'…' if len(bulls) > 6 else ''}")
         if bears:
-            lines.append(f"  🔴 Bajando: {', '.join(bears[:5])}{'…' if len(bears) > 5 else ''}")
-        if direction == "bullish":
-            lines.append("  ✅ Componentes confirman sesgo alcista → refuerza entradas largas")
-        elif direction == "bearish":
-            lines.append("  ⚠️ Componentes confirman sesgo bajista → refuerza entradas cortas")
-        else:
-            lines.append("  ⚠️ Componentes mixtos — menor convicción direccional")
+            lines.append(f"  🔴 Bajando: {', '.join(bears[:6])}{'…' if len(bears) > 6 else ''}")
+
     return lines
 
 
@@ -651,16 +589,20 @@ def _build_components_context_lines(ticker: str, components_ctx: dict | None, la
 def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: str,
                            lang: str = "es", components_ctx: dict | None = None,
                            ts_utc_iso: str = "", timezone: str = "UTC") -> str:
-    """Construye el mensaje Telegram de la matriz de confluencias."""
-    t      = resultado["ticker"]
-    name   = ASSET_NAMES.get(t, t)
-    precio = resultado["precio"]
-    rsi    = resultado["rsi"]
-    puntos = resultado["puntos"]
-    estado = resultado["estado"]
-    confs  = resultado["confluencias"]
+    """
+    Construye el mensaje Telegram de la matriz de confluencias.
+    Muestra la dirección real (LARGO / CORTO) y alerta si hay contradicción.
+    """
+    t             = resultado["ticker"]
+    name          = ASSET_NAMES.get(t, t)
+    precio        = resultado["precio"]
+    rsi           = resultado["rsi"]
+    puntos        = resultado["puntos"]
+    estado        = resultado["estado"]
+    direction     = resultado.get("direction", "info")
+    contradiccion = resultado.get("contradiccion", False)
+    confs         = resultado["confluencias"]
 
-    # Convertir hora al timezone del usuario si está configurado
     hora_display = hora
     tz_label     = "UTC"
     dia_display  = dia_name
@@ -671,43 +613,96 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             dia_display  = d_local
             tz_label     = tz_lbl
 
-    estado_emoji = {"FAVORABLE": "🟢", "INTERESANTE": "🔵", "CONSIDERAR": "🟡"}.get(estado, "⚪")
+    if contradiccion:
+        estado_emoji = "⚠️"
+    elif estado == "FAVORABLE":
+        estado_emoji = "🟢" if direction == "bullish" else "🔴"
+    elif estado == "INTERESANTE":
+        estado_emoji = "🔵"
+    elif estado == "CONSIDERAR":
+        estado_emoji = "🟡"
+    else:
+        estado_emoji = "⚪"
+
+    if not contradiccion and direction in ("bullish", "bearish"):
+        if lang == "en":
+            dir_label = "📈 LONG setup" if direction == "bullish" else "📉 SHORT setup"
+        else:
+            dir_label = "📈 Setup LARGO" if direction == "bullish" else "📉 Setup CORTO"
+    else:
+        dir_label = ""
+
     dia_map_es = {"Monday":"Lunes","Tuesday":"Martes","Wednesday":"Miércoles",
                   "Thursday":"Jueves","Friday":"Viernes","Saturday":"Sábado","Sunday":"Domingo"}
     dia_label = dia_map_es.get(dia_display, dia_display) if lang == "es" else dia_display
 
+    max_confs = resultado.get("max_confs", 5)
     if lang == "en":
-        lines = [
-            f"<b>⬡ MATRIX LAB · {now_str}</b>",
-            f"",
-            f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
-            f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluences",
-        ]
-        if hora_display:
-            lines.insert(3, f"🕐 4H candle · {dia_label} {hora_display} {tz_label}")
-        lines += ["", "<b>Active confluences:</b>"]
-        for c in confs:
-            lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
-        lines += _build_day_context_lines(resultado, lang)
-        lines += _build_components_context_lines(t, components_ctx, lang)
-        lines.append(RISK_WARNING_EN)
-        lines += ["", "<i>Automated technical analysis · Not financial advice</i>"]
+        conf_label = f"{puntos}/{max_confs} confluences"
+        sec_header = "<b>Active confluences:</b>"
+        candle_lbl = "4H candle"
+        contr_warn = ("⚠️ <b>CONFLICTING SIGNALS</b> — confluences point in opposite directions. "
+                      "No valid setup.") if contradiccion else ""
     else:
-        lines = [
-            f"<b>⬡ MATRIX LAB · {now_str}</b>",
-            f"",
-            f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
-            f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {puntos}/5 confluencias",
-        ]
-        if hora_display:
-            lines.insert(3, f"🕐 Vela 4H · {dia_label} {hora_display} {tz_label}")
-        lines += ["", "<b>Confluencias activas:</b>"]
-        for c in confs:
-            lines.append(f"{'✅' if c['ok'] else '◻️'} {c['texto']}")
-        lines += _build_day_context_lines(resultado, lang)
-        lines += _build_components_context_lines(t, components_ctx, lang)
-        lines.append(RISK_WARNING_ES)
-        lines += ["", "<i>Análisis técnico automatizado · No es asesoría financiera</i>"]
+        conf_label = f"{puntos}/{max_confs} confluencias"
+        sec_header = "<b>Confluencias activas:</b>"
+        candle_lbl = "Vela 4H"
+        contr_warn = ("⚠️ <b>SEÑALES CONTRADICTORIAS</b> — las confluencias apuntan en direcciones "
+                      "opuestas. Setup no válido.") if contradiccion else ""
+
+    lines = [
+        f"<b>⬡ MATRIX LAB · {now_str}</b>",
+        "",
+        f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
+    ]
+
+    if hora_display:
+        lines.append(f"🕐 {candle_lbl} · {dia_label} {hora_display} {tz_label}")
+
+    estado_line = f"{estado_emoji} <b>{estado}</b>  ·  RSI {rsi:.1f}  ·  {conf_label}"
+    if dir_label:
+        estado_line += f"  ·  {dir_label}"
+    lines.append(estado_line)
+
+    if contr_warn:
+        lines.append("")
+        lines.append(contr_warn)
+
+    lines.append("")
+    lines.append(sec_header)
+
+    for c in confs:
+        en_conflicto = c.get("conflicto", False)
+        activa       = c.get("ok", False)
+        tipo         = c.get("tipo", "info")
+        descartada   = c.get("descartada", False)
+
+        if en_conflicto:
+            icon = "❌"
+        elif descartada:
+            icon = "🚫"
+        elif activa and tipo == "bullish":
+            icon = "✅🟢"
+        elif activa and tipo == "bearish":
+            icon = "✅🔴"
+        elif activa and tipo == "neutral":
+            icon = "✅⚪"
+        else:
+            icon = "◻️"
+
+        lines.append(f"{icon} {c['texto']}")
+
+    lines.extend(_build_day_context_lines(resultado, lang))
+    lines.extend(_build_components_context_lines(t, components_ctx, lang))
+
+    lines.append("")
+    lines.append(RISK_WARNING_EN if lang == "en" else RISK_WARNING_ES)
+
+    lines.append("")
+    if lang == "en":
+        lines.append("<i>Automated technical analysis · Not financial advice</i>")
+    else:
+        lines.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
 
     return "\n".join(lines)
 
@@ -767,7 +762,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
         _supa_get(
             "notification_prefs"
             "?telegram_chat_id=not.is.null"
-            "&select=telegram_chat_id,timezone,language"
+            "&select=telegram_chat_id,timezone"
         )
     )
     # Mapa chat_id → {timezone, language} para usuarios que guardaron prefs aunque no tengan telegram_enabled
@@ -804,10 +799,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if not user_by_ticker:
                 continue
 
-            lang     = prefs.get("language", "es") or "es"
-            # language field may not exist in DB — strip any legacy encoding
-            if "|" in lang:
-                lang = lang.split("|", 1)[0]
+            lang     = "es"
             timezone = prefs.get("timezone", "UTC") or "UTC"
 
             if prefs.get("telegram_enabled") and prefs.get("telegram_chat_id"):
@@ -834,9 +826,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
             if cid_int not in covered_chat_ids:
                 user_p   = chat_prefs_map.get(cid_int, {})
                 user_tz  = user_p.get("timezone") or "UTC"
-                user_lang = user_p.get("language") or "es"
-                if "|" in user_lang:
-                    user_lang = user_lang.split("|", 1)[0]
+                user_lang = "es"
                 if user_tz != "UTC":
                     print(f"[notifier] Suscriptor básico {cid_int}: usando timezone={user_tz}, lang={user_lang}")
                 for tkr, tkr_alertas in alerts_by_ticker.items():

@@ -56,6 +56,27 @@ uvicorn main:app --host 0.0.0.0 --port 5000
 
 The app runs without any environment variables set — notifications are simply disabled if credentials are missing.
 
+## Confluence Matrix (evaluate_confluencias)
+
+The system evaluates up to 6 confluences with **directional validation**:
+
+| # | Confluence | Direction |
+|---|---|---|
+| ① | RSI < 30 / > 70 | bullish / bearish |
+| ② | EMA200 vs EMA800 | bullish (EMA200 > EMA800) / bearish |
+| ③ | Fractal touch | soporte → bullish / resistencia → bearish |
+| ④ | Day + Week open | both above → bullish / both below → bearish |
+| ⑤ | Fibonacci 55.9% | neutral (valid for both directions) |
+| ⑥ | Index components (^DJI/^NDX only) | ≥60% bullish/bearish |
+
+**Directional rules:**
+- Strong signals (①②) determine direction; if they conflict → CONTRADICCIÓN
+- Weak/secondary signals (③④⑥) in opposite direction are **descartada** (discarded), not counted
+- Neutral signals (⑤) count regardless of direction
+- FAVORABLE: ≥4 points aligned | INTERESANTE: 3 | CONSIDERAR: 2 | NO AHORA: ≤1
+
+**Schema `notification_prefs`**: `user_id, telegram_chat_id, telegram_enabled, email_address, email_enabled, tickers, timezone, created_at, id` — NO `language` column.
+
 ## Deployment
 
 Configured for autoscale deployment using gunicorn with UvicornWorker on port 5000.

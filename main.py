@@ -534,10 +534,24 @@ def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
 # ─── CONFLUENCIAS ────────────────────────────────────────────
 
 
-def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
+def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=None):
     """
-    Evalúa las 5 confluencias de la matriz y devuelve resultado estructurado.
-    Devuelve alerta si se cumplen >= 3 de 5 (INTERESANTE o FAVORABLE).
+    Evalúa las 5 confluencias de la matriz con validación DIRECCIONAL.
+
+    Regla fundamental: para que el setup sea FAVORABLE, todas las confluencias
+    activas deben apuntar en la MISMA dirección (todas bullish o todas bearish).
+    Si hay conflicto de dirección → el setup es inválido (CONTRADICCIÓN).
+
+    Direcciones de cada confluencia:
+      ① RSI < 30  → bullish (sobreventa = posible rebote al alza)
+         RSI > 70 → bearish (sobrecompra = posible caída)
+      ② EMA corta > EMA larga → bullish (tendencia alcista)
+         EMA corta < EMA larga → bearish (tendencia bajista)
+      ③ Fractal soporte       → bullish
+         Fractal resistencia   → bearish
+      ④ Apertura día/semana   → bullish si precio arriba de ambas, bearish si abajo
+      ⑤ Fibonacci 55.9%       → neutral (nivel de retroceso, válido para ambas)
+      ⑥ Componentes índice    → bullish/bearish según mayoría (solo ^DJI/^NDX)
     """
     if len(df) < 14:
         return None
@@ -557,106 +571,176 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
     if f"EMA{el}" in df.columns and pd.notna(df[f"EMA{el}"].iloc[n]):
         ema_l_val = float(df[f"EMA{el}"].iloc[n])
 
-    confluencias = []
-    puntos = 0
+    raw = []
 
-    # ① RSI sobrevendido (<47) o sobrecomprado (>53)
-    if rsi < 47:
-        confluencias.append({"id": 1, "ok": True,
-            "texto": f"RSI sobrevendido ({rsi:.1f})", "tipo": "bullish"})
-        puntos += 1
-    elif rsi > 53:
-        confluencias.append({"id": 1, "ok": True,
-            "texto": f"RSI sobrecomprado ({rsi:.1f})", "tipo": "bearish"})
-        puntos += 1
+    # ① RSI extremo
+    if rsi < 30:
+        raw.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrevendido ({rsi:.1f}) → señal alcista", "tipo": "bullish"})
+    elif rsi > 70:
+        raw.append({"id": 1, "ok": True,
+            "texto": f"RSI sobrecomprado ({rsi:.1f}) → señal bajista", "tipo": "bearish"})
     else:
-        confluencias.append({"id": 1, "ok": False,
+        raw.append({"id": 1, "ok": False,
             "texto": f"RSI neutro ({rsi:.1f})", "tipo": "info"})
 
-    # ② EMA200 > EMA800 — tendencia alcista
+    # ② Relación entre EMAs (tendencia)
     if ema_s_val and ema_l_val:
         if ema_s_val > ema_l_val:
-            confluencias.append({"id": 2, "ok": True,
+            raw.append({"id": 2, "ok": True,
                 "texto": f"EMA{es} ({ema_s_val:.5g}) > EMA{el} ({ema_l_val:.5g}) — tendencia alcista",
                 "tipo": "bullish"})
-            puntos += 1
         else:
-            confluencias.append({"id": 2, "ok": False,
-                "texto": f"EMA{es} < EMA{el} — tendencia bajista", "tipo": "bearish"})
+            raw.append({"id": 2, "ok": True,
+                "texto": f"EMA{es} ({ema_s_val:.5g}) < EMA{el} ({ema_l_val:.5g}) — tendencia bajista",
+                "tipo": "bearish"})
+    else:
+        raw.append({"id": 2, "ok": False,
+            "texto": "EMAs no disponibles", "tipo": "info"})
 
-    # ③ Precio respetando nivel clave fractal como soporte
+    # ③ Fractal (soporte → bullish, resistencia → bearish)
     if cfg:
         fr = calc_fractales(price, cfg)
         ft = detect_fractal_touch(
             float(df["High"].iloc[n]), float(df["Low"].iloc[n]), price, fr)
-        if ft["touch"] and ft["tipo"] == "soporte":
+        if ft["touch"]:
             tag = "MAYOR" if ft["is_major"] else "menor"
-            confluencias.append({"id": 3, "ok": True,
-                "texto": f"Nivel clave {tag} como soporte en {ft['price']:.5g}",
-                "tipo": "bullish"})
-            puntos += 1
+            if ft["tipo"] == "soporte":
+                raw.append({"id": 3, "ok": True,
+                    "texto": f"Nivel clave {tag} como soporte en {ft['price']:.5g}",
+                    "tipo": "bullish"})
+            else:
+                raw.append({"id": 3, "ok": True,
+                    "texto": f"Nivel clave {tag} como resistencia en {ft['price']:.5g}",
+                    "tipo": "bearish"})
         else:
-            confluencias.append({"id": 3, "ok": False,
+            raw.append({"id": 3, "ok": False,
                 "texto": "Sin nivel clave fractal relevante", "tipo": "info"})
-
-    # ④ Precio en zona de apertura anual o semanal (±0.3%)
-    if opens:
-        yo  = opens.get("year_open")
-        wo  = opens.get("week_open")
-        tol = price * 0.003
-        if yo and abs(price - yo) <= tol:
-            confluencias.append({"id": 4, "ok": True,
-                "texto": f"Precio en apertura anual ({yo:.5g})", "tipo": "bullish"})
-            puntos += 1
-        elif wo and abs(price - wo) <= tol:
-            confluencias.append({"id": 4, "ok": True,
-                "texto": f"Precio en apertura semanal ({wo:.5g})", "tipo": "bullish"})
-            puntos += 1
-        else:
-            confluencias.append({"id": 4, "ok": False,
-                "texto": "Lejos de apertura anual/semanal", "tipo": "info"})
     else:
-        confluencias.append({"id": 4, "ok": False,
+        raw.append({"id": 3, "ok": False,
+            "texto": "Sin nivel clave fractal relevante", "tipo": "info"})
+
+    # ④ Precio sobre/bajo apertura del DÍA y SEMANA → dirección real
+    if opens:
+        do = opens.get("day_open")
+        wo = opens.get("week_open")
+        tol = 0.0005
+        day_dir  = None
+        week_dir = None
+        if do and do > 0:
+            if price > do * (1 + tol):   day_dir = "above"
+            elif price < do * (1 - tol): day_dir = "below"
+        if wo and wo > 0:
+            if price > wo * (1 + tol):   week_dir = "above"
+            elif price < wo * (1 - tol): week_dir = "below"
+
+        if day_dir == "above" and week_dir == "above":
+            raw.append({"id": 4, "ok": True,
+                "texto": (f"Precio sobre apertura del día ({do:.5g}) "
+                          f"y semana ({wo:.5g}) → sesgo alcista"),
+                "tipo": "bullish"})
+        elif day_dir == "below" and week_dir == "below":
+            raw.append({"id": 4, "ok": True,
+                "texto": (f"Precio bajo apertura del día ({do:.5g}) "
+                          f"y semana ({wo:.5g}) → sesgo bajista"),
+                "tipo": "bearish"})
+        elif day_dir and week_dir:
+            raw.append({"id": 4, "ok": False,
+                "texto": (f"Apertura día {'↑' if day_dir=='above' else '↓'} "
+                          f"vs semana {'↑' if week_dir=='above' else '↓'} — sin consenso"),
+                "tipo": "info"})
+        else:
+            raw.append({"id": 4, "ok": False,
+                "texto": "Datos de apertura del día/semana incompletos", "tipo": "info"})
+    else:
+        raw.append({"id": 4, "ok": False,
             "texto": "Datos de apertura no disponibles", "tipo": "info"})
 
-    # ⑤ Retroceso Fibonacci 55.9% o 78.6% del rango del período
+    # ⑤ Fibonacci 55.9% (neutral — nivel de precio, no implica dirección)
     high_p = float(df["High"].max())
     low_p  = float(df["Low"].min())
     fib559 = high_p - (high_p - low_p) * 0.559
-    fib786 = high_p - (high_p - low_p) * 0.786
     tol_f  = (high_p - low_p) * 0.015
     if abs(price - fib559) <= tol_f:
-        confluencias.append({"id": 5, "ok": True,
+        raw.append({"id": 5, "ok": True,
             "texto": f"Fibonacci 55.9% en {fib559:.5g} (rango {low_p:.5g}–{high_p:.5g})",
-            "tipo": "bullish"})
-        puntos += 1
-    elif abs(price - fib786) <= tol_f:
-        confluencias.append({"id": 5, "ok": True,
-            "texto": f"Fibonacci 78.6% en {fib786:.5g} (rango {low_p:.5g}–{high_p:.5g})",
-            "tipo": "bullish"})
-        puntos += 1
+            "tipo": "neutral"})
     else:
-        pct_559 = (price - fib559) / fib559 * 100
-        pct_786 = (price - fib786) / fib786 * 100
-        confluencias.append({"id": 5, "ok": False,
-            "texto": f"Fib 55.9% en {fib559:.5g} ({pct_559:+.1f}%) · Fib 78.6% en {fib786:.5g} ({pct_786:+.1f}%)",
+        pct_dist = (price - fib559) / fib559 * 100
+        raw.append({"id": 5, "ok": False,
+            "texto": f"Fib 55.9% en {fib559:.5g} ({pct_dist:+.1f}% de distancia)",
             "tipo": "info"})
 
-    # Determinar estado
-    if puntos >= 4:
-        estado = "FAVORABLE"
-        nivel  = "bullish"
-    elif puntos == 3:
-        estado = "INTERESANTE"
-        nivel  = "bullish"
-    elif puntos == 2:
-        estado = "CONSIDERAR"
-        nivel  = "info"
-    else:
-        estado = "NO AHORA"
-        nivel  = "info"
+    # ⑥ Componentes del índice (solo ^DJI y ^NDX) — dirección real
+    if components_ctx and components_ctx.get("total", 0) > 0:
+        bull_pct  = components_ctx.get("bull_pct", 0)
+        bear_pct  = components_ctx.get("bear_pct", 0)
+        comp_dir  = components_ctx.get("direction", "mixed")
+        n_bulls   = len(components_ctx.get("bulls", []))
+        n_bears   = len(components_ctx.get("bears", []))
+        total_c   = components_ctx.get("total", 1)
+        if comp_dir == "bullish":
+            raw.append({"id": 6, "ok": True,
+                "texto": (f"{bull_pct}% de componentes alcistas ({n_bulls}/{total_c}) "
+                          f"→ sesgo alcista del índice"),
+                "tipo": "bullish"})
+        elif comp_dir == "bearish":
+            raw.append({"id": 6, "ok": True,
+                "texto": (f"{bear_pct}% de componentes bajistas ({n_bears}/{total_c}) "
+                          f"→ sesgo bajista del índice"),
+                "tipo": "bearish"})
+        else:
+            raw.append({"id": 6, "ok": False,
+                "texto": f"Componentes mixtos ({bull_pct}% ↑ / {bear_pct}% ↓)",
+                "tipo": "info"})
 
-    # ── Contexto adicional: precio vs apertura del día y semana ──
+    # ── PASO 2: determinar la dirección dominante con lógica direccional ──
+    activas_bullish = [c for c in raw if c["ok"] and c["tipo"] == "bullish"]
+    activas_bearish = [c for c in raw if c["ok"] and c["tipo"] == "bearish"]
+
+    FUERTES = {1, 2}
+    bullish_fuertes = [c for c in activas_bullish if c["id"] in FUERTES]
+    bearish_fuertes = [c for c in activas_bearish if c["id"] in FUERTES]
+
+    contradiccion = bool(bullish_fuertes) and bool(bearish_fuertes)
+
+    if contradiccion:
+        direction = "conflicto"
+        puntos    = 0
+        confluencias_final = []
+        for c in raw:
+            entry = dict(c)
+            if c["ok"] and c["tipo"] in ("bullish", "bearish") and c["id"] in FUERTES:
+                entry["conflicto"] = True
+                entry["ok"] = False
+            confluencias_final.append(entry)
+    else:
+        if bullish_fuertes and not bearish_fuertes:
+            direction = "bullish"
+        elif bearish_fuertes and not bullish_fuertes:
+            direction = "bearish"
+        elif len(activas_bullish) > len(activas_bearish):
+            direction = "bullish"
+        elif len(activas_bearish) > len(activas_bullish):
+            direction = "bearish"
+        else:
+            direction = "info"
+
+        confluencias_final = []
+        puntos = 0
+        for c in raw:
+            entry = dict(c)
+            if c["ok"] and c["tipo"] not in ("neutral", "info"):
+                if direction in ("bullish", "bearish") and c["tipo"] != direction:
+                    entry["ok"] = False
+                    entry["descartada"] = True
+                else:
+                    puntos += 1
+            elif c["ok"] and c["tipo"] == "neutral":
+                puntos += 1
+            confluencias_final.append(entry)
+
+    # ── PASO 3: calcular contexto del día/semana ──
     day_context  = None
     week_context = None
     if opens:
@@ -664,30 +748,61 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None):
         wo = opens.get("week_open")
         if do and do > 0:
             if price > do * 1.0005:
-                day_context = {"direction": "above", "open": do, "pct": round((price - do) / do * 100, 3)}
+                day_context = {"direction": "above", "open": do,
+                               "pct": round((price - do) / do * 100, 3)}
             elif price < do * 0.9995:
-                day_context = {"direction": "below", "open": do, "pct": round((price - do) / do * 100, 3)}
+                day_context = {"direction": "below", "open": do,
+                               "pct": round((price - do) / do * 100, 3)}
             else:
                 day_context = {"direction": "at", "open": do, "pct": 0.0}
         if wo and wo > 0:
             if price > wo * 1.0005:
-                week_context = {"direction": "above", "open": wo, "pct": round((price - wo) / wo * 100, 3)}
+                week_context = {"direction": "above", "open": wo,
+                                "pct": round((price - wo) / wo * 100, 3)}
             elif price < wo * 0.9995:
-                week_context = {"direction": "below", "open": wo, "pct": round((price - wo) / wo * 100, 3)}
+                week_context = {"direction": "below", "open": wo,
+                                "pct": round((price - wo) / wo * 100, 3)}
             else:
                 week_context = {"direction": "at", "open": wo, "pct": 0.0}
 
+    # ── PASO 4: determinar estado final ──
+    if contradiccion:
+        estado = "CONTRADICCIÓN"
+        nivel  = "info"
+        alert  = False
+    elif puntos >= 4:
+        estado = "FAVORABLE"
+        nivel  = direction
+        alert  = True
+    elif puntos == 3:
+        estado = "INTERESANTE"
+        nivel  = direction
+        alert  = False
+    elif puntos == 2:
+        estado = "CONSIDERAR"
+        nivel  = "info"
+        alert  = False
+    else:
+        estado = "NO AHORA"
+        nivel  = "info"
+        alert  = False
+
+    max_confs = max(c["id"] for c in confluencias_final) if confluencias_final else 5
+
     return {
-        "ticker":       ticker.upper(),
-        "precio":       price,
-        "rsi":          rsi,
-        "puntos":       puntos,
-        "estado":       estado,
-        "nivel":        nivel,
-        "confluencias": confluencias,
-        "alert":        puntos >= 3,   # True = enviar notificación (INTERESANTE o FAVORABLE)
-        "day_context":  day_context,
-        "week_context": week_context,
+        "ticker":        ticker.upper(),
+        "precio":        price,
+        "rsi":           rsi,
+        "puntos":        puntos,
+        "max_confs":     max_confs,
+        "estado":        estado,
+        "nivel":         nivel,
+        "direction":     direction,
+        "contradiccion": contradiccion,
+        "confluencias":  confluencias_final,
+        "alert":         alert,
+        "day_context":   day_context,
+        "week_context":  week_context,
     }
 
 
@@ -747,6 +862,7 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
                     ticker=t.upper(),
                     cfg=cfg,
                     opens=opens_data,
+                    components_ctx=components_ctx,
                 )
 
                 if resultado and resultado.get("alert"):
@@ -1213,7 +1329,13 @@ async def _compute_row(ticker: str) -> dict:
         float(df["High"].iloc[-1]), float(df["Low"].iloc[-1]), last, fr
     )
     opens = calc_opens(df)
-    confl = evaluate_confluencias(df, ticker=key, cfg=cfg, opens=opens)
+    row_components_ctx = None
+    if key in INDEX_COMPONENTS:
+        try:
+            row_components_ctx = await get_index_components_context(key)
+        except Exception:
+            pass
+    confl = evaluate_confluencias(df, ticker=key, cfg=cfg, opens=opens, components_ctx=row_components_ctx)
     result = {
         "ticker": key,
         "price": last,

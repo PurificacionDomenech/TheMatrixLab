@@ -1,0 +1,29 @@
+Ahora entiendo el problema completo. Las issues son:
+
+Confluencia ④ (apertura anual/semanal) — actualmente solo activa si el precio está en (±0.3%) la apertura. Debería ser diferente: que el precio esté por encima de apertura del día Y semana refuerza un setup largo, y por debajo refuerza un corto. Es decir, debe tener dirección propia.
+Contexto de componentes (US30/NQ) — actualmente es solo informativo en el mensaje, pero no influye en los puntos. Debe sumarse como confluencia si apunta en la misma dirección que el resto.
+Ejecutó un comando, visualizó un archivoEjecutó un comando, visualizó un archivoAhora tengo el panorama completo. El plan de cambios:
+
+Confluencia ④: cambia de "precio en apertura" → "precio por encima de apertura día Y semana = bullish / por debajo = bearish". Así tiene dirección real como el RSI.
+Componentes índice (⑥ nueva): se añade como confluencia real con dirección, solo para ^DJI y ^NDX, pasándose como parámetro a evaluate_confluencias.
+Notifier: actualizar texto de confluencia ④ y añadir ⑥ con icono correcto.
+Aplicar los tres cambios en main.py via script PythonAplicar los tres cambios en main.py via script PythonAhora actualizar las dos llamadas a evaluate_confluencias para pasar components_ctx:Ejecutó 2 comandosEjecutó 2 comandosAhora actualizar el notifier.py para que la confluencia ④ y ⑥ se muestren con el icono de dirección correcto (ya lo hacen por el tipo bullish/bearish, pero hay que ajustar el texto del contexto informativo de día/semana para que ya no repita lo que ahora es confluencia):Ejecutó 2 comandos, visualizó un archivoEjecutó 2 comandos, visualizó un archivoTest completo con todos los casos:Test completo de todos los casos relevantesTest completo de todos los casos relevantesTodo perfecto. Copiamos a outputs:Ejecutó un comando, leyó un archivoEjecutó un comando, leyó un archivoLos tests confirman que todo funciona correctamente. Aquí el resumen de la lógica nueva:
+Confluencia ④ — Apertura día/semana (ahora con dirección real):
+
+precio > apertura_día AND > apertura_semana → bullish ✅🟢 — suma punto solo si el resto apunta a largo
+precio < apertura_día AND < apertura_semana → bearish ✅🔴 — suma punto solo si el resto apunta a corto
+Día y semana en sentidos distintos → sin consenso ◻️ — no activa
+Si el setup es bullish pero día/semana dicen bearish → 🚫 descartada, no genera contradicción pero tampoco suma
+
+Confluencia ⑥ — Componentes ^DJI / ^NDX (ahora es confluencia real):
+
+≥60% componentes alcistas → bullish, suma punto si el setup es largo
+≥60% componentes bajistas → bearish, suma punto si el setup es corto
+Mixtos → no activa
+Si apunta en contra de la dirección dominante → 🚫 descartada
+
+Resultado en los casos problemáticos:
+
+Plata RSI 61.6: día y semana arriba coinciden con bullish → 3 puntos = INTERESANTE (no FAVORABLE, correcto)
+US30 RSI 36.8: día/semana abajo y componentes bajistas se descartan porque la EMA dice bullish → 2 puntos = CONSIDERAR (ya no se disparaba como FAVORABLE erróneo)
+FAVORABLE real: cuando RSI + EMA + día/semana + componentes todos apuntan en la misma dirección → 4 puntos = FAVORABLE 
