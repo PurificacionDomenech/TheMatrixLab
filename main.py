@@ -543,8 +543,8 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
     Si hay conflicto de dirección → el setup es inválido (CONTRADICCIÓN).
 
     Direcciones de cada confluencia:
-      ① RSI < 30  → bullish (sobreventa = posible rebote al alza)
-         RSI > 70 → bearish (sobrecompra = posible caída)
+      ① RSI < 47  → bullish (comprar barato, ideal < 30)
+         RSI > 53 → bearish (vender caro, ideal > 70)
       ② EMA corta > EMA larga → bullish (tendencia alcista)
          EMA corta < EMA larga → bearish (tendencia bajista)
       ③ Fractal soporte       → bullish
@@ -573,13 +573,13 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
 
     raw = []
 
-    # ① RSI extremo
-    if rsi < 30:
+    # ① RSI — comprar barato (<47) o vender caro (>53)
+    if rsi < 47:
         raw.append({"id": 1, "ok": True,
-            "texto": f"RSI sobrevendido ({rsi:.1f}) → señal alcista", "tipo": "bullish"})
-    elif rsi > 70:
+            "texto": f"RSI bajo ({rsi:.1f}) → favorable para largos", "tipo": "bullish"})
+    elif rsi > 53:
         raw.append({"id": 1, "ok": True,
-            "texto": f"RSI sobrecomprado ({rsi:.1f}) → señal bajista", "tipo": "bearish"})
+            "texto": f"RSI alto ({rsi:.1f}) → favorable para cortos", "tipo": "bearish"})
     else:
         raw.append({"id": 1, "ok": False,
             "texto": f"RSI neutro ({rsi:.1f})", "tipo": "info"})

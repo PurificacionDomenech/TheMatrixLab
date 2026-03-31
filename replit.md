@@ -62,7 +62,7 @@ The system evaluates up to 6 confluences with **directional validation**:
 
 | # | Confluence | Direction |
 |---|---|---|
-| ① | RSI < 30 / > 70 | bullish / bearish |
+| ① | RSI < 47 / > 53 | bullish (comprar barato) / bearish (vender caro) |
 | ② | EMA200 vs EMA800 | bullish (EMA200 > EMA800) / bearish |
 | ③ | Fractal touch | soporte → bullish / resistencia → bearish |
 | ④ | Day + Week open | both above → bullish / both below → bearish |
