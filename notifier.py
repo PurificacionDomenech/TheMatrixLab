@@ -650,11 +650,21 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
         contr_warn = ("⚠️ <b>SEÑALES CONTRADICTORIAS</b> — las confluencias apuntan en direcciones "
                       "opuestas. Setup no válido.") if contradiccion else ""
 
+    is_rsi_rt = resultado.get("rsi_realtime", False)
+    rt_banner = ""
+    if is_rsi_rt:
+        if lang == "en":
+            rt_banner = "⚡ <b>RSI REAL-TIME ALERT</b> — RSI just entered the extreme zone!"
+        else:
+            rt_banner = "⚡ <b>ALERTA RSI EN TIEMPO REAL</b> — ¡El RSI acaba de entrar en zona extrema!"
+
     lines = [
         f"<b>⬡ MATRIX LAB · {now_str}</b>",
-        "",
-        f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>",
     ]
+    if rt_banner:
+        lines.append(rt_banner)
+    lines.append("")
+    lines.append(f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>")
 
     if hora_display:
         lines.append(f"🕐 {candle_lbl} · {dia_label} {hora_display} {tz_label}")

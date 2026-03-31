@@ -54,6 +54,9 @@ _row_cache: dict = {}
 _ROW_TTL = 300
 _yf_lock = asyncio.Lock()
 
+_rsi_watchlist: dict = {}
+_RSI_WATCH_INTERVAL_MIN = 2
+
 ASSET_CONFIG = {
     "^DJI": {
         "key_spacing": 500,
@@ -905,6 +908,8 @@ async def scheduled_watch():
     else:
         print("[scheduler] Sin alertas nuevas")
 
+    await _update_rsi_watchlist()
+
 
 async def daily_catchup():
     """Catch-up al arrancar: revisa las últimas 6 velas (≈24h) y envía lo pendiente."""
@@ -920,6 +925,174 @@ async def daily_catchup():
         await notify_users_with_alerts(alerts_by_ticker)
     else:
         print("[catchup] Sin alertas nuevas en las últimas 24h")
+
+    await _update_rsi_watchlist()
+
+
+async def _update_rsi_watchlist():
+    """Evalúa todos los tickers y añade a la watchlist RSI aquellos con ≥3 puntos
+    (sin contar RSI) cuyo RSI aún no está en zona extrema."""
+    global _rsi_watchlist
+    new_watchlist = {}
+    for t in WATCH_TICKERS:
+        try:
+            cfg = get_cfg(t)
+            df = await async_download(t.upper(), period="6mo", interval="4h", progress=False)
+            if df.empty:
+                continue
+            df = clean_df(df)
+            df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            opens_data = calc_opens(df)
+
+            components_ctx = None
+            if t.upper() in INDEX_COMPONENTS:
+                try:
+                    components_ctx = await get_index_components_context(t.upper())
+                except Exception:
+                    pass
+
+            resultado = evaluate_confluencias(df, ticker=t.upper(), cfg=cfg,
+                                              opens=opens_data, components_ctx=components_ctx)
+            if not resultado or resultado.get("contradiccion"):
+                continue
+
+            confs = resultado.get("confluencias", [])
+            direction = resultado.get("direction", "info")
+            rsi = resultado.get("rsi", 50)
+
+            if direction not in ("bullish", "bearish"):
+                continue
+
+            puntos_sin_rsi = 0
+            for c in confs:
+                if c["id"] == 1:
+                    continue
+                if c.get("ok") and not c.get("descartada") and not c.get("conflicto"):
+                    puntos_sin_rsi += 1
+
+            rsi_ya_extremo = (direction == "bullish" and rsi <= 30) or \
+                             (direction == "bearish" and rsi >= 70)
+
+            if puntos_sin_rsi >= 3 and not rsi_ya_extremo:
+                new_watchlist[t.upper()] = {
+                    "direction": direction,
+                    "puntos_sin_rsi": puntos_sin_rsi,
+                    "rsi_actual": rsi,
+                    "resultado": resultado,
+                    "components_ctx": components_ctx,
+                    "cfg": cfg,
+                }
+                print(f"[rsi-watch] 👁 {t.upper()} en vigilancia RSI "
+                      f"({puntos_sin_rsi} pts sin RSI, dir={direction}, RSI={rsi:.1f})")
+        except Exception as e:
+            print(f"[rsi-watch] Error evaluando {t}: {e}")
+
+    _rsi_watchlist = new_watchlist
+    if _rsi_watchlist:
+        print(f"[rsi-watch] Vigilando {len(_rsi_watchlist)} activo(s): "
+              f"{', '.join(_rsi_watchlist.keys())}")
+    else:
+        print("[rsi-watch] Sin activos en vigilancia RSI")
+
+
+async def _rsi_realtime_check():
+    """Cada 2 min revisa SOLO el RSI de los activos en la watchlist.
+    Si el RSI cruza la zona extrema (≤30 largos, ≥70 cortos) → alerta inmediata."""
+    if not HAS_NOTIFIER or not _rsi_watchlist:
+        return
+
+    now = time.time()
+    alertas_rsi: dict = {}
+
+    for ticker, info in list(_rsi_watchlist.items()):
+        try:
+            df = await async_download(ticker, period="5d", interval="15m", progress=False)
+            if df.empty:
+                continue
+            df = clean_df(df)
+
+            col_rsi = "RSI"
+            if col_rsi not in df.columns:
+                import ta
+                df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
+
+            rsi_series = df["RSI"].dropna()
+            if rsi_series.empty:
+                continue
+            rsi_now = float(rsi_series.iloc[-1])
+
+            direction = info["direction"]
+            triggered = (direction == "bullish" and rsi_now <= 30) or \
+                        (direction == "bearish" and rsi_now >= 70)
+
+            if not triggered:
+                continue
+
+            dedup_key = f"RSI_RT_{ticker}_{direction}"
+            if now - _sent_cache.get(dedup_key, 0) < _DEDUP_SECONDS:
+                continue
+
+            cfg = info["cfg"]
+            df_4h = await async_download(ticker, period="6mo", interval="4h", progress=False)
+            if df_4h.empty:
+                continue
+            df_4h = clean_df(df_4h)
+            df_4h = calc_indicators(df_4h, cfg["ema_short"], cfg["ema_long"])
+            opens_data = calc_opens(df_4h)
+
+            components_ctx = info.get("components_ctx")
+            resultado = evaluate_confluencias(df_4h, ticker=ticker, cfg=cfg,
+                                              opens=opens_data, components_ctx=components_ctx)
+
+            if not resultado:
+                continue
+
+            resultado["rsi"] = rsi_now
+            for c in resultado.get("confluencias", []):
+                if c["id"] == 1:
+                    if direction == "bullish" and rsi_now <= 30:
+                        c["ok"] = True
+                        c["tipo"] = "bullish"
+                        c["texto"] = f"⚡ RSI en zona ({rsi_now:.1f}) → COMPRA"
+                        c.pop("descartada", None)
+                        c.pop("conflicto", None)
+                    elif direction == "bearish" and rsi_now >= 70:
+                        c["ok"] = True
+                        c["tipo"] = "bearish"
+                        c["texto"] = f"⚡ RSI en zona ({rsi_now:.1f}) → VENTA"
+                        c.pop("descartada", None)
+                        c.pop("conflicto", None)
+
+            puntos = sum(1 for c in resultado["confluencias"]
+                         if c.get("ok") and not c.get("descartada") and not c.get("conflicto"))
+            resultado["puntos"] = puntos
+            resultado["estado"] = "FAVORABLE" if puntos >= 4 else "INTERESANTE"
+            resultado["nivel"] = direction
+            resultado["alert"] = puntos >= 4
+            resultado["rsi_realtime"] = True
+
+            if resultado["alert"]:
+                ts_now = pd.Timestamp.now(tz="UTC")
+                alertas_rsi[ticker] = [{
+                    "nivel": direction,
+                    "msg": f"[{ticker}] ⚡ RSI EN ZONA — {resultado['estado']}",
+                    "hora": ts_now.strftime("%d/%m %H:%M"),
+                    "ts_utc_iso": ts_now.isoformat(),
+                    "dia_num": ts_now.weekday(),
+                    "dia_name": ts_now.strftime("%A"),
+                    "resultado": resultado,
+                    "components_ctx": components_ctx,
+                }]
+                _sent_cache[dedup_key] = now
+                del _rsi_watchlist[ticker]
+                print(f"[rsi-watch] ⚡ {ticker} RSI={rsi_now:.1f} cruzó zona extrema "
+                      f"({direction}) → ALERTA INMEDIATA")
+
+        except Exception as e:
+            print(f"[rsi-watch] Error revisando RSI de {ticker}: {e}")
+
+    if alertas_rsi:
+        await notify_users_with_alerts(alertas_rsi)
 
 
 # ─── APP ─────────────────────────────────────────────────────
@@ -1023,10 +1196,11 @@ if HAS_SCHEDULER:
             polling_task = asyncio.create_task(_tg_polling(token))
         try:
             scheduler = AsyncIOScheduler()
-            # Revisión cada 30 min para alertas en tiempo real
             scheduler.add_job(scheduled_watch, "interval", minutes=30, id="watch_30m")
+            scheduler.add_job(_rsi_realtime_check, "interval",
+                              minutes=_RSI_WATCH_INTERVAL_MIN, id="rsi_rt")
             scheduler.start()
-            print("[scheduler] Iniciado · revisión cada 30 min")
+            print(f"[scheduler] Iniciado · revisión cada 30 min + RSI real-time cada {_RSI_WATCH_INTERVAL_MIN} min")
             # Catch-up: enviar alertas de las últimas 24h al arrancar
             asyncio.create_task(daily_catchup())
             asyncio.create_task(_warm_row_cache())
