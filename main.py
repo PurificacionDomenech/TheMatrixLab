@@ -45,6 +45,7 @@ WATCH_TICKERS = [
     "AUDUSD=X",
     "SI=F",
     "CL=F",
+    "BTC-USD",
 ]
 
 _sent_cache: dict = {}
