@@ -1,0 +1,15 @@
+Encontré todos los problemas. Hay 4 bugs específicos que bloquean las señales bearish:Diagnóstico preciso de todos los bugs bearishDiagnóstico preciso de todos los bugs bearishAhora tengo todos los bugs localizados. Hay 4 bugs que juntos bloquean las señales bearish:
+
+Clave de deduplicación no incluye la dirección → FAVORABLE bullish y bearish en el mismo precio se bloquean mutuamente
+/api/row no devuelve direction al frontend → la UI no sabe si es LARGO o CORTO
+detect_alerts en el fractal solo busca soporte, ignora resistencia
+/api/row no pasa components_ctx a evaluate_confluencias → confluencia ⑥ nunca activa para DJI/NQ
+Se ejecutaron 3 comandosSe ejecutaron 3 comandosLos 5 tests pasan perfectamente. Ahora copiar a outputs:Ejecutó un comando, archivo leídoEjecutó un comando, archivo leídoSe encontraron y corrigieron 4 bugs que bloqueaban las señales bearish:
+Bug 1 — Clave de deduplicación sin dirección
+La caché usaba TICKER_FAVORABLE_45000 para ambas direcciones. Si llegaba un FAVORABLE bullish primero, bloqueaba el FAVORABLE bearish en el mismo precio durante 4 horas. Corregido: ahora es TICKER_FAVORABLE_bearish_45000 vs TICKER_FAVORABLE_bullish_45000.
+Bug 2 — /api/row no devolvía direction al frontend
+El endpoint retornaba confluencias_estado (FAVORABLE/INTERESANTE) pero nunca la dirección real. El frontend no sabía si mostrar "LARGO" o "CORTO". Corregido: ahora retorna confluencias_direction y confluencias_contradiccion.
+Bug 3 — detect_alerts ignoraba la resistencia en fractales
+El código solo generaba alerta cuando el fractal era de tipo "soporte". Las velas tocando resistencias MAYORES (señal bearish) pasaban silenciosas. Corregido: ahora genera alerta para soporte y resistencia por igual, solo en fractales MAYORES.
+Bug 4 — /api/row no pasaba components_ctx a evaluate_confluencias
+El scheduler pasaba el contexto de componentes correctamente, pero /api/row (que alimenta el panel de la app) llamaba sin él. Los índices DJI y NDX nunca activaban la confluencia ⑥ en el panel. Corregido con manejo seguro para entornos con event loop activo.

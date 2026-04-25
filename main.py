@@ -869,8 +869,9 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
                 )
 
                 if resultado and resultado.get("alert"):
-                    # Clave de deduplicación: ticker + estado + precio redondeado
-                    key = f"{t}_{resultado['estado']}_{round(resultado['precio'], -1)}"
+                    # Clave de deduplicación: ticker + estado + dirección + precio redondeado
+                    direction = resultado.get("direction", "info")
+                    key = f"{t}_{resultado['estado']}_{direction}_{round(resultado['precio'], -1)}"
                     if now - _sent_cache.get(key, 0) > _DEDUP_SECONDS:
                         nuevas.append({
                             "nivel":          resultado["nivel"],
@@ -1525,7 +1526,10 @@ async def _compute_row(ticker: str) -> dict:
         "fractal_tipo": ft["tipo"],
         "fractal_crosses": ft["crosses"],
         "confluencias_puntos": confl["puntos"] if confl else 0,
+        "confluencias_max": confl.get("max_confs", 5) if confl else 5,
         "confluencias_estado": confl["estado"] if confl else "NO AHORA",
+        "confluencias_direction": confl.get("direction", "info") if confl else "info",
+        "confluencias_contradiccion": confl.get("contradiccion", False) if confl else False,
         "confluencias": confl["confluencias"] if confl else [],
         "confluencias_rsi": confl["rsi"] if confl else None,
     }

@@ -1,0 +1,511 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import asyncio
+import time
+import os
+import httpx
+ 
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+ 
+try:
+    from contextlib import asynccontextmanager
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+ 
+    HAS_SCHEDULER = True
+except ImportError:
+    HAS_SCHEDULER = False
+    print("[WARN] apscheduler no instalado")
+ 
+try:
+    from notifier import (
+        notify_alertas,
+        notify_users_with_alerts,
+        register_chat,
+        send_telegram_to,
+        get_user_prefs,
+        save_user_prefs,
+    )
+ 
+    HAS_NOTIFIER = True
+except Exception as e:
+    HAS_NOTIFIER = False
+    print(f"[WARN] notifier no disponible: {e}")
+ 
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+WATCH_TICKERS = [
+    "^DJI",
+    "GC=F",
+    "^NDX",
+    "USDJPY=X",
+    "GBPJPY=X",
+    "EURUSD=X",
+    "AUDUSD=X",
+    "SI=F",
+    "CL=F",
+]
+ 
+_sent_cache: dict = {}
+_DEDUP_SECONDS = 4 * 3600
+ 
+ASSET_CONFIG = {
+    "^DJI": {
+        "key_spacing": 500,
+        "major_spacing": 1000,
+        "zone_size": 100,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "^NDX": {
+        "key_spacing": 500,
+        "major_spacing": 1000,
+        "zone_size": 100,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "GC=F": {
+        "key_spacing": 50,
+        "major_spacing": 100,
+        "zone_size": 10,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "GLD": {
+        "key_spacing": 5,
+        "major_spacing": 10,
+        "zone_size": 1,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "IAU": {
+        "key_spacing": 5,
+        "major_spacing": 10,
+        "zone_size": 1,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "SI=F": {
+        "key_spacing": 1,
+        "major_spacing": 5,
+        "zone_size": 0.25,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "CL=F": {
+        "key_spacing": 2,
+        "major_spacing": 5,
+        "zone_size": 0.5,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "USDJPY=X": {
+        "key_spacing": 1,
+        "major_spacing": 5,
+        "zone_size": 0.25,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "GBPJPY=X": {
+        "key_spacing": 1,
+        "major_spacing": 5,
+        "zone_size": 0.25,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "EURUSD=X": {
+        "key_spacing": 0.005,
+        "major_spacing": 0.01,
+        "zone_size": 0.001,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "AUDUSD=X": {
+        "key_spacing": 0.005,
+        "major_spacing": 0.01,
+        "zone_size": 0.001,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "^TNX": {
+        "key_spacing": 0.1,
+        "major_spacing": 0.5,
+        "zone_size": 0.05,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "^TYX": {
+        "key_spacing": 0.1,
+        "major_spacing": 0.5,
+        "zone_size": 0.05,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "DX=F": {
+        "key_spacing": 1,
+        "major_spacing": 5,
+        "zone_size": 0.25,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "^GSPC": {
+        "key_spacing": 50,
+        "major_spacing": 100,
+        "zone_size": 10,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "SPY": {
+        "key_spacing": 10,
+        "major_spacing": 50,
+        "zone_size": 2,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "VOO": {
+        "key_spacing": 10,
+        "major_spacing": 50,
+        "zone_size": 2,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "^RUT": {
+        "key_spacing": 25,
+        "major_spacing": 50,
+        "zone_size": 5,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "IWM": {
+        "key_spacing": 5,
+        "major_spacing": 10,
+        "zone_size": 1,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "BTC-USD": {
+        "key_spacing": 1000,
+        "major_spacing": 5000,
+        "zone_size": 250,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "ETH-USD": {
+        "key_spacing": 50,
+        "major_spacing": 200,
+        "zone_size": 25,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "QQQ": {
+        "key_spacing": 10,
+        "major_spacing": 20,
+        "zone_size": 2,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "QQQM": {
+        "key_spacing": 5,
+        "major_spacing": 20,
+        "zone_size": 1,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "GDX": {
+        "key_spacing": 2,
+        "major_spacing": 5,
+        "zone_size": 0.5,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "SMH": {
+        "key_spacing": 10,
+        "major_spacing": 50,
+        "zone_size": 2,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "XLE": {
+        "key_spacing": 2,
+        "major_spacing": 10,
+        "zone_size": 0.5,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "AAPL": {
+        "key_spacing": 5,
+        "major_spacing": 20,
+        "zone_size": 1,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+    "_default": {
+        "key_spacing": 50,
+        "major_spacing": 100,
+        "zone_size": 10,
+        "ema_short": 200,
+        "ema_long": 800,
+    },
+}
+ 
+# ── Componentes clave de índices para contexto ──────────────
+INDEX_COMPONENTS = {
+    "^DJI": ["AAPL", "MSFT", "JPM", "V", "UNH", "GS", "HD", "MCD", "CAT", "AXP"],
+    "^NDX": ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AVGO", "COST", "NFLX"],
+}
+ 
+ 
+async def async_download(ticker, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: yf.download(ticker, **kwargs))
+ 
+ 
+def get_cfg(t):
+    return ASSET_CONFIG.get(t.upper(), ASSET_CONFIG["_default"])
+ 
+ 
+def clean_df(df):
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return df
+ 
+ 
+def safe(v):
+    return float(v) if pd.notna(v) else None
+ 
+ 
+def ts_ms(idx):
+    return [int(t.timestamp() * 1000) for t in idx]
+ 
+ 
+def calc_indicators(df, es=200, el=800):
+    df[f"EMA{es}"] = df["Close"].ewm(span=es, adjust=False).mean()
+    df[f"EMA{el}"] = df["Close"].ewm(span=el, adjust=False).mean()
+    d = df["Close"].diff()
+    losses = (-d.where(d < 0, 0)).rolling(14).mean().replace(0, np.nan)
+    df["RSI"] = 100 - (100 / (1 + d.where(d > 0, 0).rolling(14).mean() / losses))
+    return df
+ 
+ 
+def calc_fractales(precio, cfg, n_above=30, n_below=30):
+    ks, ms, zs = cfg["key_spacing"], cfg["major_spacing"], cfg["zone_size"]
+    base = round(precio / ks) * ks
+    levels = []
+    for i in range(-n_below, n_above + 1):
+        p = base + i * ks
+        levels.append(
+            {
+                "price": p,
+                "is_major": round(p % ms) == 0,
+                "zone_top": p + zs,
+                "zone_bot": p - zs,
+            }
+        )
+    return {"levels": levels, "key_spacing": ks, "major_spacing": ms, "zone_size": zs}
+ 
+ 
+def detect_fractal_touch(high, low, close, fractales):
+    zs, best = fractales["zone_size"], None
+    for level in fractales["levels"]:
+        lp = level["price"]
+        crosses = high >= (lp - zs) and low <= (lp + zs)
+        in_zone = abs(close - lp) <= zs * 1.5
+        if crosses or in_zone:
+            tipo = "soporte" if close >= lp else "resistencia"
+            c = {
+                "touch": True,
+                "price": lp,
+                "is_major": level["is_major"],
+                "tipo": tipo,
+                "crosses": crosses,
+            }
+            if best is None or (not best["is_major"] and level["is_major"]):
+                best = c
+    return best or {
+        "touch": False,
+        "price": None,
+        "is_major": False,
+        "tipo": None,
+        "crosses": False,
+    }
+ 
+ 
+def calc_opens(df):
+    """Calcula aperturas de año, semana y día."""
+    result = {"year_open": None, "week_open": None, "day_open": None}
+    if df.empty:
+        return result
+    now = df.index[-1]
+ 
+    # Apertura anual
+    ys = pd.Timestamp(year=now.year, month=1, day=1, tz=now.tz if now.tz else None)
+    ydf = df[df.index >= ys]
+    if not ydf.empty:
+        result["year_open"] = float(ydf["Open"].iloc[0])
+ 
+    # Apertura semanal
+    ws = (now - pd.Timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0)
+    wdf = df[df.index >= ws]
+    if not wdf.empty:
+        result["week_open"] = float(wdf["Open"].iloc[0])
+ 
+    # Apertura del día (primera vela del día actual)
+    ds = pd.Timestamp(year=now.year, month=now.month, day=now.day,
+                      tz=now.tz if now.tz else None)
+    ddf = df[df.index >= ds]
+    if not ddf.empty:
+        result["day_open"] = float(ddf["Open"].iloc[0])
+ 
+    return result
+ 
+ 
+async def get_index_components_context(ticker: str) -> dict | None:
+    """
+    Para ^DJI y ^NDX, obtiene el % de componentes clave alcistas vs bajistas
+    respecto al precio actual vs apertura del día.
+    Retorna dict con bulls, bears, neutral, lista de tickers y dirección dominante.
+    """
+    components = INDEX_COMPONENTS.get(ticker.upper())
+    if not components:
+        return None
+ 
+    bulls, bears, neutral = [], [], []
+    loop = asyncio.get_running_loop()
+ 
+    async def check_component(sym):
+        try:
+            df = await async_download(sym, period="2d", interval="1d", progress=False)
+            if df.empty:
+                return
+            df = clean_df(df)
+            if len(df) < 1:
+                return
+            last_close = float(df["Close"].iloc[-1])
+            # Apertura del día más reciente
+            last_open = float(df["Open"].iloc[-1])
+            if last_close > last_open * 1.001:
+                bulls.append(sym)
+            elif last_close < last_open * 0.999:
+                bears.append(sym)
+            else:
+                neutral.append(sym)
+        except Exception:
+            pass
+ 
+    await asyncio.gather(*[check_component(s) for s in components])
+ 
+    total = len(bulls) + len(bears) + len(neutral)
+    if total == 0:
+        return None
+ 
+    bull_pct = round(len(bulls) / total * 100)
+    bear_pct = round(len(bears) / total * 100)
+ 
+    if bull_pct >= 60:
+        direction = "bullish"
+    elif bear_pct >= 60:
+        direction = "bearish"
+    else:
+        direction = "mixed"
+ 
+    return {
+        "bulls": bulls,
+        "bears": bears,
+        "neutral": neutral,
+        "bull_pct": bull_pct,
+        "bear_pct": bear_pct,
+        "direction": direction,
+        "total": total,
+    }
+ 
+ 
+def detect_alerts(df, ticker="", ema_short=200, ema_long=800, cfg=None):
+    alertas = []
+    n = len(df) - 1
+    if n < 2:
+        return alertas
+    pn, pp = float(df["Close"].iloc[n]), float(df["Close"].iloc[n - 1])
+    prefix = f"[{ticker}] " if ticker else ""
+    cs, cl = f"EMA{ema_short}", f"EMA{ema_long}"
+ 
+    # RSI actual
+    rsi_val = None
+    if "RSI" in df.columns:
+        r = df["RSI"].iloc[n]
+        if pd.notna(r):
+            rsi_val = float(r)
+ 
+    # ── EMA crosses / touches ──────────────────────────────────
+    for col, nombre, pts in [(cs, f"EMA{ema_short}", 2), (cl, f"EMA{ema_long}", 4)]:
+        if col not in df.columns:
+            continue
+        en, ep = df[col].iloc[n], df[col].iloc[n - 1]
+        if not (pd.notna(en) and pd.notna(ep)):
+            continue
+        en_f = float(en)
+        if pp < ep and pn >= en_f:
+            alertas.append({
+                "nivel": "bullish",
+                "tipo": "ema_cross_up",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio cruza {nombre} al alza ${pn:.5g}",
+            })
+        elif pp > ep and pn <= en_f:
+            alertas.append({
+                "nivel": "bearish",
+                "tipo": "ema_cross_down",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio cruza {nombre} a la baja ${pn:.5g}",
+            })
+        elif en_f > 0 and abs(pn - en_f) / en_f * 100 <= 0.4:
+            alertas.append({
+                "nivel": "info",
+                "tipo": "ema_touch",
+                "ema_nombre": nombre,
+                "ema_val": en_f,
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": pts,
+                "msg": prefix + f"Precio tocando {nombre} ${pn:.5g}",
+            })
+ 
+    # ── Golden / Death Cross ───────────────────────────────────
+    esn = df[cs].iloc[n] if cs in df.columns else None
+    esp = df[cs].iloc[n - 1] if cs in df.columns else None
+    eln = df[cl].iloc[n] if cl in df.columns else None
+    elp = df[cl].iloc[n - 1] if cl in df.columns else None
+    if all(pd.notna(x) for x in [esn, esp, eln, elp] if x is not None):
+        if esp < elp and esn >= eln:
+            alertas.append({
+                "nivel": "bullish",
+                "tipo": "golden_cross",
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": 3,
+                "msg": prefix + f"Golden Cross EMA{ema_short}/{ema_long}",
+            })
+        elif esp > elp and esn <= eln:
+            alertas.append({
+                "nivel": "bearish",
+                "tipo": "death_cross",
+                "close": pn,
+                "rsi": rsi_val,
+                "pts": 3,
+                "msg": prefix + f"Death Cross EMA{ema_short}/{ema_long}",
+            })
+ 
+    # ── Fractales ─────────────────────────────────────────────
+    if cfg is not None:
+        fr = calc_fractales(pn, cfg)
+        ft = detect_fractal_touch(
+            float(df["High"].iloc[n]), float(df["Low"].iloc[n]), pn, fr
+        )

@@ -681,10 +681,18 @@ function calcEstado(d){
   // Use backend score (evaluate_confluencias)
   if(d.confluencias_estado!=null){
     const e=d.confluencias_estado;
-    const sMap={FAVORABLE:0,INTERESANTE:1,CONSIDERAR:2,'NO AHORA':3};
+    const sMap={FAVORABLE:0,INTERESANTE:1,CONSIDERAR:2,'NO AHORA':3,'CONTRADICCIÓN':3};
     if(d.ticker)rowScores[d.ticker]=sMap[e]??3;
-    const cls={FAVORABLE:'favorable',INTERESANTE:'interesante',CONSIDERAR:'considerar','NO AHORA':'no_favorable'}[e]||'no_favorable';
-    return`<span class="badge ${cls}">${e}</span>`;
+    const cls={FAVORABLE:'favorable',INTERESANTE:'interesante',CONSIDERAR:'considerar','NO AHORA':'no_favorable','CONTRADICCIÓN':'no_favorable'}[e]||'no_favorable';
+    let dirLabel='';
+    if(d.confluencias_contradiccion){
+      dirLabel=' ⚠️';
+    } else if(d.confluencias_direction==='bullish'){
+      dirLabel=' 📈';
+    } else if(d.confluencias_direction==='bearish'){
+      dirLabel=' 📉';
+    }
+    return`<span class="badge ${cls}">${e}${dirLabel}</span>`;
   }
   // Fallback: local calculation
   let pts=0,s=3;
