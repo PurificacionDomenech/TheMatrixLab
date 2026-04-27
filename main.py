@@ -1013,10 +1013,10 @@ async def _rsi_realtime_check():
                 continue
             df = clean_df(df)
 
-            col_rsi = "RSI"
-            if col_rsi not in df.columns:
-                import ta
-                df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
+            if "RSI" not in df.columns:
+                d = df["Close"].diff()
+                losses = (-d.where(d < 0, 0)).rolling(14).mean().replace(0, np.nan)
+                df["RSI"] = 100 - (100 / (1 + d.where(d > 0, 0).rolling(14).mean() / losses))
 
             rsi_series = df["RSI"].dropna()
             if rsi_series.empty:
