@@ -438,15 +438,50 @@ async def get_all_user_prefs() -> list[dict]:
 
 # ── Envío Telegram ───────────────────────────────────────────
 
-async def send_telegram_to(chat_id: int, text: str) -> bool:
+# Mapa Yahoo Finance → TradingView (símbolo:exchange)
+TRADINGVIEW_SYMBOLS = {
+    "USDJPY=X": "FX:USDJPY",
+    "GBPJPY=X": "FX:GBPJPY",
+    "EURUSD=X": "FX:EURUSD",
+    "AUDUSD=X": "FX:AUDUSD",
+    "GC=F":     "COMEX:GC1!",
+    "SI=F":     "COMEX:SI1!",
+    "CL=F":     "NYMEX:CL1!",
+    "^DJI":     "DJ:DJI",
+    "^NDX":     "NASDAQ:NDX",
+    "BTC-USD":  "COINBASE:BTCUSD",
+}
+
+
+def tradingview_url(ticker: str) -> str:
+    sym = TRADINGVIEW_SYMBOLS.get(ticker.upper(), ticker)
+    from urllib.parse import quote
+    return f"https://www.tradingview.com/chart/?symbol={quote(sym, safe=':!')}"
+
+
+def _tv_button(ticker: str) -> dict:
+    return {
+        "inline_keyboard": [[
+            {"text": f"📈 Ver {ticker} en TradingView",
+             "url":  tradingview_url(ticker)}
+        ]]
+    }
+
+
+async def send_telegram_to(chat_id: int, text: str, ticker: str | None = None) -> bool:
     if not TELEGRAM_TOKEN:
         return False
     try:
+        payload = {
+            "chat_id": chat_id, "text": text,
+            "parse_mode": "HTML", "disable_web_page_preview": True
+        }
+        if ticker:
+            payload["reply_markup"] = _tv_button(ticker)
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.post(
                 f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                json={"chat_id": chat_id, "text": text,
-                      "parse_mode": "HTML", "disable_web_page_preview": True}
+                json=payload
             )
             d = r.json()
             if not d.get("ok"):
@@ -818,7 +853,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
                 for tkr, tkr_alertas in user_by_ticker.items():
                     if tkr_alertas:
                         texto_tg = _build_tg_for_user({tkr: tkr_alertas}, now_str, lang=lang, timezone=timezone)
-                        await send_telegram_to(cid, texto_tg)
+                        await send_telegram_to(cid, texto_tg, ticker=tkr)
                         await asyncio.sleep(0.3)
 
             if prefs.get("email_enabled") and prefs.get("email_address"):
@@ -845,7 +880,7 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
                             {tkr: tkr_alertas}, now_str,
                             lang=user_lang, timezone=user_tz
                         )
-                        await send_telegram_to(cid_int, texto_base)
+                        await send_telegram_to(cid_int, texto_base, ticker=tkr)
                         await asyncio.sleep(0.3)
                 nuevos += 1
         if nuevos:
@@ -869,7 +904,9 @@ async def notify_alertas(alertas: list[dict], source: str = "") -> None:
         tk = m.group(1) if m else 'GENERAL'
         by_ticker.setdefault(tk, []).append(a)
     texto = _build_tg_grouped(by_ticker, now_str)
+    # Si hay un único activo en este broadcast, añadimos botón a TradingView
+    single_ticker = next(iter(by_ticker.keys())) if len(by_ticker) == 1 else None
     if TELEGRAM_TOKEN:
         for cid in await get_chat_ids():
-            await send_telegram_to(cid, texto)
+            await send_telegram_to(cid, texto, ticker=single_ticker)
             await asyncio.sleep(0.05)
