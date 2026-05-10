@@ -69,7 +69,7 @@ The system evaluates up to 8 confluences with **directional validation**:
 | ⑤ | Fibonacci 55.9% | neutral (valid for both directions) |
 | ⑥ | Index components (^DJI/^NDX only) | ≥60% bullish/bearish |
 | ⑦ | RSI divergence (regular/hidden) | bullish/bearish reversal o continuación |
-| ⑧ | M/W pattern + RSI divergence | M+div → bearish / W+div → bullish |
+| ⑧ | Patrón gráfico de reversión: HCH/HCHi (con ruptura de neckline) **o** M/W + divergencia RSI | HCH o M+div → bearish / HCHi o W+div → bullish |
 
 **Velas japonesas** (engulfing, hammer, shooting star, marubozu, doji) → solo se muestran como **contexto extra** en el mensaje. NO suman puntos.
 

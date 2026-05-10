@@ -418,6 +418,71 @@ def calc_pattern_mw(df, lookback=30):
     return out
 
 
+def calc_pattern_hch(df, lookback=60):
+    """Detecta Hombro-Cabeza-Hombro (HCH bajista) y HCH invertido (alcista).
+    Confirmación: ruptura del neckline en la última vela.
+    - HCH:  3 picos donde el central (cabeza) > hombros, hombros similares.
+            Neckline = min de los valles entre picos. Confirma si Close < neckline.
+    - HCHi: 3 valles donde el central (cabeza) < hombros, hombros similares.
+            Neckline = max de los picos entre valles. Confirma si Close > neckline.
+    """
+    out = {"HCH": False, "HCHi": False, "HCH_confirmed": False, "HCHi_confirmed": False}
+    if len(df) < lookback:
+        return out
+
+    w = df.iloc[-lookback:]
+    high  = _flat(w["High"]).reset_index(drop=True)
+    low   = _flat(w["Low"]).reset_index(drop=True)
+    close = _flat(w["Close"]).reset_index(drop=True)
+
+    radius = 3
+    n = len(w)
+    highs_idx, lows_idx = [], []
+    for i in range(radius, n - radius):
+        h = high.iloc[i]
+        if all(h >= high.iloc[i - k] for k in range(1, radius + 1)) and \
+           all(h >= high.iloc[i + k] for k in range(1, radius + 1)):
+            highs_idx.append(i)
+        l = low.iloc[i]
+        if all(l <= low.iloc[i - k] for k in range(1, radius + 1)) and \
+           all(l <= low.iloc[i + k] for k in range(1, radius + 1)):
+            lows_idx.append(i)
+
+    tol_shoulders = 0.025  # hombros pueden diferir hasta 2.5%
+    last_close = float(close.iloc[-1])
+
+    # ── HCH bajista (3 picos: hombro–cabeza–hombro) ──
+    if len(highs_idx) >= 3:
+        for a, b, c in reversed([(highs_idx[i], highs_idx[i+1], highs_idx[i+2])
+                                 for i in range(len(highs_idx) - 2)]):
+            ha, hb, hc = float(high.iloc[a]), float(high.iloc[b]), float(high.iloc[c])
+            if hb > ha and hb > hc and ha > 0 and \
+               abs(ha - hc) / ha <= tol_shoulders and \
+               (hb - max(ha, hc)) / max(ha, hc) >= 0.005:
+                # neckline = mínimo del rango entre los dos hombros
+                neckline = float(low.iloc[a:c + 1].min())
+                out["HCH"] = True
+                if last_close < neckline:
+                    out["HCH_confirmed"] = True
+                break
+
+    # ── HCH invertido alcista (3 valles) ──
+    if len(lows_idx) >= 3:
+        for a, b, c in reversed([(lows_idx[i], lows_idx[i+1], lows_idx[i+2])
+                                 for i in range(len(lows_idx) - 2)]):
+            la, lb, lc = float(low.iloc[a]), float(low.iloc[b]), float(low.iloc[c])
+            if lb < la and lb < lc and la > 0 and \
+               abs(la - lc) / la <= tol_shoulders and \
+               (min(la, lc) - lb) / min(la, lc) >= 0.005:
+                neckline = float(high.iloc[a:c + 1].max())
+                out["HCHi"] = True
+                if last_close > neckline:
+                    out["HCHi_confirmed"] = True
+                break
+
+    return out
+
+
 def calc_candle_patterns(df):
     """Detecta patrones de vela japonesa en la última vela cerrada.
     Solo se usan como CONTEXTO en el mensaje, NO suman puntos por sí solos."""
@@ -879,9 +944,19 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
         raw.append({"id": 7, "ok": False,
             "texto": "Sin divergencias RSI relevantes", "tipo": "info"})
 
-    # ⑧ Patrón M/W confirmado por divergencia RSI
-    mw = calc_pattern_mw(df, lookback=30)
-    if mw["W_with_div"]:
+    # ⑧ Patrón gráfico de reversión: M/W con divergencia o HCH/HCHi confirmado
+    mw  = calc_pattern_mw(df, lookback=30)
+    hch = calc_pattern_hch(df, lookback=60)
+
+    if hch["HCHi_confirmed"]:
+        raw.append({"id": 8, "ok": True,
+            "texto": "HCH invertido confirmado (ruptura del neckline al alza)",
+            "tipo": "bullish"})
+    elif hch["HCH_confirmed"]:
+        raw.append({"id": 8, "ok": True,
+            "texto": "HCH confirmado (ruptura del neckline a la baja)",
+            "tipo": "bearish"})
+    elif mw["W_with_div"]:
         raw.append({"id": 8, "ok": True,
             "texto": "Patrón W (doble suelo) confirmado por divergencia RSI",
             "tipo": "bullish"})
@@ -889,6 +964,14 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
         raw.append({"id": 8, "ok": True,
             "texto": "Patrón M (doble techo) confirmado por divergencia RSI",
             "tipo": "bearish"})
+    elif hch["HCHi"]:
+        raw.append({"id": 8, "ok": False,
+            "texto": "HCH invertido detectado (pendiente de romper neckline)",
+            "tipo": "info"})
+    elif hch["HCH"]:
+        raw.append({"id": 8, "ok": False,
+            "texto": "HCH detectado (pendiente de romper neckline)",
+            "tipo": "info"})
     elif mw["W"]:
         raw.append({"id": 8, "ok": False,
             "texto": "Patrón W detectado (sin divergencia RSI confirmada)",
@@ -899,7 +982,7 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
             "tipo": "info"})
     else:
         raw.append({"id": 8, "ok": False,
-            "texto": "Sin patrón M/W relevante", "tipo": "info"})
+            "texto": "Sin patrón gráfico de reversión", "tipo": "info"})
 
     # Velas japonesas → contexto extra (NO suma puntos)
     candle_patterns = calc_candle_patterns(df)
