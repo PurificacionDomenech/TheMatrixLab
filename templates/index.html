@@ -998,17 +998,27 @@ function renderP(apiData){
   }
   if(ov.mw){
     const m=ov.mw,col=m.tipo==='bullish'?'#00ff41':'#ff4455';
-    const lbl=`${m.shape}${m.with_div?'+div':''}`;
+    const isM=m.shape==='M';
+    const fullLbl=(isM?'DOBLE TECHO':'DOBLE SUELO')+(m.with_div?' +DIV ✓':'');
     const xs=[new Date(m.p1.x),new Date(m.p2.x)];
     const ys=[m.p1.y,m.p2.y];
-    traces.push({x:xs,y:ys,type:'scatter',mode:'lines+markers+text',name:lbl,
-      text:[m.shape,m.shape],textposition:m.shape==='M'?'top center':'bottom center',
+    // Offset vertical para no solaparse con HCH (que ocupa top center con 'H')
+    const yOff=(Math.max(...ys)-Math.min(...ys))*0.15 + (ys[0]*0.003);
+    const txtPos=isM?'top right':'bottom right';
+    traces.push({x:xs,y:ys,type:'scatter',mode:'lines+markers+text',name:fullLbl,
+      text:[isM?'⓵':'⓵', isM?'⓶ '+fullLbl:'⓶ '+fullLbl],
+      textposition:[isM?'top center':'bottom center', txtPos],
       textfont:{color:col,size:11,family:'Share Tech Mono'},
-      line:{color:col,width:1.5,dash:'dot'},
-      marker:{color:col,size:8,symbol:m.shape==='M'?'triangle-down':'triangle-up',line:{color:'#000',width:1}},
-      hovertemplate:`<b>${lbl}</b><br>$%{y:,.4f}<extra></extra>`});
+      line:{color:col,width:m.with_div?2.5:1.8,dash:m.with_div?'solid':'dot'},
+      marker:{color:col,size:m.with_div?12:9,symbol:isM?'triangle-down':'triangle-up',line:{color:'#fff',width:1.5}},
+      hovertemplate:`<b>${fullLbl}</b><br>$%{y:,.4f}<extra></extra>`,showlegend:true});
     shapes.push({type:'line',xref:'x',yref:'y',x0:xs[0],x1:xE0,
-      y0:m.neckline,y1:m.neckline,line:{color:col,width:1,dash:'dashdot'}});
+      y0:m.neckline,y1:m.neckline,line:{color:col,width:1.2,dash:'dashdot'}});
+    // Etiqueta neckline a la derecha
+    traces.push({x:[xE0],y:[m.neckline],type:'scatter',mode:'text',
+      text:[`neckline ${isM?'M':'W'} ${m.neckline.toLocaleString('es-ES',{maximumFractionDigits:4})}`],
+      textposition:'middle right',textfont:{color:col,size:9,family:'Share Tech Mono'},
+      hoverinfo:'skip',showlegend:false});
   }
   if(ov.divergence){
     const d=ov.divergence,col=d.tipo==='bullish'?'#00ff41':'#ff4455';
