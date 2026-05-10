@@ -311,7 +311,8 @@ def calc_rsi_divergence(df, lookback=10):
     """Detecta divergencias regulares y ocultas del RSI vs precio.
     Devuelve dict con flags + tipo dominante (bullish/bearish/None)."""
     out = {"bull_div": False, "bear_div": False,
-           "hidden_bull": False, "hidden_bear": False, "tipo": None}
+           "hidden_bull": False, "hidden_bear": False, "tipo": None,
+           "points": None}
     if len(df) < lookback * 2 + 5 or "RSI" not in df.columns:
         return out
 
@@ -342,23 +343,35 @@ def calc_rsi_divergence(df, lookback=10):
     if len(pivot_highs) >= 2:
         p1, p2 = pivot_highs[-2], pivot_highs[-1]
         if 3 <= (p2 - p1) <= lookback * 4:
-            ph1, ph2 = high.iloc[p1], high.iloc[p2]
-            rh1, rh2 = rsi.iloc[p1],  rsi.iloc[p2]
+            ph1, ph2 = float(high.iloc[p1]), float(high.iloc[p2])
+            rh1, rh2 = float(rsi.iloc[p1]),  float(rsi.iloc[p2])
+            kind = None
             if ph2 > ph1 and rh2 < rh1:
-                out["bear_div"] = True; out["tipo"] = "bearish"
+                out["bear_div"] = True; out["tipo"] = "bearish"; kind = "bear_reg"
             elif ph2 < ph1 and rh2 > rh1:
-                out["hidden_bear"] = True; out["tipo"] = out["tipo"] or "bearish"
+                out["hidden_bear"] = True; out["tipo"] = out["tipo"] or "bearish"; kind = "bear_hidden"
+            if kind:
+                out["points"] = {"kind": kind, "tipo": "bearish",
+                                 "p1_idx": int(p1), "p2_idx": int(p2),
+                                 "p1_price": ph1, "p2_price": ph2,
+                                 "p1_rsi": rh1, "p2_rsi": rh2}
 
     # Divergencia alcista: precio LL + RSI HL | oculta: precio HL + RSI LL
     if len(pivot_lows) >= 2:
         p1, p2 = pivot_lows[-2], pivot_lows[-1]
         if 3 <= (p2 - p1) <= lookback * 4:
-            pl1, pl2 = low.iloc[p1], low.iloc[p2]
-            rl1, rl2 = rsi.iloc[p1], rsi.iloc[p2]
+            pl1, pl2 = float(low.iloc[p1]), float(low.iloc[p2])
+            rl1, rl2 = float(rsi.iloc[p1]), float(rsi.iloc[p2])
+            kind = None
             if pl2 < pl1 and rl2 > rl1:
-                out["bull_div"] = True; out["tipo"] = "bullish"
+                out["bull_div"] = True; out["tipo"] = "bullish"; kind = "bull_reg"
             elif pl2 > pl1 and rl2 < rl1:
-                out["hidden_bull"] = True; out["tipo"] = out["tipo"] or "bullish"
+                out["hidden_bull"] = True; out["tipo"] = out["tipo"] or "bullish"; kind = "bull_hidden"
+            if kind and out["points"] is None:
+                out["points"] = {"kind": kind, "tipo": "bullish",
+                                 "p1_idx": int(p1), "p2_idx": int(p2),
+                                 "p1_price": pl1, "p2_price": pl2,
+                                 "p1_rsi": rl1, "p2_rsi": rl2}
 
     return out
 
@@ -366,11 +379,13 @@ def calc_rsi_divergence(df, lookback=10):
 def calc_pattern_mw(df, lookback=30):
     """Detecta doble techo (M) y doble suelo (W). Solo confirmado con
     divergencia RSI cuenta como señal fuerte."""
-    out = {"M": False, "W": False, "M_with_div": False, "W_with_div": False}
+    out = {"M": False, "W": False, "M_with_div": False, "W_with_div": False,
+           "points": None}
     if len(df) < lookback or "RSI" not in df.columns:
         return out
 
     w = df.iloc[-lookback:]
+    base_idx = len(df) - lookback  # offset to map back to absolute df index
     high  = _flat(w["High"]).reset_index(drop=True)
     low   = _flat(w["Low"]).reset_index(drop=True)
     rsi_s = _flat(w["RSI"]).reset_index(drop=True)
@@ -397,8 +412,15 @@ def calc_pattern_mw(df, lookback=30):
             if h1 > 0 and abs(h1 - h2) / h1 <= tol:
                 out["M"] = True
                 r1, r2 = float(rsi_s.iloc[h1_i]), float(rsi_s.iloc[h2_i])
-                if r2 < r1 - 2:
+                with_div = r2 < r1 - 2
+                if with_div:
                     out["M_with_div"] = True
+                neckline = float(low.iloc[h1_i:h2_i + 1].min())
+                out["points"] = {"tipo": "bearish", "shape": "M",
+                                 "p1_idx": int(base_idx + h1_i),
+                                 "p2_idx": int(base_idx + h2_i),
+                                 "p1_y": h1, "p2_y": h2,
+                                 "neckline": neckline, "with_div": with_div}
                 break
 
     # Doble suelo
@@ -411,8 +433,16 @@ def calc_pattern_mw(df, lookback=30):
             if l1 > 0 and abs(l1 - l2) / l1 <= tol:
                 out["W"] = True
                 r1, r2 = float(rsi_s.iloc[l1_i]), float(rsi_s.iloc[l2_i])
-                if r2 > r1 + 2:
+                with_div = r2 > r1 + 2
+                if with_div:
                     out["W_with_div"] = True
+                neckline = float(high.iloc[l1_i:l2_i + 1].max())
+                if out["points"] is None:
+                    out["points"] = {"tipo": "bullish", "shape": "W",
+                                     "p1_idx": int(base_idx + l1_i),
+                                     "p2_idx": int(base_idx + l2_i),
+                                     "p1_y": l1, "p2_y": l2,
+                                     "neckline": neckline, "with_div": with_div}
                 break
 
     return out
@@ -426,11 +456,13 @@ def calc_pattern_hch(df, lookback=60):
     - HCHi: 3 valles donde el central (cabeza) < hombros, hombros similares.
             Neckline = max de los picos entre valles. Confirma si Close > neckline.
     """
-    out = {"HCH": False, "HCHi": False, "HCH_confirmed": False, "HCHi_confirmed": False}
+    out = {"HCH": False, "HCHi": False, "HCH_confirmed": False, "HCHi_confirmed": False,
+           "points": None}
     if len(df) < lookback:
         return out
 
     w = df.iloc[-lookback:]
+    base_idx = len(df) - lookback
     high  = _flat(w["High"]).reset_index(drop=True)
     low   = _flat(w["Low"]).reset_index(drop=True)
     close = _flat(w["Close"]).reset_index(drop=True)
@@ -462,8 +494,14 @@ def calc_pattern_hch(df, lookback=60):
                 # neckline = mínimo del rango entre los dos hombros
                 neckline = float(low.iloc[a:c + 1].min())
                 out["HCH"] = True
-                if last_close < neckline:
+                confirmed = last_close < neckline
+                if confirmed:
                     out["HCH_confirmed"] = True
+                out["points"] = {"tipo": "bearish", "shape": "HCH",
+                                 "ls_idx": int(base_idx + a), "ls_y": ha,
+                                 "head_idx": int(base_idx + b), "head_y": hb,
+                                 "rs_idx": int(base_idx + c), "rs_y": hc,
+                                 "neckline": neckline, "confirmed": confirmed}
                 break
 
     # ── HCH invertido alcista (3 valles) ──
@@ -476,8 +514,15 @@ def calc_pattern_hch(df, lookback=60):
                (min(la, lc) - lb) / min(la, lc) >= 0.005:
                 neckline = float(high.iloc[a:c + 1].max())
                 out["HCHi"] = True
-                if last_close > neckline:
+                confirmed = last_close > neckline
+                if confirmed:
                     out["HCHi_confirmed"] = True
+                if out["points"] is None:
+                    out["points"] = {"tipo": "bullish", "shape": "HCHi",
+                                     "ls_idx": int(base_idx + a), "ls_y": la,
+                                     "head_idx": int(base_idx + b), "head_y": lb,
+                                     "rs_idx": int(base_idx + c), "rs_y": lc,
+                                     "neckline": neckline, "confirmed": confirmed}
                 break
 
     return out
@@ -1743,6 +1788,48 @@ async def get_chart(ticker: str):
         opens = calc_opens(df)
         rsi_s = df["RSI"].dropna()
         first = float(df["Close"].iloc[0])
+
+        # ── Overlays de patrones detectados (para dibujar en el gráfico) ──
+        def _idx_to_x(i):
+            try:
+                return ts[int(i)]
+            except Exception:
+                return None
+
+        overlays = {"divergence": None, "mw": None, "hch": None}
+        try:
+            div = calc_rsi_divergence(df, lookback=10)
+            if div.get("points"):
+                p = div["points"]
+                overlays["divergence"] = {
+                    "kind": p["kind"], "tipo": p["tipo"],
+                    "p1": {"x": _idx_to_x(p["p1_idx"]),
+                           "price": p["p1_price"], "rsi": p["p1_rsi"]},
+                    "p2": {"x": _idx_to_x(p["p2_idx"]),
+                           "price": p["p2_price"], "rsi": p["p2_rsi"]},
+                }
+            mw = calc_pattern_mw(df, lookback=30)
+            if mw.get("points"):
+                p = mw["points"]
+                overlays["mw"] = {
+                    "shape": p["shape"], "tipo": p["tipo"],
+                    "with_div": p["with_div"], "neckline": p["neckline"],
+                    "p1": {"x": _idx_to_x(p["p1_idx"]), "y": p["p1_y"]},
+                    "p2": {"x": _idx_to_x(p["p2_idx"]), "y": p["p2_y"]},
+                }
+            hch = calc_pattern_hch(df, lookback=60)
+            if hch.get("points"):
+                p = hch["points"]
+                overlays["hch"] = {
+                    "shape": p["shape"], "tipo": p["tipo"],
+                    "confirmed": p["confirmed"], "neckline": p["neckline"],
+                    "ls":   {"x": _idx_to_x(p["ls_idx"]),   "y": p["ls_y"]},
+                    "head": {"x": _idx_to_x(p["head_idx"]), "y": p["head_y"]},
+                    "rs":   {"x": _idx_to_x(p["rs_idx"]),   "y": p["rs_y"]},
+                }
+        except Exception as ovl_err:
+            print(f"[overlays] failed for {ticker}: {ovl_err}")
+
         return {
             "chart": {
                 "candles": candles,
@@ -1751,6 +1838,7 @@ async def get_chart(ticker: str):
                 "rsi_os": ros,
                 "rsi_ob": rob,
                 "fractal_touch_candles": ftc,
+                "overlays": overlays,
             },
             "fractales": fr,
             "opens": opens,
