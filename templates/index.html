@@ -387,7 +387,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
             <tr>
               <th>★ ACTIVO</th><th class="r">PRECIO</th><th class="r">CAMBIO %</th>
               <th class="c">RSI 14</th><th class="c">EMAs</th><th class="c">CRUCE</th>
-              <th class="c">⬡ FRACTAL</th><th class="c">ESTADO</th>
+              <th class="c">⬡ FRACTAL</th><th class="c">PATRONES</th><th class="c">ESTADO</th>
             </tr>
           </thead>
           <tbody id="tb"></tbody>
@@ -562,7 +562,7 @@ function buildGrid(){
   sorted.forEach(a=>{
     const id=fid(a.t),isW=wl.has(a.t);
     const sec=isW?'★ Favoritos':a.g||'';
-    if(sec!==lg){lg=sec;const s=document.createElement('tr');s.className='grp';s.innerHTML=`<td colspan="8">${sec}</td>`;tb.appendChild(s)}
+    if(sec!==lg){lg=sec;const s=document.createElement('tr');s.className='grp';s.innerHTML=`<td colspan="9">${sec}</td>`;tb.appendChild(s)}
     const tr=document.createElement('tr');
     tr.id='fc-'+id;tr.className='ar';
     tr.onclick=e=>{if(e.target.closest('.star'))return;loadSym(a.t)};
@@ -581,6 +581,7 @@ function buildGrid(){
       <td style="text-align:center;min-width:110px" id="te-${id}">—</td>
       <td style="text-align:center" id="tcr-${id}">—</td>
       <td style="text-align:center;min-width:90px" id="tft-${id}"><span class="ftag none">—</span></td>
+      <td style="text-align:center;min-width:90px" id="tpt-${id}"><span style="font-size:10px;color:rgba(0,255,65,.25)">—</span></td>
       <td style="text-align:center" id="tes-${id}">—</td>`;
     tb.appendChild(tr);
     if(spkCache[a.t]){const cv=document.getElementById(`sp-${id}`);if(cv)drawSpk(id,spkCache[a.t]);}
@@ -597,6 +598,7 @@ function rebuildGrid(){
       te:document.getElementById(`te-${id}`)?.innerHTML,
       tcr:document.getElementById(`tcr-${id}`)?.innerHTML,
       tft:document.getElementById(`tft-${id}`)?.innerHTML,
+      tpt:document.getElementById(`tpt-${id}`)?.innerHTML,
       tes:document.getElementById(`tes-${id}`)?.innerHTML,
     };
   });
@@ -605,7 +607,8 @@ function rebuildGrid(){
     const id=fid(a.t),c=cache[a.t];if(!c)return;
     const set=(sel,val)=>{const el=document.getElementById(sel);if(el&&val&&val!=='—')el.innerHTML=val};
     set(`tp-${id}`,c.tp);set(`tc-${id}`,c.tc);set(`tr-${id}`,c.tr);
-    set(`te-${id}`,c.te);set(`tcr-${id}`,c.tcr);set(`tft-${id}`,c.tft);set(`tes-${id}`,c.tes);
+    set(`te-${id}`,c.te);set(`tcr-${id}`,c.tcr);set(`tft-${id}`,c.tft);
+    set(`tpt-${id}`,c.tpt);set(`tes-${id}`,c.tes);
     const cv=document.getElementById(`sp-${id}`);
     if(cv&&spkCache[a.t])drawSpk(id,spkCache[a.t]);
   });
@@ -652,7 +655,16 @@ async function loadRow(t){
     if(ce){const up=d.change_pct>=0;ce.innerText=`${up?'+':''}${d.change_pct.toFixed(2)}%`;ce.style.color=up?'#00ff41':'#ff3333'}
     const re=document.getElementById(`tr-${id}`);
     if(re&&d.rsi!=null){
-      re.innerText=d.rsi.toFixed(1);
+      let rsiTxt=d.rsi.toFixed(1);
+      if(d.divergence){
+        const dv=d.divergence;
+        const dCol=dv.tipo==='bullish'?'#00ff41':'#ff4455';
+        const dArr=dv.tipo==='bullish'?'↑':'↓';
+        const dTag=dv.kind.includes('hidden')?'oc':'div';
+        const title=`Divergencia ${dv.kind.includes('hidden')?'oculta ':''}${dv.tipo}`;
+        rsiTxt+=` <span title="${title}" style="font-size:9px;color:${dCol};margin-left:3px;border:1px solid ${dCol};padding:0 3px;border-radius:3px">${dTag}${dArr}</span>`;
+      }
+      re.innerHTML=rsiTxt;
       if(d.rsi<30){re.style.background='rgba(0,255,65,.12)';re.style.color='#00ff41'}
       else if(d.rsi>70){re.style.background='rgba(255,0,51,.1)';re.style.color='#ff4455'}
       else{re.style.background='rgba(0,255,65,.05)';re.style.color='rgba(0,255,65,.4)'}
@@ -679,6 +691,21 @@ async function loadRow(t){
         const title=`${iM?'MAYOR':'menor'} · ${d.fractal_tipo}${d.fractal_crosses?' · CRUZA':''}`;
         fe.innerHTML=`<span class="ftag ${cls}" title="${title}">⬡ ${icon} ${fmtP(d.fractal_price)}</span>`;
       }else{fe.innerHTML='<span class="ftag none">—</span>'}
+    }
+    const pt=document.getElementById(`tpt-${id}`);
+    if(pt){
+      if(d.pattern){
+        const pa=d.pattern;
+        const col=pa.tipo==='bullish'?'#00ff41':'#ff4455';
+        const lbl=pa.shape==='HCHi'?'HCH inv':pa.shape;
+        const arr=pa.tipo==='bullish'?'↑':'↓';
+        const conf=pa.confirmed?' ✓':'';
+        const bg=pa.confirmed?(pa.tipo==='bullish'?'rgba(0,255,65,.12)':'rgba(255,0,51,.1)'):'transparent';
+        const title=`${lbl}${pa.confirmed?' confirmado':' formándose'} (${pa.tipo})`;
+        pt.innerHTML=`<span title="${title}" style="font-family:var(--fm);font-size:10px;color:${col};background:${bg};border:1px solid ${col};padding:1px 6px;border-radius:3px">${lbl} ${arr}${conf}</span>`;
+      }else{
+        pt.innerHTML='<span style="font-size:10px;color:rgba(0,255,65,.25)">—</span>';
+      }
     }
     const se=document.getElementById(`tes-${id}`);
     if(se)se.innerHTML=calcEstado(d);

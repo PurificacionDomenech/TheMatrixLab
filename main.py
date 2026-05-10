@@ -1890,11 +1890,36 @@ async def _compute_row(ticker: str) -> dict:
         except Exception:
             pass
     confl = evaluate_confluencias(df, ticker=key, cfg=cfg, opens=opens, components_ctx=row_components_ctx)
+
+    # ── Patrones detectados (para columna en tabla y badge en RSI) ──
+    div_info = None
+    pat_info = None
+    try:
+        _div = calc_rsi_divergence(df, lookback=10)
+        if _div.get("points"):
+            p = _div["points"]
+            div_info = {"kind": p["kind"], "tipo": p["tipo"]}
+        _hch = calc_pattern_hch(df, lookback=60)
+        if _hch.get("points"):
+            p = _hch["points"]
+            pat_info = {"shape": p["shape"], "tipo": p["tipo"],
+                        "confirmed": p["confirmed"]}
+        else:
+            _mw = calc_pattern_mw(df, lookback=30)
+            if _mw.get("points"):
+                p = _mw["points"]
+                pat_info = {"shape": p["shape"], "tipo": p["tipo"],
+                            "confirmed": p["with_div"]}
+    except Exception as _e:
+        print(f"[row patterns] {key}: {_e}")
+
     result = {
         "ticker": key,
         "price": last,
         "change_pct": round((last - first) / first * 100, 2),
         "rsi": round(rsi, 1) if rsi else None,
+        "divergence": div_info,
+        "pattern": pat_info,
         "ema_short": lv(f"EMA{es}"),
         "ema_long": lv(f"EMA{el}"),
         "ema_short_name": f"EMA{es}",
