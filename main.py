@@ -58,6 +58,10 @@ _yf_lock = asyncio.Lock()
 _rsi_watchlist: dict = {}
 _RSI_WATCH_INTERVAL_MIN = 2
 
+_PATTERN_WATCH_INTERVAL_MIN = 5
+_PATTERN_RECENT_BARS = 3  # 2º pico/valle/hombro debe estar en las últimas N velas 4H
+_PATTERN_MIN_EXTRA_CONFLUENCIAS = 2
+
 ASSET_CONFIG = {
     "^DJI": {
         "key_spacing": 500,
