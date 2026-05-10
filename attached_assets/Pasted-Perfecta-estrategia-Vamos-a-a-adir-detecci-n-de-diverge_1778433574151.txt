@@ -1,0 +1,347 @@
+Perfecta estrategia. Vamos a añadir detección de divergencias RSI + patrones M/W + patrones de velas como confluencias adicionales. Primero el plan completo:
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+VvisualizeVvisualize show_widgetAhora todo el código a cambiar. Son 3 bloques en main.py:
+Bloque 1 — Añadir al final de calc_indicators, la función de detección de divergencias:
+pythondef calc_rsi_divergence(df, lookback=10):
+    """
+    Detecta divergencias regulares y ocultas del RSI.
+    Retorna dict con tipo de divergencia encontrada en las últimas velas.
+    """
+    if len(df) < lookback * 2 + 5:
+        return {"bull_div": False, "bear_div": False,
+                "hidden_bull": False, "hidden_bear": False, "tipo": None}
+
+    close = df["Close"]
+    high  = df["High"]
+    low   = df["Low"]
+    rsi   = df["RSI"]
+
+    if isinstance(close, pd.DataFrame): close = close.iloc[:, 0]
+    if isinstance(high,  pd.DataFrame): high  = high.iloc[:, 0]
+    if isinstance(low,   pd.DataFrame): low   = low.iloc[:, 0]
+    if isinstance(rsi,   pd.DataFrame): rsi   = rsi.iloc[:, 0]
+
+    n = len(df)
+
+    def find_pivot_low(series, left, right, idx):
+        if idx < left or idx + right >= len(series):
+            return False
+        val = series.iloc[idx]
+        return all(series.iloc[idx - i] >= val for i in range(1, left + 1)) and \
+               all(series.iloc[idx + i] >= val for i in range(1, right + 1))
+
+    def find_pivot_high(series, left, right, idx):
+        if idx < left or idx + right >= len(series):
+            return False
+        val = series.iloc[idx]
+        return all(series.iloc[idx - i] <= val for i in range(1, left + 1)) and \
+               all(series.iloc[idx + i] <= val for i in range(1, right + 1))
+
+    lb = min(lookback, 5)
+
+    # Buscar pivotes en las últimas 'lookback*3' velas
+    window = min(lookback * 3, n - lb - 1)
+    pivot_lows  = [i for i in range(lb, lb + window) if find_pivot_low(rsi,  lb, lb, i)]
+    pivot_highs = [i for i in range(lb, lb + window) if find_pivot_high(rsi, lb, lb, i)]
+
+    result = {"bull_div": False, "bear_div": False,
+              "hidden_bull": False, "hidden_bear": False, "tipo": None}
+
+    # Divergencia bajista regular: precio HH pero RSI LH
+    if len(pivot_highs) >= 2:
+        p1, p2 = pivot_highs[-2], pivot_highs[-1]
+        if 3 <= (p2 - p1) <= lookback * 4:
+            price_hh = high.iloc[n - 1 - p2] > high.iloc[n - 1 - p1]
+            rsi_lh   = rsi.iloc[n - 1 - p2]  < rsi.iloc[n - 1 - p1]
+            if price_hh and rsi_lh:
+                result["bear_div"] = True
+                result["tipo"] = "bearish"
+
+            # Divergencia bajista oculta: precio LH pero RSI HH
+            price_lh = high.iloc[n - 1 - p2] < high.iloc[n - 1 - p1]
+            rsi_hh   = rsi.iloc[n - 1 - p2]  > rsi.iloc[n - 1 - p1]
+            if price_lh and rsi_hh:
+                result["hidden_bear"] = True
+                if not result["tipo"]:
+                    result["tipo"] = "bearish"
+
+    # Divergencia alcista regular: precio LL pero RSI HL
+    if len(pivot_lows) >= 2:
+        p1, p2 = pivot_lows[-2], pivot_lows[-1]
+        if 3 <= (p2 - p1) <= lookback * 4:
+            price_ll = low.iloc[n - 1 - p2] < low.iloc[n - 1 - p1]
+            rsi_hl   = rsi.iloc[n - 1 - p2] > rsi.iloc[n - 1 - p1]
+            if price_ll and rsi_hl:
+                result["bull_div"] = True
+                result["tipo"] = "bullish"
+
+            # Divergencia alcista oculta: precio HL pero RSI LL
+            price_hl = low.iloc[n - 1 - p2] > low.iloc[n - 1 - p1]
+            rsi_ll   = rsi.iloc[n - 1 - p2] < rsi.iloc[n - 1 - p1]
+            if price_hl and rsi_ll:
+                result["hidden_bull"] = True
+                if not result["tipo"]:
+                    result["tipo"] = "bullish"
+
+    return result
+
+
+def calc_pattern_mw(df, lookback=30):
+    """
+    Detecta patrones doble techo (M) y doble suelo (W) en precio.
+    Opcionalmente confirmados con divergencia RSI.
+    """
+    if len(df) < lookback:
+        return {"M": False, "W": False, "M_with_div": False, "W_with_div": False}
+
+    high  = df["High"]
+    low   = df["Low"]
+    close = df["Close"]
+    rsi   = df["RSI"]
+
+    if isinstance(high,  pd.DataFrame): high  = high.iloc[:, 0]
+    if isinstance(low,   pd.DataFrame): low   = low.iloc[:, 0]
+    if isinstance(close, pd.DataFrame): close = close.iloc[:, 0]
+    if isinstance(rsi,   pd.DataFrame): rsi   = rsi.iloc[:, 0]
+
+    n   = len(df)
+    tol = 0.015  # 1.5% de tolerancia entre los dos picos/valles
+
+    result = {"M": False, "W": False, "M_with_div": False, "W_with_div": False}
+
+    window = df.iloc[-lookback:]
+    highs_idx = []
+    lows_idx  = []
+
+    for i in range(2, len(window) - 2):
+        h = window["High"].iloc[i] if not isinstance(window["High"], pd.DataFrame) \
+            else window["High"].iloc[i, 0]
+        if (h >= window["High"].iloc[i-1] if not isinstance(window["High"], pd.DataFrame)
+                else window["High"].iloc[i-1, 0]) and \
+           (h >= window["High"].iloc[i-2] if not isinstance(window["High"], pd.DataFrame)
+                else window["High"].iloc[i-2, 0]) and \
+           (h >= window["High"].iloc[i+1] if not isinstance(window["High"], pd.DataFrame)
+                else window["High"].iloc[i+1, 0]) and \
+           (h >= window["High"].iloc[i+2] if not isinstance(window["High"], pd.DataFrame)
+                else window["High"].iloc[i+2, 0]):
+            highs_idx.append(i)
+
+        l = window["Low"].iloc[i] if not isinstance(window["Low"], pd.DataFrame) \
+            else window["Low"].iloc[i, 0]
+        if (l <= window["Low"].iloc[i-1] if not isinstance(window["Low"], pd.DataFrame)
+                else window["Low"].iloc[i-1, 0]) and \
+           (l <= window["Low"].iloc[i-2] if not isinstance(window["Low"], pd.DataFrame)
+                else window["Low"].iloc[i-2, 0]) and \
+           (l <= window["Low"].iloc[i+1] if not isinstance(window["Low"], pd.DataFrame)
+                else window["Low"].iloc[i+1, 0]) and \
+           (l <= window["Low"].iloc[i+2] if not isinstance(window["Low"], pd.DataFrame)
+                else window["Low"].iloc[i+2, 0]):
+            lows_idx.append(i)
+
+    # Patrón M: dos máximos similares separados por un valle
+    if len(highs_idx) >= 2:
+        for i in range(len(highs_idx) - 1):
+            h1_i, h2_i = highs_idx[i], highs_idx[-1]
+            if h2_i - h1_i < 5:
+                continue
+            h1 = float(window["High"].iloc[h1_i]) if not isinstance(window["High"], pd.DataFrame) \
+                 else float(window["High"].iloc[h1_i, 0])
+            h2 = float(window["High"].iloc[h2_i]) if not isinstance(window["High"], pd.DataFrame) \
+                 else float(window["High"].iloc[h2_i, 0])
+            if abs(h1 - h2) / h1 <= tol:
+                result["M"] = True
+                # Confirmar con divergencia RSI
+                r1 = float(window["RSI"].iloc[h1_i]) if not isinstance(window["RSI"], pd.DataFrame) \
+                     else float(window["RSI"].iloc[h1_i, 0])
+                r2 = float(window["RSI"].iloc[h2_i]) if not isinstance(window["RSI"], pd.DataFrame) \
+                     else float(window["RSI"].iloc[h2_i, 0])
+                if r2 < r1 - 2:  # RSI claramente más bajo en el segundo pico
+                    result["M_with_div"] = True
+                break
+
+    # Patrón W: dos mínimos similares separados por un pico
+    if len(lows_idx) >= 2:
+        for i in range(len(lows_idx) - 1):
+            l1_i, l2_i = lows_idx[i], lows_idx[-1]
+            if l2_i - l1_i < 5:
+                continue
+            l1 = float(window["Low"].iloc[l1_i]) if not isinstance(window["Low"], pd.DataFrame) \
+                 else float(window["Low"].iloc[l1_i, 0])
+            l2 = float(window["Low"].iloc[l2_i]) if not isinstance(window["Low"], pd.DataFrame) \
+                 else float(window["Low"].iloc[l2_i, 0])
+            if abs(l1 - l2) / l1 <= tol:
+                result["W"] = True
+                r1 = float(window["RSI"].iloc[l1_i]) if not isinstance(window["RSI"], pd.DataFrame) \
+                     else float(window["RSI"].iloc[l1_i, 0])
+                r2 = float(window["RSI"].iloc[l2_i]) if not isinstance(window["RSI"], pd.DataFrame) \
+                     else float(window["RSI"].iloc[l2_i, 0])
+                if r2 > r1 + 2:  # RSI claramente más alto en el segundo suelo
+                    result["W_with_div"] = True
+                break
+
+    return result
+
+
+def calc_candle_patterns(df):
+    """
+    Detecta patrones de velas japonesas en la última vela 4H.
+    Retorna dict con patrones encontrados y su dirección.
+    """
+    if len(df) < 3:
+        return {}
+
+    o  = float(df["Open"].iloc[-1])
+    h  = float(df["High"].iloc[-1])
+    l  = float(df["Low"].iloc[-1])
+    c  = float(df["Close"].iloc[-1])
+    o2 = float(df["Open"].iloc[-2])
+    c2 = float(df["Close"].iloc[-2])
+    h2 = float(df["High"].iloc[-2])
+    l2 = float(df["Low"].iloc[-2])
+
+    body     = abs(c - o)
+    range_   = h - l if h > l else 0.0001
+    upper_w  = h - max(c, o)
+    lower_w  = min(c, o) - l
+    body_pct = body / range_ if range_ > 0 else 0
+
+    patterns = {}
+
+    # Engulfing alcista: vela bajista anterior + vela alcista que la engloba
+    if c2 < o2 and c > o and c > o2 and o < c2:
+        patterns["engulfing_bull"] = {"tipo": "bullish",
+            "desc": "Engulfing alcista — momentum comprador"}
+
+    # Engulfing bajista: vela alcista anterior + vela bajista que la engloba
+    if c2 > o2 and c < o and c < o2 and o > c2:
+        patterns["engulfing_bear"] = {"tipo": "bearish",
+            "desc": "Engulfing bajista — momentum vendedor"}
+
+    # Shooting star: mecha superior larga, cuerpo pequeño arriba, en zona alta
+    if upper_w >= body * 2 and lower_w <= body * 0.5 and body_pct < 0.35:
+        patterns["shooting_star"] = {"tipo": "bearish",
+            "desc": "Shooting star — rechazo de máximos"}
+
+    # Hammer: mecha inferior larga, cuerpo pequeño abajo
+    if lower_w >= body * 2 and upper_w <= body * 0.5 and body_pct < 0.35:
+        patterns["hammer"] = {"tipo": "bullish",
+            "desc": "Hammer — rechazo de mínimos"}
+
+    # Doji: cuerpo muy pequeño (indecisión — solo cuenta si hay contexto)
+    if body_pct < 0.1 and range_ > 0:
+        patterns["doji"] = {"tipo": "info",
+            "desc": "Doji — indecisión en el mercado"}
+
+    # Marubozu alcista: vela de cuerpo completo sin mechas
+    if c > o and upper_w <= body * 0.05 and lower_w <= body * 0.05 and body_pct > 0.85:
+        patterns["marubozu_bull"] = {"tipo": "bullish",
+            "desc": "Marubozu alcista — fuerza compradora total"}
+
+    # Marubozu bajista
+    if c < o and upper_w <= body * 0.05 and lower_w <= body * 0.05 and body_pct > 0.85:
+        patterns["marubozu_bear"] = {"tipo": "bearish",
+            "desc": "Marubozu bajista — fuerza vendedora total"}
+
+    # Pinbar alcista (variante del hammer con mecha inferior >= 3x cuerpo)
+    if lower_w >= body * 3 and upper_w <= body and c > l + range_ * 0.6:
+        patterns["pinbar_bull"] = {"tipo": "bullish",
+            "desc": "Pin bar alcista — rechazo fuerte de zona baja"}
+
+    # Pinbar bajista
+    if upper_w >= body * 3 and lower_w <= body and c < h - range_ * 0.6:
+        patterns["pinbar_bear"] = {"tipo": "bearish",
+            "desc": "Pin bar bajista — rechazo fuerte de zona alta"}
+
+    return patterns
+Bloque 2 — Modificar evaluate_confluencias para añadir la confluencia ⑦:
+Justo antes del return final, después del bloque de componentes (⑥), añade:
+python    # ⑦ Divergencias RSI + Patrones M/W + Velas japonesas
+    div_result     = calc_rsi_divergence(df, lookback=10)
+    mw_result      = calc_pattern_mw(df, lookback=30)
+    candle_result  = calc_candle_patterns(df)
+
+    pattern_bullish_signals = []
+    pattern_bearish_signals = []
+
+    # Divergencias RSI
+    if div_result.get("bull_div"):
+        pattern_bullish_signals.append("Div RSI alcista regular")
+    if div_result.get("hidden_bull"):
+        pattern_bullish_signals.append("Div RSI alcista oculta")
+    if div_result.get("bear_div"):
+        pattern_bearish_signals.append("Div RSI bajista regular")
+    if div_result.get("hidden_bear"):
+        pattern_bearish_signals.append("Div RSI bajista oculta")
+
+    # Patrones M/W
+    if mw_result.get("W_with_div"):
+        pattern_bullish_signals.append("Patron W con div RSI")
+    elif mw_result.get("W"):
+        pattern_bullish_signals.append("Patron W (doble suelo)")
+    if mw_result.get("M_with_div"):
+        pattern_bearish_signals.append("Patron M con div RSI")
+    elif mw_result.get("M"):
+        pattern_bearish_signals.append("Patron M (doble techo)")
+
+    # Velas japonesas — solo las que coincidan con la dirección dominante
+    for pat_name, pat_data in candle_result.items():
+        if pat_data["tipo"] == "bullish":
+            pattern_bullish_signals.append(pat_data["desc"])
+        elif pat_data["tipo"] == "bearish":
+            pattern_bearish_signals.append(pat_data["desc"])
+
+    # Construir la confluencia ⑦ según dirección dominante detectada hasta ahora
+    if pattern_bullish_signals and not pattern_bearish_signals:
+        raw.append({"id": 7, "ok": True,
+            "texto": f"Patrones alcistas: {' + '.join(pattern_bullish_signals[:2])}",
+            "tipo": "bullish"})
+    elif pattern_bearish_signals and not pattern_bullish_signals:
+        raw.append({"id": 7, "ok": True,
+            "texto": f"Patrones bajistas: {' + '.join(pattern_bearish_signals[:2])}",
+            "tipo": "bearish"})
+    elif pattern_bullish_signals and pattern_bearish_signals:
+        # Hay señales en ambas direcciones — reportar pero no contar
+        raw.append({"id": 7, "ok": False,
+            "texto": f"Patrones mixtos: {pattern_bullish_signals[0]} vs {pattern_bearish_signals[0]}",
+            "tipo": "info"})
+    else:
+        raw.append({"id": 7, "ok": False,
+            "texto": "Sin patrones de precio/vela relevantes", "tipo": "info"})
+También actualiza max_confs cambiando la línea del return:
+python    # ANTES:
+    max_confs = max(c["id"] for c in confluencias_final) if confluencias_final else 5
+
+    # DESPUÉS:
+    max_confs = max(c["id"] for c in confluencias_final) if confluencias_final else 7
+Bloque 3 — Añadir a _build_confluencia_msg en notifier.py para que salga en Telegram:
+En la función ya existente, el bucle que itera confs ya mostrará la confluencia 7 automáticamente porque itera por id. Lo único que hay que asegurarse es que el mensaje sea descriptivo. Añade esto al bloque de _signal_lines o directamente al texto del mensaje — el sistema ya lo recoge porque usa c['texto'] genéricamente.
+Sin embargo, para que el mensaje Telegram sea más rico con los patrones, añade esto en notifier.py dentro de _build_confluencia_msg, después de lines.append(sec_header):
+python    # Dentro del bucle for c in confs: — ya existente
+    # Añadir icono especial para confluencia 7
+    for c in confs:
+        # ... código existente de iconos ...
+        
+        # Añadir etiqueta especial para patrones nuevos
+        prefix_id = ""
+        if c["id"] == 7:
+            prefix_id = "🕯️ "
+        elif c["id"] == 1:
+            prefix_id = "📊 "
+        elif c["id"] == 2:
+            prefix_id = "📈 "
+        elif c["id"] == 3:
+            prefix_id = "⬡ "
+        elif c["id"] == 4:
+            prefix_id = "🕐 "
+        elif c["id"] == 5:
+            prefix_id = "📐 "
+        elif c["id"] == 6:
+            prefix_id = "🏢 "
+            
+        lines.append(f"{icon} {prefix_id}{c['texto']}")
+Con estos cambios el sistema detectará hasta 9 puntos posibles — las 6 confluencias originales más divergencia RSI, patrón M/W y vela japonesa — y todos se muestran en Telegram con el icono 🕯️ para identificarlos. Un corto con RSI>70 + fractal resistencia + apertura semana bajista + divergencia bajista + patrón M es una señal de 5/9 que antes nunca hubieras visto.
