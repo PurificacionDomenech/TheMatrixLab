@@ -58,7 +58,7 @@ The app runs without any environment variables set — notifications are simply 
 
 ## Confluence Matrix (evaluate_confluencias)
 
-The system evaluates up to 6 confluences with **directional validation**:
+The system evaluates up to 8 confluences with **directional validation**:
 
 | # | Confluence | Direction |
 |---|---|---|
@@ -68,6 +68,10 @@ The system evaluates up to 6 confluences with **directional validation**:
 | ④ | Day + Week open | both above → bullish / both below → bearish |
 | ⑤ | Fibonacci 55.9% | neutral (valid for both directions) |
 | ⑥ | Index components (^DJI/^NDX only) | ≥60% bullish/bearish |
+| ⑦ | RSI divergence (regular/hidden) | bullish/bearish reversal o continuación |
+| ⑧ | M/W pattern + RSI divergence | M+div → bearish / W+div → bullish |
+
+**Velas japonesas** (engulfing, hammer, shooting star, marubozu, doji) → solo se muestran como **contexto extra** en el mensaje. NO suman puntos.
 
 **Directional rules:**
 - Strong signals (①②) determine direction; if they conflict → CONTRADICCIÓN

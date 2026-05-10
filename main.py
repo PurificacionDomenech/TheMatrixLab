@@ -300,6 +300,165 @@ def calc_indicators(df, es=200, el=800):
     return df
 
 
+def _flat(series):
+    """Devuelve siempre una Series 1D (yfinance a veces devuelve DataFrame)."""
+    if isinstance(series, pd.DataFrame):
+        return series.iloc[:, 0]
+    return series
+
+
+def calc_rsi_divergence(df, lookback=10):
+    """Detecta divergencias regulares y ocultas del RSI vs precio.
+    Devuelve dict con flags + tipo dominante (bullish/bearish/None)."""
+    out = {"bull_div": False, "bear_div": False,
+           "hidden_bull": False, "hidden_bear": False, "tipo": None}
+    if len(df) < lookback * 2 + 5 or "RSI" not in df.columns:
+        return out
+
+    high = _flat(df["High"])
+    low  = _flat(df["Low"])
+    rsi  = _flat(df["RSI"])
+
+    lb = min(lookback, 5)
+    n  = len(df)
+    window_end = n - lb - 1
+    if window_end <= lb:
+        return out
+
+    def is_pivot_low(s, idx):
+        v = s.iloc[idx]
+        return all(s.iloc[idx - i] >= v for i in range(1, lb + 1)) and \
+               all(s.iloc[idx + i] >= v for i in range(1, lb + 1))
+
+    def is_pivot_high(s, idx):
+        v = s.iloc[idx]
+        return all(s.iloc[idx - i] <= v for i in range(1, lb + 1)) and \
+               all(s.iloc[idx + i] <= v for i in range(1, lb + 1))
+
+    pivot_lows  = [i for i in range(lb, window_end) if is_pivot_low(rsi, i)]
+    pivot_highs = [i for i in range(lb, window_end) if is_pivot_high(rsi, i)]
+
+    # Divergencia bajista: precio HH + RSI LH | oculta: precio LH + RSI HH
+    if len(pivot_highs) >= 2:
+        p1, p2 = pivot_highs[-2], pivot_highs[-1]
+        if 3 <= (p2 - p1) <= lookback * 4:
+            ph1, ph2 = high.iloc[p1], high.iloc[p2]
+            rh1, rh2 = rsi.iloc[p1],  rsi.iloc[p2]
+            if ph2 > ph1 and rh2 < rh1:
+                out["bear_div"] = True; out["tipo"] = "bearish"
+            elif ph2 < ph1 and rh2 > rh1:
+                out["hidden_bear"] = True; out["tipo"] = out["tipo"] or "bearish"
+
+    # Divergencia alcista: precio LL + RSI HL | oculta: precio HL + RSI LL
+    if len(pivot_lows) >= 2:
+        p1, p2 = pivot_lows[-2], pivot_lows[-1]
+        if 3 <= (p2 - p1) <= lookback * 4:
+            pl1, pl2 = low.iloc[p1], low.iloc[p2]
+            rl1, rl2 = rsi.iloc[p1], rsi.iloc[p2]
+            if pl2 < pl1 and rl2 > rl1:
+                out["bull_div"] = True; out["tipo"] = "bullish"
+            elif pl2 > pl1 and rl2 < rl1:
+                out["hidden_bull"] = True; out["tipo"] = out["tipo"] or "bullish"
+
+    return out
+
+
+def calc_pattern_mw(df, lookback=30):
+    """Detecta doble techo (M) y doble suelo (W). Solo confirmado con
+    divergencia RSI cuenta como señal fuerte."""
+    out = {"M": False, "W": False, "M_with_div": False, "W_with_div": False}
+    if len(df) < lookback or "RSI" not in df.columns:
+        return out
+
+    w = df.iloc[-lookback:]
+    high  = _flat(w["High"]).reset_index(drop=True)
+    low   = _flat(w["Low"]).reset_index(drop=True)
+    rsi_s = _flat(w["RSI"]).reset_index(drop=True)
+
+    tol = 0.015  # 1.5% entre los dos picos/valles
+    highs_idx, lows_idx = [], []
+    for i in range(2, len(w) - 2):
+        h = high.iloc[i]
+        if h >= high.iloc[i - 1] and h >= high.iloc[i - 2] and \
+           h >= high.iloc[i + 1] and h >= high.iloc[i + 2]:
+            highs_idx.append(i)
+        l = low.iloc[i]
+        if l <= low.iloc[i - 1] and l <= low.iloc[i - 2] and \
+           l <= low.iloc[i + 1] and l <= low.iloc[i + 2]:
+            lows_idx.append(i)
+
+    # Doble techo
+    if len(highs_idx) >= 2:
+        for h1_i in highs_idx[:-1]:
+            h2_i = highs_idx[-1]
+            if h2_i - h1_i < 5:
+                continue
+            h1, h2 = float(high.iloc[h1_i]), float(high.iloc[h2_i])
+            if h1 > 0 and abs(h1 - h2) / h1 <= tol:
+                out["M"] = True
+                r1, r2 = float(rsi_s.iloc[h1_i]), float(rsi_s.iloc[h2_i])
+                if r2 < r1 - 2:
+                    out["M_with_div"] = True
+                break
+
+    # Doble suelo
+    if len(lows_idx) >= 2:
+        for l1_i in lows_idx[:-1]:
+            l2_i = lows_idx[-1]
+            if l2_i - l1_i < 5:
+                continue
+            l1, l2 = float(low.iloc[l1_i]), float(low.iloc[l2_i])
+            if l1 > 0 and abs(l1 - l2) / l1 <= tol:
+                out["W"] = True
+                r1, r2 = float(rsi_s.iloc[l1_i]), float(rsi_s.iloc[l2_i])
+                if r2 > r1 + 2:
+                    out["W_with_div"] = True
+                break
+
+    return out
+
+
+def calc_candle_patterns(df):
+    """Detecta patrones de vela japonesa en la última vela cerrada.
+    Solo se usan como CONTEXTO en el mensaje, NO suman puntos por sí solos."""
+    if len(df) < 2:
+        return []
+    o  = float(_flat(df["Open"]).iloc[-1])
+    h  = float(_flat(df["High"]).iloc[-1])
+    l  = float(_flat(df["Low"]).iloc[-1])
+    c  = float(_flat(df["Close"]).iloc[-1])
+    o2 = float(_flat(df["Open"]).iloc[-2])
+    c2 = float(_flat(df["Close"]).iloc[-2])
+
+    body    = abs(c - o)
+    rng     = max(h - l, 1e-9)
+    upper_w = h - max(c, o)
+    lower_w = min(c, o) - l
+    body_pct = body / rng
+
+    found = []
+    # Engulfing
+    if c2 < o2 and c > o and c > o2 and o < c2:
+        found.append({"tipo": "bullish", "desc": "Engulfing alcista"})
+    if c2 > o2 and c < o and c < o2 and o > c2:
+        found.append({"tipo": "bearish", "desc": "Engulfing bajista"})
+    # Pin bar / Hammer / Shooting star (mecha dominante)
+    if lower_w >= body * 2 and upper_w <= body * 0.5 and body_pct < 0.4:
+        found.append({"tipo": "bullish", "desc": "Hammer/Pin bar alcista"})
+    if upper_w >= body * 2 and lower_w <= body * 0.5 and body_pct < 0.4:
+        found.append({"tipo": "bearish", "desc": "Shooting star/Pin bar bajista"})
+    # Marubozu (cuerpo casi pleno)
+    if c > o and upper_w <= body * 0.05 and lower_w <= body * 0.05 and body_pct > 0.85:
+        found.append({"tipo": "bullish", "desc": "Marubozu alcista"})
+    if c < o and upper_w <= body * 0.05 and lower_w <= body * 0.05 and body_pct > 0.85:
+        found.append({"tipo": "bearish", "desc": "Marubozu bajista"})
+    # Doji (indecisión)
+    if body_pct < 0.1:
+        found.append({"tipo": "neutral", "desc": "Doji (indecisión)"})
+
+    return found
+
+
 def calc_fractales(precio, cfg, n_above=30, n_below=30):
     ks, ms, zs = cfg["key_spacing"], cfg["major_spacing"], cfg["zone_size"]
     base = round(precio / ks) * ks
@@ -592,11 +751,11 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
     if ema_s_val and ema_l_val:
         if ema_s_val > ema_l_val:
             raw.append({"id": 2, "ok": True,
-                "texto": f"EMA{es} ({ema_s_val:.5g}) > EMA{el} ({ema_l_val:.5g}) — tendencia alcista",
+                "texto": f"EMA{es} ({ema_s_val:.5g}) ↑ EMA{el} ({ema_l_val:.5g}) — tendencia alcista",
                 "tipo": "bullish"})
         else:
             raw.append({"id": 2, "ok": True,
-                "texto": f"EMA{es} ({ema_s_val:.5g}) < EMA{el} ({ema_l_val:.5g}) — tendencia bajista",
+                "texto": f"EMA{es} ({ema_s_val:.5g}) ↓ EMA{el} ({ema_l_val:.5g}) — tendencia bajista",
                 "tipo": "bearish"})
     else:
         raw.append({"id": 2, "ok": False,
@@ -697,6 +856,53 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
             raw.append({"id": 6, "ok": False,
                 "texto": f"Componentes mixtos ({bull_pct}% ↑ / {bear_pct}% ↓)",
                 "tipo": "info"})
+
+    # ⑦ Divergencia RSI (señal fuerte de reversión)
+    div = calc_rsi_divergence(df, lookback=10)
+    if div["bull_div"]:
+        raw.append({"id": 7, "ok": True,
+            "texto": "Divergencia RSI alcista regular — posible reversión al alza",
+            "tipo": "bullish"})
+    elif div["hidden_bull"]:
+        raw.append({"id": 7, "ok": True,
+            "texto": "Divergencia RSI alcista oculta — continuación tendencia alcista",
+            "tipo": "bullish"})
+    elif div["bear_div"]:
+        raw.append({"id": 7, "ok": True,
+            "texto": "Divergencia RSI bajista regular — posible reversión a la baja",
+            "tipo": "bearish"})
+    elif div["hidden_bear"]:
+        raw.append({"id": 7, "ok": True,
+            "texto": "Divergencia RSI bajista oculta — continuación tendencia bajista",
+            "tipo": "bearish"})
+    else:
+        raw.append({"id": 7, "ok": False,
+            "texto": "Sin divergencias RSI relevantes", "tipo": "info"})
+
+    # ⑧ Patrón M/W confirmado por divergencia RSI
+    mw = calc_pattern_mw(df, lookback=30)
+    if mw["W_with_div"]:
+        raw.append({"id": 8, "ok": True,
+            "texto": "Patrón W (doble suelo) confirmado por divergencia RSI",
+            "tipo": "bullish"})
+    elif mw["M_with_div"]:
+        raw.append({"id": 8, "ok": True,
+            "texto": "Patrón M (doble techo) confirmado por divergencia RSI",
+            "tipo": "bearish"})
+    elif mw["W"]:
+        raw.append({"id": 8, "ok": False,
+            "texto": "Patrón W detectado (sin divergencia RSI confirmada)",
+            "tipo": "info"})
+    elif mw["M"]:
+        raw.append({"id": 8, "ok": False,
+            "texto": "Patrón M detectado (sin divergencia RSI confirmada)",
+            "tipo": "info"})
+    else:
+        raw.append({"id": 8, "ok": False,
+            "texto": "Sin patrón M/W relevante", "tipo": "info"})
+
+    # Velas japonesas → contexto extra (NO suma puntos)
+    candle_patterns = calc_candle_patterns(df)
 
     # ── PASO 2: determinar la dirección dominante con lógica direccional ──
     activas_bullish = [c for c in raw if c["ok"] and c["tipo"] == "bullish"]
@@ -807,6 +1013,7 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
         "alert":         alert,
         "day_context":   day_context,
         "week_context":  week_context,
+        "candle_patterns": candle_patterns,
     }
 
 

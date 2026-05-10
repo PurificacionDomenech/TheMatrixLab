@@ -14,6 +14,7 @@ Variables de entorno en Railway:
 
 import os
 import re
+import html
 import asyncio
 import smtplib
 import logging
@@ -694,12 +695,12 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             rt_banner = "⚡ <b>ALERTA RSI EN TIEMPO REAL</b> — ¡El RSI acaba de entrar en zona extrema!"
 
     lines = [
-        f"<b>⬡ MATRIX LAB · {now_str}</b>",
+        f"<b>⬡ MATRIX LAB · {html.escape(now_str)}</b>",
     ]
     if rt_banner:
         lines.append(rt_banner)
     lines.append("")
-    lines.append(f"<b>📊 {name}</b>  |  <b>{precio:,.5g}</b>")
+    lines.append(f"<b>📊 {html.escape(name)}</b>  |  <b>{precio:,.5g}</b>")
 
     if hora_display:
         lines.append(f"🕐 {candle_lbl} · {dia_label} {hora_display} {tz_label}")
@@ -735,10 +736,23 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
         else:
             icon = "◻️"
 
-        lines.append(f"{icon} {c['texto']}")
+        lines.append(f"{icon} {html.escape(str(c.get('texto','')))}")
 
     lines.extend(_build_day_context_lines(resultado, lang))
     lines.extend(_build_components_context_lines(t, components_ctx, lang))
+
+    # Velas japonesas como contexto extra (no suman puntos)
+    candle_patterns = resultado.get("candle_patterns") or []
+    if candle_patterns:
+        lines.append("")
+        if lang == "en":
+            lines.append("<b>🕯️ Last 4H candle:</b>")
+        else:
+            lines.append("<b>🕯️ Vela 4H actual:</b>")
+        for p in candle_patterns:
+            tipo = p.get("tipo", "neutral")
+            ico  = "🟢" if tipo == "bullish" else ("🔴" if tipo == "bearish" else "⚪")
+            lines.append(f"  {ico} {html.escape(str(p.get('desc','')))}")
 
     lines.append("")
     lines.append(RISK_WARNING_EN if lang == "en" else RISK_WARNING_ES)
