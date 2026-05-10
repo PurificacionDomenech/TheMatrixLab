@@ -61,6 +61,7 @@ _RSI_WATCH_INTERVAL_MIN = 2
 _PATTERN_WATCH_INTERVAL_MIN = 5
 _PATTERN_RECENT_BARS = 3  # 2º pico/valle/hombro debe estar en las últimas N velas 4H
 _PATTERN_MIN_EXTRA_CONFLUENCIAS = 2
+_PATTERN_DEDUP_SECONDS = 12 * 3600  # no reenviar el mismo patrón en 12h
 
 ASSET_CONFIG = {
     "^DJI": {
@@ -1436,6 +1437,122 @@ async def _rsi_realtime_check():
         await notify_users_with_alerts(alertas_rsi)
 
 
+async def _pattern_realtime_check():
+    """Cada N min revisa si está formándose el 2º pico (M), 2º valle (W)
+    o 2º hombro (HCH/HCHi) en las últimas velas. Si coincide con ≥2
+    confluencias adicionales en la misma dirección → 1 alerta inmediata.
+    Dedup 12h: si el mismo patrón ya se notificó, NO se reenvía."""
+    if not HAS_NOTIFIER:
+        return
+
+    now = time.time()
+    alertas_pat: dict = {}
+
+    for ticker in WATCH_TICKERS:
+        try:
+            cfg = get_cfg(ticker)
+            df = await async_download(ticker, period="6mo", interval="4h", progress=False)
+            if df.empty:
+                continue
+            df = clean_df(df)
+            df = calc_indicators(df, cfg["ema_short"], cfg["ema_long"])
+            n = len(df)
+            if n < 30:
+                continue
+
+            mw  = calc_pattern_mw(df, lookback=30)
+            hch = calc_pattern_hch(df, lookback=60)
+
+            shape = tipo = None
+            second_idx = -1
+            descripcion = ""
+
+            # Prioridad: HCH/HCHi (más fiable) sobre M/W
+            if hch.get("points"):
+                p = hch["points"]
+                if p["rs_idx"] >= n - _PATTERN_RECENT_BARS:
+                    shape = p["shape"]; tipo = p["tipo"]; second_idx = p["rs_idx"]
+                    descripcion = ("Segundo hombro de HCH invertido formándose"
+                                   if shape == "HCHi"
+                                   else "Segundo hombro de HCH formándose")
+            if not shape and mw.get("points"):
+                p = mw["points"]
+                if p["p2_idx"] >= n - _PATTERN_RECENT_BARS:
+                    shape = p["shape"]; tipo = p["tipo"]; second_idx = p["p2_idx"]
+                    descripcion = ("Segundo pico de M (doble techo) formándose"
+                                   if shape == "M"
+                                   else "Segundo valle de W (doble suelo) formándose")
+
+            if not shape:
+                continue
+
+            # Dedup estricto: ticker + shape + tipo (no se reenvía en 12h)
+            dedup_key = f"PAT_RT_{ticker}_{shape}_{tipo}"
+            if now - _sent_cache.get(dedup_key, 0) < _PATTERN_DEDUP_SECONDS:
+                continue
+
+            # Confluencias: necesitamos ≥2 EXTRA (sin contar la ⑧) en la misma dirección
+            opens_data = cls_ctx = None
+            opens_data = calc_opens(df)
+            components_ctx = None
+            if ticker in INDEX_COMPONENTS:
+                try:
+                    components_ctx = await get_index_components_context(ticker)
+                except Exception:
+                    pass
+
+            resultado = evaluate_confluencias(df, ticker=ticker, cfg=cfg,
+                                              opens=opens_data,
+                                              components_ctx=components_ctx)
+            if not resultado:
+                continue
+
+            extras = sum(
+                1 for c in resultado.get("confluencias", [])
+                if c.get("ok") and not c.get("descartada") and not c.get("conflicto")
+                and c.get("tipo") == tipo and c.get("id") != 8
+            )
+            if extras < _PATTERN_MIN_EXTRA_CONFLUENCIAS:
+                continue
+
+            # Forzar el aviso de "patrón formándose" en la confluencia ⑧
+            for c in resultado.get("confluencias", []):
+                if c["id"] == 8:
+                    c["ok"] = True
+                    c["tipo"] = tipo
+                    c["texto"] = f"⚡ {descripcion} (en formación)"
+                    c.pop("descartada", None)
+                    c.pop("conflicto", None)
+            puntos = sum(1 for c in resultado["confluencias"]
+                         if c.get("ok") and not c.get("descartada") and not c.get("conflicto"))
+            resultado["puntos"] = puntos
+            resultado["estado"] = "FAVORABLE" if puntos >= 4 else "INTERESANTE"
+            resultado["nivel"] = tipo
+            resultado["alert"] = True
+            resultado["pattern_realtime"] = True
+
+            ts_now = pd.Timestamp.now(tz="UTC")
+            alertas_pat[ticker] = [{
+                "nivel": tipo,
+                "msg": f"[{ticker}] ⚡ PATRÓN EN FORMACIÓN — {descripcion}",
+                "hora": ts_now.strftime("%d/%m %H:%M"),
+                "ts_utc_iso": ts_now.isoformat(),
+                "dia_num": ts_now.weekday(),
+                "dia_name": ts_now.strftime("%A"),
+                "resultado": resultado,
+                "components_ctx": components_ctx,
+            }]
+            _sent_cache[dedup_key] = now
+            print(f"[pattern-rt] ⚡ {ticker} {shape} ({tipo}) "
+                  f"+{extras} confluencias extra → ALERTA")
+
+        except Exception as e:
+            print(f"[pattern-rt] Error revisando {ticker}: {e}")
+
+    if alertas_pat:
+        await notify_users_with_alerts(alertas_pat)
+
+
 # ─── APP ─────────────────────────────────────────────────────
 
 if HAS_SCHEDULER:
@@ -1540,8 +1657,10 @@ if HAS_SCHEDULER:
             scheduler.add_job(scheduled_watch, "interval", minutes=30, id="watch_30m")
             scheduler.add_job(_rsi_realtime_check, "interval",
                               minutes=_RSI_WATCH_INTERVAL_MIN, id="rsi_rt")
+            scheduler.add_job(_pattern_realtime_check, "interval",
+                              minutes=_PATTERN_WATCH_INTERVAL_MIN, id="pattern_rt")
             scheduler.start()
-            print(f"[scheduler] Iniciado · revisión cada 30 min + RSI real-time cada {_RSI_WATCH_INTERVAL_MIN} min")
+            print(f"[scheduler] Iniciado · 30 min · RSI {_RSI_WATCH_INTERVAL_MIN}m · Patrones {_PATTERN_WATCH_INTERVAL_MIN}m (dedup 12h)")
             # Catch-up: enviar alertas de las últimas 24h al arrancar
             asyncio.create_task(daily_catchup())
             asyncio.create_task(_warm_row_cache())
