@@ -2419,6 +2419,57 @@ async def watch(tickers: str = ""):
     return {"alertas": all_alertas}
 
 
+@app.get("/api/test/shark")
+async def test_shark_alert():
+    """Manda un mensaje de prueba de aleta de tiburón a todos los suscriptores."""
+    if not HAS_NOTIFIER:
+        return {"ok": False, "error": "Notifier no disponible"}
+
+    import datetime as _dt
+    ts_now = pd.Timestamp.now(tz="UTC")
+    hora   = ts_now.strftime("%d/%m %H:%M")
+    dia    = ts_now.strftime("%A")
+
+    resultado_test = {
+        "ticker": "BTC-USD", "precio": 103_450.0, "rsi": 74.3,
+        "puntos": 5, "estado": "FAVORABLE", "direction": "bearish",
+        "contradiccion": False, "max_confs": 8, "rsi_realtime": False,
+        "shark_realtime": True,
+        "confluencias": [
+            {"id": 1, "ok": True,  "tipo": "bearish", "texto": "⚡ RSI en zona (74.3) — sobrecompra",       "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 2, "ok": True,  "tipo": "bearish", "texto": "EMA200 < EMA800 — tendencia bajista",       "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 3, "ok": False, "tipo": "info",    "texto": "Sin fractal reciente",                     "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 4, "ok": True,  "tipo": "bearish", "texto": "Precio bajo apertura día y semana",        "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 5, "ok": False, "tipo": "info",    "texto": "Sin nivel Fibonacci cercano",              "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 6, "ok": False, "tipo": "info",    "texto": "N/A (no es índice)",                       "pts_extra": 0, "shark": None, "alert_immediate": False},
+            {"id": 7, "ok": True,  "tipo": "bearish",
+             "texto": "⚡🦈 Aleta tiburón EXTREMA — RSI pico 76.8 superó div R1 71.2 → agotamiento máximo",
+             "pts_extra": 3, "alert_immediate": True,
+             "shark": {"shark_tipo": "bearish", "phase": "exceeded",
+                       "shark_rsi_peak": 76.8, "shark_div_r1": 71.2,
+                       "shark_pts": 4, "shark_exceeds_div": True}},
+            {"id": 8, "ok": False, "tipo": "info",    "texto": "Sin patrón gráfico de reversión",          "pts_extra": 0, "shark": None, "alert_immediate": False},
+        ],
+        "candle_patterns": [{"tipo": "bearish", "desc": "Shooting star — rechazo en máximos"}],
+        "day_context":  {"direction": "below", "open": 104_200.0, "pct": -0.72},
+        "week_context": {"direction": "below", "open": 105_800.0, "pct": -2.22},
+    }
+
+    alertas = {"BTC-USD": [{
+        "nivel": "bearish",
+        "msg": "[BTC-USD] ⚡🦈 ALETA TIBURÓN EXTREMA — FAVORABLE (5 pts)",
+        "hora": hora, "ts_utc_iso": ts_now.isoformat(),
+        "dia_num": ts_now.weekday(), "dia_name": dia,
+        "resultado": resultado_test, "components_ctx": None,
+    }]}
+
+    try:
+        await notify_users_with_alerts(alertas)
+        return {"ok": True, "msg": "Mensaje de prueba enviado"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
     try:
