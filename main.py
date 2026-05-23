@@ -381,6 +381,88 @@ def calc_rsi_divergence(df, lookback=10):
     return out
 
 
+def calc_shark_fin(df, lookback=30):
+    """
+    Detecta aleta de tiburón en RSI — señal de agotamiento extremo.
+    Requiere divergencia previa confirmada.
+
+    Casos:
+      shark_bear: div bajista previa → RSI entra >70 y forma pico
+      shark_bull: div alcista previa → RSI entra <30 y forma valle
+
+    Fases:
+      forming   → RSI en zona extrema, pico/valle aún no cerrado (pre-alerta)
+      crossed   → RSI cruzó de vuelta la zona (confirmado, +2 pts)
+      exceeded  → pico/valle supera el nivel R1/S1 original (extremo, +4 pts, alerta inmediata)
+    """
+    result = {
+        "shark_bear": False, "shark_bull": False,
+        "shark_exceeds_div": False, "shark_pts": 0,
+        "shark_tipo": None, "shark_rsi_peak": None,
+        "shark_div_r1": None, "phase": None,
+        "alert_immediate": False,
+    }
+    if len(df) < 10 or "RSI" not in df.columns:
+        return result
+
+    rsi = _flat(df["RSI"]).dropna()
+    if len(rsi) < 10:
+        return result
+
+    div = calc_rsi_divergence(df, lookback=lookback)
+    pts = div.get("points")
+
+    # ── ALETA BAJISTA ──────────────────────────────────────
+    if div["bear_div"] and pts and pts["tipo"] == "bearish":
+        r1_rsi = pts["p1_rsi"]   # pivote antiguo (más alto)
+        n = len(rsi)
+        recent = rsi.iloc[-min(lookback, n):]
+        shark_peaks = [(i, float(recent.iloc[i]))
+                       for i in range(1, len(recent) - 1)
+                       if float(recent.iloc[i]) > 70
+                       and float(recent.iloc[i]) >= float(recent.iloc[i - 1])
+                       and float(recent.iloc[i]) >= float(recent.iloc[i + 1])]
+        if shark_peaks:
+            peak_i, peak_rsi = shark_peaks[-1]
+            rsi_now = float(rsi.iloc[-1])
+            result.update({"shark_bear": True, "shark_tipo": "bearish",
+                           "shark_rsi_peak": peak_rsi, "shark_div_r1": r1_rsi})
+            exceeds = peak_rsi > r1_rsi
+            result["shark_exceeds_div"] = exceeds
+            if exceeds:
+                result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
+            elif rsi_now < 70 and peak_i < len(recent) - 1:
+                result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
+            else:
+                result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+
+    # ── ALETA ALCISTA ──────────────────────────────────────
+    elif div["bull_div"] and pts and pts["tipo"] == "bullish":
+        s1_rsi = pts["p1_rsi"]   # pivote antiguo (más bajo)
+        n = len(rsi)
+        recent = rsi.iloc[-min(lookback, n):]
+        shark_valleys = [(i, float(recent.iloc[i]))
+                         for i in range(1, len(recent) - 1)
+                         if float(recent.iloc[i]) < 30
+                         and float(recent.iloc[i]) <= float(recent.iloc[i - 1])
+                         and float(recent.iloc[i]) <= float(recent.iloc[i + 1])]
+        if shark_valleys:
+            valley_i, valley_rsi = shark_valleys[-1]
+            rsi_now = float(rsi.iloc[-1])
+            result.update({"shark_bull": True, "shark_tipo": "bullish",
+                           "shark_rsi_peak": valley_rsi, "shark_div_r1": s1_rsi})
+            exceeds = valley_rsi < s1_rsi
+            result["shark_exceeds_div"] = exceeds
+            if exceeds:
+                result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
+            elif rsi_now > 30 and valley_i < len(recent) - 1:
+                result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
+            else:
+                result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+
+    return result
+
+
 def calc_pattern_mw(df, lookback=30):
     """Detecta doble techo (M) y doble suelo (W). Solo confirmado con
     divergencia RSI cuenta como señal fuerte."""
@@ -990,27 +1072,73 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
                 "texto": f"Componentes mixtos ({bull_pct}% ↑ / {bear_pct}% ↓)",
                 "tipo": "info"})
 
-    # ⑦ Divergencia RSI (señal fuerte de reversión)
+    # ⑦ Divergencia RSI + Aleta de Tiburón (señal fuerte de reversión)
     div = calc_rsi_divergence(df, lookback=10)
+    shark = calc_shark_fin(df, lookback=30)
+
+    # Texto base de la divergencia
     if div["bull_div"]:
-        raw.append({"id": 7, "ok": True,
-            "texto": "Divergencia RSI alcista regular — posible reversión al alza",
-            "tipo": "bullish"})
+        div7_texto = "Divergencia RSI alcista regular — posible reversión al alza"
+        div7_tipo  = "bullish"
+        div7_ok    = True
     elif div["hidden_bull"]:
-        raw.append({"id": 7, "ok": True,
-            "texto": "Divergencia RSI alcista oculta — continuación tendencia alcista",
-            "tipo": "bullish"})
+        div7_texto = "Divergencia RSI alcista oculta — continuación tendencia alcista"
+        div7_tipo  = "bullish"
+        div7_ok    = True
     elif div["bear_div"]:
-        raw.append({"id": 7, "ok": True,
-            "texto": "Divergencia RSI bajista regular — posible reversión a la baja",
-            "tipo": "bearish"})
+        div7_texto = "Divergencia RSI bajista regular — posible reversión a la baja"
+        div7_tipo  = "bearish"
+        div7_ok    = True
     elif div["hidden_bear"]:
-        raw.append({"id": 7, "ok": True,
-            "texto": "Divergencia RSI bajista oculta — continuación tendencia bajista",
-            "tipo": "bearish"})
+        div7_texto = "Divergencia RSI bajista oculta — continuación tendencia bajista"
+        div7_tipo  = "bearish"
+        div7_ok    = True
     else:
-        raw.append({"id": 7, "ok": False,
-            "texto": "Sin divergencias RSI relevantes", "tipo": "info"})
+        div7_texto = "Sin divergencias RSI relevantes"
+        div7_tipo  = "info"
+        div7_ok    = False
+
+    # Enriquecer con aleta de tiburón si corresponde
+    pts_extra_7 = 0
+    shark_info  = None
+    if shark["shark_bear"] and div7_tipo in ("bearish", "info"):
+        if shark["phase"] == "exceeded":
+            div7_texto = (f"⚡🦈 Aleta tiburón EXTREMA — RSI pico {shark['shark_rsi_peak']:.1f} "
+                          f"superó div R1 {shark['shark_div_r1']:.1f} → agotamiento máximo")
+            div7_tipo = "bearish"; div7_ok = True; pts_extra_7 = 3  # +4 total
+            shark_info = shark
+        elif shark["phase"] == "crossed":
+            div7_texto = (f"🦈 Aleta tiburón bajista confirmada — RSI pico {shark['shark_rsi_peak']:.1f} "
+                          f"cruzó <70 (div R1={shark['shark_div_r1']:.1f})")
+            div7_tipo = "bearish"; div7_ok = True; pts_extra_7 = 1  # +2 total
+            shark_info = shark
+        elif shark["phase"] == "forming":
+            if div7_ok:
+                div7_texto += f" + 🦈 aleta formándose (RSI {shark['shark_rsi_peak']:.1f} en zona)"
+            else:
+                div7_texto = f"🦈 Aleta tiburón formándose — RSI {shark['shark_rsi_peak']:.1f} en zona >70"
+            shark_info = shark
+    elif shark["shark_bull"] and div7_tipo in ("bullish", "info"):
+        if shark["phase"] == "exceeded":
+            div7_texto = (f"⚡🦈 Aleta tiburón EXTREMA — RSI valle {shark['shark_rsi_peak']:.1f} "
+                          f"superó div S1 {shark['shark_div_r1']:.1f} → agotamiento máximo")
+            div7_tipo = "bullish"; div7_ok = True; pts_extra_7 = 3
+            shark_info = shark
+        elif shark["phase"] == "crossed":
+            div7_texto = (f"🦈 Aleta tiburón alcista confirmada — RSI valle {shark['shark_rsi_peak']:.1f} "
+                          f"cruzó >30 (div S1={shark['shark_div_r1']:.1f})")
+            div7_tipo = "bullish"; div7_ok = True; pts_extra_7 = 1
+            shark_info = shark
+        elif shark["phase"] == "forming":
+            if div7_ok:
+                div7_texto += f" + 🦈 aleta formándose (RSI {shark['shark_rsi_peak']:.1f} en zona)"
+            else:
+                div7_texto = f"🦈 Aleta tiburón formándose — RSI {shark['shark_rsi_peak']:.1f} en zona <30"
+            shark_info = shark
+
+    raw.append({"id": 7, "ok": div7_ok, "texto": div7_texto, "tipo": div7_tipo,
+                "pts_extra": pts_extra_7, "shark": shark_info,
+                "alert_immediate": shark["alert_immediate"] if shark_info else False})
 
     # ⑧ Patrón gráfico de reversión: M/W con divergencia o HCH/HCHi confirmado
     mw  = calc_pattern_mw(df, lookback=30)
@@ -1097,6 +1225,8 @@ def evaluate_confluencias(df, ticker="", cfg=None, opens=None, components_ctx=No
                     entry["descartada"] = True
                 else:
                     puntos += 1
+                    # pts_extra: aleta tiburón suma puntos adicionales
+                    puntos += c.get("pts_extra", 0)
             elif c["ok"] and c["tipo"] == "neutral":
                 puntos += 1
             confluencias_final.append(entry)
@@ -1423,19 +1553,41 @@ async def _rsi_realtime_check():
                         c.pop("descartada", None)
                         c.pop("conflicto", None)
 
-            puntos = sum(1 for c in resultado["confluencias"]
-                         if c.get("ok") and not c.get("descartada") and not c.get("conflicto"))
+            puntos = sum(
+                1 + c.get("pts_extra", 0)
+                for c in resultado["confluencias"]
+                if c.get("ok") and not c.get("descartada") and not c.get("conflicto")
+                and c.get("tipo") not in ("neutral", "info")
+            ) + sum(
+                1 for c in resultado["confluencias"]
+                if c.get("ok") and not c.get("descartada") and not c.get("conflicto")
+                and c.get("tipo") == "neutral"
+            )
             resultado["puntos"] = puntos
             resultado["estado"] = "FAVORABLE" if puntos >= 4 else "INTERESANTE"
             resultado["nivel"] = direction
-            resultado["alert"] = puntos >= 4
+            # aleta extrema genera alerta aunque no llegue a 4 pts base
+            shark_immediate = any(
+                c.get("alert_immediate") and c.get("shark")
+                for c in resultado.get("confluencias", [])
+            )
+            resultado["alert"] = puntos >= 4 or shark_immediate
             resultado["rsi_realtime"] = True
 
             if resultado["alert"]:
                 ts_now = pd.Timestamp.now(tz="UTC")
+                # Determinar emoji según si hay aleta
+                shark_c = next((c for c in resultado.get("confluencias",[])
+                                if c.get("shark") and c.get("alert_immediate")), None)
+                if shark_c and shark_c["shark"].get("phase") == "exceeded":
+                    msg_txt = f"[{ticker}] ⚡🦈 ALETA TIBURÓN EXTREMA — {resultado['estado']} ({puntos} pts)"
+                elif shark_c:
+                    msg_txt = f"[{ticker}] 🦈 Aleta tiburón confirmada — {resultado['estado']} ({puntos} pts)"
+                else:
+                    msg_txt = f"[{ticker}] ⚡ RSI EN ZONA — {resultado['estado']}"
                 alertas_rsi[ticker] = [{
                     "nivel": direction,
-                    "msg": f"[{ticker}] ⚡ RSI EN ZONA — {resultado['estado']}",
+                    "msg": msg_txt,
                     "hora": ts_now.strftime("%d/%m %H:%M"),
                     "ts_utc_iso": ts_now.isoformat(),
                     "dia_num": ts_now.weekday(),
@@ -1447,6 +1599,42 @@ async def _rsi_realtime_check():
                 del _rsi_watchlist[ticker]
                 print(f"[rsi-watch] ⚡ {ticker} RSI={rsi_now:.1f} cruzó zona extrema "
                       f"({direction}) → ALERTA INMEDIATA")
+
+            # ── Aleta tiburón standalone: alerta inmediata en df_4h ──────────
+            shark_4h = calc_shark_fin(df_4h, lookback=30)
+            if shark_4h.get("alert_immediate") and shark_4h.get("phase") in ("exceeded", "crossed"):
+                s_tipo  = shark_4h["shark_tipo"]
+                s_phase = shark_4h["phase"]
+                shark_key = f"SHARK_{ticker}_{s_tipo}_{s_phase}"
+                if now - _sent_cache.get(shark_key, 0) >= _DEDUP_SECONDS:
+                    if s_phase == "exceeded":
+                        s_emoji = "⚡🦈"; pts_lbl = "+4 pts"
+                        s_msg = (f"[{ticker}] {s_emoji} ALETA TIBURÓN EXTREMA\n"
+                                 f"RSI {'pico' if s_tipo=='bearish' else 'valle'} "
+                                 f"{shark_4h['shark_rsi_peak']:.1f} superó "
+                                 f"{'R1' if s_tipo=='bearish' else 'S1'}="
+                                 f"{shark_4h['shark_div_r1']:.1f}")
+                    else:
+                        s_emoji = "🦈"; pts_lbl = "+2 pts"
+                        s_msg = (f"[{ticker}] {s_emoji} Aleta tiburón "
+                                 f"{'bajista' if s_tipo=='bearish' else 'alcista'} confirmada\n"
+                                 f"RSI cruzó {'<70' if s_tipo=='bearish' else '>30'} "
+                                 f"tras divergencia")
+                    ts_now = pd.Timestamp.now(tz="UTC")
+                    alertas_rsi.setdefault(ticker, []).append({
+                        "nivel": s_tipo,
+                        "msg": s_msg,
+                        "hora": ts_now.strftime("%d/%m %H:%M"),
+                        "ts_utc_iso": ts_now.isoformat(),
+                        "dia_num": ts_now.weekday(),
+                        "dia_name": ts_now.strftime("%A"),
+                        "resultado": None,
+                        "components_ctx": None,
+                        "shark_data": shark_4h,
+                        "pts_label": pts_lbl,
+                    })
+                    _sent_cache[shark_key] = now
+                    print(f"[shark] {s_emoji} {ticker} — {s_phase} RSI={shark_4h['shark_rsi_peak']:.1f}")
 
         except Exception as e:
             print(f"[rsi-watch] Error revisando RSI de {ticker}: {e}")

@@ -754,6 +754,31 @@ def _build_confluencia_msg(resultado: dict, hora: str, dia_name: str, now_str: s
             ico  = "🟢" if tipo == "bullish" else ("🔴" if tipo == "bearish" else "⚪")
             lines.append(f"  {ico} {html.escape(str(p.get('desc','')))}")
 
+    # Aleta de tiburón — bloque especial si está en las confluencias
+    shark_conf = next((c for c in confs
+                       if c.get("id") == 7 and c.get("shark") and c.get("ok")), None)
+    if shark_conf:
+        sk = shark_conf["shark"]
+        lines.append("")
+        if sk.get("phase") == "exceeded":
+            if lang == "en":
+                lines.append(f"⚡🦈 <b>EXTREME SHARK FIN</b> — RSI {'peak' if sk['shark_tipo']=='bearish' else 'valley'} "
+                             f"{sk['shark_rsi_peak']:.1f} exceeded prior divergence "
+                             f"{'R1' if sk['shark_tipo']=='bearish' else 'S1'}={sk['shark_div_r1']:.1f}")
+                lines.append("   Maximum exhaustion signal — immediate alert (+4 pts)")
+            else:
+                lines.append(f"⚡🦈 <b>ALETA TIBURÓN EXTREMA</b> — RSI {'pico' if sk['shark_tipo']=='bearish' else 'valle'} "
+                             f"{sk['shark_rsi_peak']:.1f} superó divergencia previa "
+                             f"{'R1' if sk['shark_tipo']=='bearish' else 'S1'}={sk['shark_div_r1']:.1f}")
+                lines.append("   Señal de agotamiento máximo — alerta inmediata (+4 pts)")
+        elif sk.get("phase") == "crossed":
+            if lang == "en":
+                lines.append(f"🦈 <b>Shark fin confirmed</b> — RSI crossed back from extreme zone "
+                             f"({'<70' if sk['shark_tipo']=='bearish' else '>30'}) (+2 pts)")
+            else:
+                lines.append(f"🦈 <b>Aleta tiburón confirmada</b> — RSI cruzó de vuelta la zona extrema "
+                             f"({'<70' if sk['shark_tipo']=='bearish' else '>30'}) (+2 pts)")
+
     lines.append("")
     lines.append(RISK_WARNING_EN if lang == "en" else RISK_WARNING_ES)
 
