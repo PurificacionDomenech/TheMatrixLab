@@ -2419,67 +2419,6 @@ async def watch(tickers: str = ""):
     return {"alertas": all_alertas}
 
 
-@app.get("/api/test/shark")
-async def test_shark_alert():
-    """Manda un mensaje de prueba de aleta de tiburón directamente a todos los chat_ids."""
-    if not HAS_NOTIFIER:
-        return {"ok": False, "error": "Notifier no disponible"}
-
-    ts_now = pd.Timestamp.now(tz="UTC")
-    hora   = ts_now.strftime("%d/%m %H:%M")
-    dia    = ts_now.strftime("%A")
-    now_str = ts_now.strftime("%d/%m/%Y %H:%M")
-
-    resultado_test = {
-        "ticker": "BTC-USD", "precio": 103_450.0, "rsi": 74.3,
-        "puntos": 5, "estado": "FAVORABLE", "direction": "bearish",
-        "contradiccion": False, "max_confs": 8, "rsi_realtime": False,
-        "shark_realtime": True,
-        "confluencias": [
-            {"id": 1, "ok": True,  "tipo": "bearish", "texto": "RSI en zona (74.3) — sobrecompra",         "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 2, "ok": True,  "tipo": "bearish", "texto": "EMA200 < EMA800 — tendencia bajista",       "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 3, "ok": False, "tipo": "info",    "texto": "Sin fractal reciente",                     "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 4, "ok": True,  "tipo": "bearish", "texto": "Precio bajo apertura dia y semana",        "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 5, "ok": False, "tipo": "info",    "texto": "Sin nivel Fibonacci cercano",              "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 6, "ok": False, "tipo": "info",    "texto": "N/A (no es indice)",                       "pts_extra": 0, "shark": None, "alert_immediate": False},
-            {"id": 7, "ok": True,  "tipo": "bearish",
-             "texto": "Aleta tiburon EXTREMA — RSI pico 76.8 supero div R1 71.2",
-             "pts_extra": 3, "alert_immediate": True,
-             "shark": {"shark_tipo": "bearish", "phase": "exceeded",
-                       "shark_rsi_peak": 76.8, "shark_div_r1": 71.2,
-                       "shark_pts": 4, "shark_exceeds_div": True}},
-            {"id": 8, "ok": False, "tipo": "info",    "texto": "Sin patron grafico de reversion",          "pts_extra": 0, "shark": None, "alert_immediate": False},
-        ],
-        "candle_patterns": [{"tipo": "bearish", "desc": "Shooting star — rechazo en maximos"}],
-        "day_context":  {"direction": "below", "open": 104_200.0, "pct": -0.72},
-        "week_context": {"direction": "below", "open": 105_800.0, "pct": -2.22},
-    }
-
-    # Construir mensaje igual que lo haría el notifier
-    from notifier import _build_tg_for_user, get_chat_ids, send_telegram_to
-
-    alerta_item = {
-        "nivel": "bearish",
-        "msg": "[BTC-USD] TEST aleta tiburon EXTREMA",
-        "hora": hora, "ts_utc_iso": ts_now.isoformat(),
-        "dia_num": ts_now.weekday(), "dia_name": dia,
-        "resultado": resultado_test, "components_ctx": None,
-    }
-
-    texto = _build_tg_for_user({"BTC-USD": [alerta_item]}, now_str, lang="es", timezone="Europe/Madrid")
-    print(f"[test-shark] Mensaje generado ({len(texto)} chars):\n{texto[:300]}...")
-
-    chat_ids = await get_chat_ids()
-    print(f"[test-shark] Enviando a {len(chat_ids)} chat_id(s): {chat_ids}")
-
-    results = []
-    for cid in chat_ids:
-        ok = await send_telegram_to(int(cid), texto, ticker="BTC-USD")
-        print(f"[test-shark] chat_id={cid} → {'OK' if ok else 'FALLO'}")
-        results.append({"chat_id": cid, "ok": ok})
-
-    return {"results": results, "chars": len(texto), "chat_ids_count": len(chat_ids)}
-
 
 @app.get("/api/sparkline/{ticker}")
 async def sparkline(ticker: str):
