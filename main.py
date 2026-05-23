@@ -421,11 +421,16 @@ def calc_pattern_mw(df, lookback=30):
                 if with_div:
                     out["M_with_div"] = True
                 neckline = float(low.iloc[h1_i:h2_i + 1].min())
+                last_c = float(_flat(w["Close"]).reset_index(drop=True).iloc[-1])
+                estado_m = ("confirmado" if last_c < neckline
+                            else "formando_p2" if abs(last_c - h2) / h2 <= tol * 1.8
+                            else "formando")
                 out["points"] = {"tipo": "bearish", "shape": "M",
                                  "p1_idx": int(base_idx + h1_i),
                                  "p2_idx": int(base_idx + h2_i),
                                  "p1_y": h1, "p2_y": h2,
-                                 "neckline": neckline, "with_div": with_div}
+                                 "neckline": neckline, "with_div": with_div,
+                                 "estado": estado_m}
                 break
 
     # Doble suelo
@@ -443,11 +448,16 @@ def calc_pattern_mw(df, lookback=30):
                     out["W_with_div"] = True
                 neckline = float(high.iloc[l1_i:l2_i + 1].max())
                 if out["points"] is None:
+                    last_c = float(_flat(w["Close"]).reset_index(drop=True).iloc[-1])
+                    estado_w = ("confirmado" if last_c > neckline
+                                else "formando_v2" if abs(last_c - l2) / l2 <= tol * 1.8
+                                else "formando")
                     out["points"] = {"tipo": "bullish", "shape": "W",
                                      "p1_idx": int(base_idx + l1_i),
                                      "p2_idx": int(base_idx + l2_i),
                                      "p1_y": l1, "p2_y": l2,
-                                     "neckline": neckline, "with_div": with_div}
+                                     "neckline": neckline, "with_div": with_div,
+                                     "estado": estado_w}
                 break
 
     return out
@@ -502,11 +512,15 @@ def calc_pattern_hch(df, lookback=60):
                 confirmed = last_close < neckline
                 if confirmed:
                     out["HCH_confirmed"] = True
+                estado_hch = ("confirmado" if confirmed
+                              else "formando_hd" if abs(last_close - hc) / hc <= tol_shoulders
+                              else "formando")
                 out["points"] = {"tipo": "bearish", "shape": "HCH",
                                  "ls_idx": int(base_idx + a), "ls_y": ha,
                                  "head_idx": int(base_idx + b), "head_y": hb,
                                  "rs_idx": int(base_idx + c), "rs_y": hc,
-                                 "neckline": neckline, "confirmed": confirmed}
+                                 "neckline": neckline, "confirmed": confirmed,
+                                 "estado": estado_hch}
                 break
 
     # ── HCH invertido alcista (3 valles) ──
@@ -523,11 +537,15 @@ def calc_pattern_hch(df, lookback=60):
                 if confirmed:
                     out["HCHi_confirmed"] = True
                 if out["points"] is None:
+                    estado_hchi = ("confirmado" if confirmed
+                                   else "formando_hd" if abs(last_close - lc) / lc <= tol_shoulders
+                                   else "formando")
                     out["points"] = {"tipo": "bullish", "shape": "HCHi",
                                      "ls_idx": int(base_idx + a), "ls_y": la,
                                      "head_idx": int(base_idx + b), "head_y": lb,
                                      "rs_idx": int(base_idx + c), "rs_y": lc,
-                                     "neckline": neckline, "confirmed": confirmed}
+                                     "neckline": neckline, "confirmed": confirmed,
+                                     "estado": estado_hchi}
                 break
 
     return out
@@ -1920,35 +1938,77 @@ async def get_chart(ticker: str):
                 return None
 
         overlays = {"divergence": None, "mw": None, "hch": None}
+        patterns = {"M": None, "W": None, "HCH": None, "HCH_inv": None}
+        divergences = {"bear_div": False, "bull_div": False,
+                       "hidden_bear": False, "hidden_bull": False,
+                       "bear_lines": [], "bull_lines": []}
         try:
             div = calc_rsi_divergence(df, lookback=10)
+            divergences.update({
+                "bear_div": div["bear_div"], "bull_div": div["bull_div"],
+                "hidden_bear": div["hidden_bear"], "hidden_bull": div["hidden_bull"],
+            })
             if div.get("points"):
                 p = div["points"]
-                overlays["divergence"] = {
+                ovd = {
                     "kind": p["kind"], "tipo": p["tipo"],
                     "p1": {"x": _idx_to_x(p["p1_idx"]),
                            "price": p["p1_price"], "rsi": p["p1_rsi"]},
                     "p2": {"x": _idx_to_x(p["p2_idx"]),
                            "price": p["p2_price"], "rsi": p["p2_rsi"]},
                 }
+                overlays["divergence"] = ovd
+                # también en bear/bull_lines para el RSI chart
+                line = {"x0": _idx_to_x(p["p1_idx"]), "x1": _idx_to_x(p["p2_idx"]),
+                        "rsi0": p["p1_rsi"], "rsi1": p["p2_rsi"],
+                        "p0": p["p1_price"], "p1": p["p2_price"],
+                        "tipo": p["kind"]}
+                if p["tipo"] == "bearish":
+                    divergences["bear_lines"].append(line)
+                else:
+                    divergences["bull_lines"].append(line)
+
             mw = calc_pattern_mw(df, lookback=30)
             if mw.get("points"):
                 p = mw["points"]
+                estado = p.get("estado", "formando")
                 overlays["mw"] = {
                     "shape": p["shape"], "tipo": p["tipo"],
                     "with_div": p["with_div"], "neckline": p["neckline"],
+                    "estado": estado,
                     "p1": {"x": _idx_to_x(p["p1_idx"]), "y": p["p1_y"]},
                     "p2": {"x": _idx_to_x(p["p2_idx"]), "y": p["p2_y"]},
                 }
+                key = "M" if p["shape"] == "M" else "W"
+                patterns[key] = {
+                    "p1_x": _idx_to_x(p["p1_idx"]), "p1_y": p["p1_y"],
+                    "p2_x": _idx_to_x(p["p2_idx"]), "p2_y": p["p2_y"],
+                    "neckline": p["neckline"], "rsi_div": p["with_div"],
+                    "estado": estado,
+                    "bearish": p["tipo"] == "bearish",
+                }
+
             hch = calc_pattern_hch(df, lookback=60)
             if hch.get("points"):
                 p = hch["points"]
+                estado = p.get("estado", "formando")
                 overlays["hch"] = {
                     "shape": p["shape"], "tipo": p["tipo"],
                     "confirmed": p["confirmed"], "neckline": p["neckline"],
+                    "estado": estado,
                     "ls":   {"x": _idx_to_x(p["ls_idx"]),   "y": p["ls_y"]},
                     "head": {"x": _idx_to_x(p["head_idx"]), "y": p["head_y"]},
                     "rs":   {"x": _idx_to_x(p["rs_idx"]),   "y": p["rs_y"]},
+                }
+                key = "HCH" if p["shape"] == "HCH" else "HCH_inv"
+                patterns[key] = {
+                    "hi_x":  _idx_to_x(p["ls_idx"]),   "hi_y":  p["ls_y"],
+                    "cab_x": _idx_to_x(p["head_idx"]), "cab_y": p["head_y"],
+                    "hd_x":  _idx_to_x(p["rs_idx"]),   "hd_y":  p["rs_y"],
+                    "nk1_x": _idx_to_x(p["ls_idx"]),   "nk1_y": p["neckline"],
+                    "nk2_x": _idx_to_x(p["rs_idx"]),   "nk2_y": p["neckline"],
+                    "neckline": p["neckline"], "estado": estado,
+                    "bearish": p["tipo"] == "bearish",
                 }
         except Exception as ovl_err:
             print(f"[overlays] failed for {ticker}: {ovl_err}")
@@ -1963,6 +2023,8 @@ async def get_chart(ticker: str):
                 "fractal_touch_candles": ftc,
                 "overlays": overlays,
             },
+            "patterns": patterns,
+            "divergences": divergences,
             "fractales": fr,
             "opens": opens,
             "last_price": ult,

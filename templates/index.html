@@ -196,6 +196,11 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);overflow-x:hid
         <div id="alertList" style="display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto"></div>
       </div>
 
+      <div class="card" id="patBox" style="padding:11px;display:none">
+        <div style="font-family:var(--fd);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:rgba(0,255,65,.3);margin-bottom:8px">🕯️ PATRONES — <span id="patSym" style="color:var(--g)"></span></div>
+        <div id="patList" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+
 <div class="card" id="np" style="padding:12px">
   <div id="np-hdr" onclick="toggleNP()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;margin-bottom:0">
     <div style="display:flex;align-items:center;gap:7px">
@@ -830,6 +835,44 @@ function renderWP(){
 }
 const rt=ts=>{const d=Date.now()-ts;if(d<60000)return'ahora';if(d<3600000)return`${Math.floor(d/60000)}m`;if(d<86400000)return`${Math.floor(d/3600000)}h`;return`${Math.floor(d/86400000)}d`};
 
+function renderPatterns(data){
+  const box=document.getElementById('patBox');
+  const list=document.getElementById('patList');
+  const pats=data.patterns||{};
+  const divs=data.divergences||{};
+  const items=[];
+  const eCol={confirmado:'#ff1744',formando_p2:'#ff9800',formando_v2:'#00e676',formando_hd:'#ff9800',formando:'rgba(0,255,65,.4)'};
+  const eLbl={confirmado:'CONFIRMADO',formando_p2:'P2 FORMANDO',formando_v2:'V2 FORMANDO',formando_hd:'HD FORMANDO',formando:'FORMANDO'};
+  const fmt=v=>v!=null?Number(v).toLocaleString('es-ES',{maximumFractionDigits:4}):'-';
+  if(pats.M){
+    const c=eCol[pats.M.estado]||'#ff9800';
+    items.push(`<div style="padding:5px 8px;border-radius:4px;background:rgba(255,23,68,.06);border-left:2px solid ${c};font-family:var(--fm);font-size:10px;line-height:1.6"><span style="color:${c};font-weight:700">M — Doble Techo</span><span style="float:right;font-size:8px;color:${c}">${eLbl[pats.M.estado]||''}</span><br><span style="color:rgba(255,255,255,.45)">P1: ${fmt(pats.M.p1_y)} · P2: ${fmt(pats.M.p2_y)} · Neck: ${fmt(pats.M.neckline)}</span>${pats.M.rsi_div?'<br><span style="color:#ff4455;font-size:9px">+ Div RSI bajista confirmada</span>':''}</div>`);
+  }
+  if(pats.W){
+    const c=eCol[pats.W.estado]||'#00e676';
+    items.push(`<div style="padding:5px 8px;border-radius:4px;background:rgba(0,230,118,.05);border-left:2px solid ${c};font-family:var(--fm);font-size:10px;line-height:1.6"><span style="color:${c};font-weight:700">W — Doble Suelo</span><span style="float:right;font-size:8px;color:${c}">${eLbl[pats.W.estado]||''}</span><br><span style="color:rgba(255,255,255,.45)">V1: ${fmt(pats.W.p1_y)} · V2: ${fmt(pats.W.p2_y)} · Neck: ${fmt(pats.W.neckline)}</span>${pats.W.rsi_div?'<br><span style="color:#00e676;font-size:9px">+ Div RSI alcista confirmada</span>':''}</div>`);
+  }
+  if(pats.HCH){
+    const c=eCol[pats.HCH.estado]||'#ff9800';
+    items.push(`<div style="padding:5px 8px;border-radius:4px;background:rgba(255,23,68,.06);border-left:2px solid ${c};font-family:var(--fm);font-size:10px;line-height:1.6"><span style="color:${c};font-weight:700">HCH — Bajista</span><span style="float:right;font-size:8px;color:${c}">${eLbl[pats.HCH.estado]||''}</span><br><span style="color:rgba(255,255,255,.45)">CAB: ${fmt(pats.HCH.cab_y)} · Neck: ${fmt(pats.HCH.nk2_y)}</span></div>`);
+  }
+  if(pats.HCH_inv){
+    const c=eCol[pats.HCH_inv.estado]||'#00e676';
+    items.push(`<div style="padding:5px 8px;border-radius:4px;background:rgba(0,230,118,.05);border-left:2px solid ${c};font-family:var(--fm);font-size:10px;line-height:1.6"><span style="color:${c};font-weight:700">HCHi — Alcista</span><span style="float:right;font-size:8px;color:${c}">${eLbl[pats.HCH_inv.estado]||''}</span><br><span style="color:rgba(255,255,255,.45)">CAB: ${fmt(pats.HCH_inv.cab_y)} · Neck: ${fmt(pats.HCH_inv.nk2_y)}</span></div>`);
+  }
+  if(divs.bear_div)items.push(`<div style="padding:4px 8px;border-radius:4px;background:rgba(255,23,68,.06);border-left:2px solid #ff1744;font-family:var(--fm);font-size:9px;color:rgba(255,50,70,.9)">Div RSI bajista — precio HH · RSI LH</div>`);
+  if(divs.bull_div)items.push(`<div style="padding:4px 8px;border-radius:4px;background:rgba(0,230,118,.05);border-left:2px solid #00e676;font-family:var(--fm);font-size:9px;color:rgba(0,230,118,.9)">Div RSI alcista — precio LL · RSI HL</div>`);
+  if(divs.hidden_bear)items.push(`<div style="padding:4px 8px;border-radius:4px;background:rgba(255,152,0,.05);border-left:2px solid #ff9800;font-family:var(--fm);font-size:9px;color:rgba(255,152,0,.9)">Div RSI bajista oculta</div>`);
+  if(divs.hidden_bull)items.push(`<div style="padding:4px 8px;border-radius:4px;background:rgba(0,200,255,.05);border-left:2px solid #00bcd4;font-family:var(--fm);font-size:9px;color:rgba(0,200,255,.9)">Div RSI alcista oculta</div>`);
+  if(items.length){
+    document.getElementById('patSym').innerText=sym;
+    list.innerHTML=items.join('');
+    box.style.display='block';
+  }else{
+    box.style.display='none';
+  }
+}
+
 function renderFL(fr,pr){
   const el=document.getElementById('fl');
   if(!fr||!fr.levels){el.innerHTML='<div style="font-family:var(--fm);font-size:10px;color:rgba(0,255,65,.2)">Sin datos</div>';return}
@@ -855,7 +898,7 @@ async function loadSym(s){
     lastData=data;
     document.getElementById('lw').style.display='none';
     if(document.getElementById('chartBody').style.display!=='none')renderP(data);
-    updateSB(data);renderCA();renderFL(data.fractales,data.last_price);
+    updateSB(data);renderCA();renderFL(data.fractales,data.last_price);renderPatterns(data);
   }catch(e){document.getElementById('lw').style.display='none';toast('> ERROR: '+e.message,'bearish')}
 }
 function renderCA(){
@@ -997,24 +1040,28 @@ function renderP(apiData){
       hoverinfo:'skip',showlegend:false});
   }
   if(ov.mw){
-    const m=ov.mw,col=m.tipo==='bullish'?'#00ff41':'#ff4455';
-    const isM=m.shape==='M';
-    const fullLbl=(isM?'DOBLE TECHO':'DOBLE SUELO')+(m.with_div?' +DIV ✓':'');
+    const m=ov.mw,isM=m.shape==='M';
+    // Color por estado: confirmado=rojo fuerte, formando_p2/v2=naranja, formando=verde/rojo tenue
+    const estadoCol={confirmado:isM?'rgba(255,23,68,.95)':'rgba(0,230,118,.95)',
+                     formando_p2:'rgba(255,152,0,.9)',formando_v2:'rgba(0,200,255,.9)',
+                     formando:isM?'rgba(255,100,100,.65)':'rgba(100,255,180,.65)'};
+    const col=estadoCol[m.estado]||(isM?'#ff4455':'#00ff41');
+    const fullLbl=(isM?'DOBLE TECHO':'DOBLE SUELO')+(m.with_div?' +DIV ✓':'')
+                  +(m.estado==='confirmado'?' ✓':m.estado==='formando_p2'?' [P2]':m.estado==='formando_v2'?' [V2]':'');
     const xs=[new Date(m.p1.x),new Date(m.p2.x)];
     const ys=[m.p1.y,m.p2.y];
-    // Offset vertical para no solaparse con HCH (que ocupa top center con 'H')
-    const yOff=(Math.max(...ys)-Math.min(...ys))*0.15 + (ys[0]*0.003);
     const txtPos=isM?'top right':'bottom right';
     traces.push({x:xs,y:ys,type:'scatter',mode:'lines+markers+text',name:fullLbl,
-      text:[isM?'⓵':'⓵', isM?'⓶ '+fullLbl:'⓶ '+fullLbl],
+      text:['①', '② '+fullLbl],
       textposition:[isM?'top center':'bottom center', txtPos],
       textfont:{color:col,size:11,family:'Share Tech Mono'},
-      line:{color:col,width:m.with_div?2.5:1.8,dash:m.with_div?'solid':'dot'},
-      marker:{color:col,size:m.with_div?12:9,symbol:isM?'triangle-down':'triangle-up',line:{color:'#fff',width:1.5}},
+      line:{color:col,width:m.estado==='confirmado'?2.8:m.with_div?2.2:1.6,
+            dash:m.estado==='confirmado'?'solid':'dot'},
+      marker:{color:col,size:m.estado==='confirmado'?13:m.with_div?11:8,
+              symbol:isM?'triangle-down':'triangle-up',line:{color:'#fff',width:1.5}},
       hovertemplate:`<b>${fullLbl}</b><br>$%{y:,.4f}<extra></extra>`,showlegend:true});
     shapes.push({type:'line',xref:'x',yref:'y',x0:xs[0],x1:xE0,
       y0:m.neckline,y1:m.neckline,line:{color:col,width:1.2,dash:'dashdot'}});
-    // Etiqueta neckline a la derecha
     traces.push({x:[xE0],y:[m.neckline],type:'scatter',mode:'text',
       text:[`neckline ${isM?'M':'W'} ${m.neckline.toLocaleString('es-ES',{maximumFractionDigits:4})}`],
       textposition:'middle right',textfont:{color:col,size:9,family:'Share Tech Mono'},
@@ -1060,6 +1107,7 @@ function renderP(apiData){
   };
   div.on('plotly_relayout',div._rl);
   document.getElementById('rsiWrap').style.display='block';
+  window._lastDivergences=apiData.divergences||{};
   renderRSI(cd,dates,xU,(cd.overlays||{}).divergence);
   const bs=document.getElementById('t-eS'),bl=document.getElementById('t-eL');
   if(bs)bs.innerText=`EMA ${cfg.ema_short}`;if(bl)bl.innerText=`EMA ${cfg.ema_long}`;
@@ -1094,6 +1142,26 @@ function renderRSI(cd,dates,xU,ovDiv){
       line:{color:col,width:2},marker:{color:col,size:9,symbol:'star',line:{color:'#000',width:1}},
       hovertemplate:`<b>Divergencia ${tag} ${ovDiv.tipo}</b><br>RSI: %{y:.1f}<extra></extra>`});
   }
+  // Líneas adicionales de divergencia desde divergences.bear_lines / bull_lines
+  const divData=window._lastDivergences||{};
+  (divData.bear_lines||[]).forEach(l=>{
+    const isHidden=l.tipo&&l.tipo.includes('hidden');
+    rsiTraces.push({x:[new Date(l.x0),new Date(l.x1)],y:[l.rsi0,l.rsi1],
+      type:'scatter',mode:'lines+markers',
+      name:isHidden?'Div bajista oculta':'Div bajista regular',
+      line:{color:'rgba(255,23,68,.85)',width:1.8,dash:isHidden?'dot':'solid'},
+      marker:{color:'rgba(255,23,68,.85)',size:6},
+      hovertemplate:`<b>${isHidden?'Div oculta':'Div regular'} bajista</b><br>RSI: %{y:.1f}<extra></extra>`});
+  });
+  (divData.bull_lines||[]).forEach(l=>{
+    const isHidden=l.tipo&&l.tipo.includes('hidden');
+    rsiTraces.push({x:[new Date(l.x0),new Date(l.x1)],y:[l.rsi0,l.rsi1],
+      type:'scatter',mode:'lines+markers',
+      name:isHidden?'Div alcista oculta':'Div alcista regular',
+      line:{color:'rgba(0,230,118,.85)',width:1.8,dash:isHidden?'dot':'solid'},
+      marker:{color:'rgba(0,230,118,.85)',size:6},
+      hovertemplate:`<b>${isHidden?'Div oculta':'Div regular'} alcista</b><br>RSI: %{y:.1f}<extra></extra>`});
+  });
   Plotly.react('rsiDiv',rsiTraces,{paper_bgcolor:'#000',plot_bgcolor:'rgba(0,3,0,.4)',margin:{t:6,r:70,b:36,l:50},showlegend:false,xaxis:{type:'date',gridcolor:'rgba(0,255,65,.03)',linecolor:'rgba(0,255,65,.05)',tickfont:{color:'rgba(0,255,65,.25)',size:9,family:'Share Tech Mono'},rangeslider:{visible:false},...(xU?{range:xU}:{})},yaxis:{range:[0,100],gridcolor:'rgba(0,255,65,.03)',tickfont:{color:'rgba(0,255,65,.2)',size:8,family:'Share Tech Mono'},side:'right',tickvals:[0,30,50,70,100]},shapes:[{type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:0,y1:30,fillcolor:'rgba(0,255,65,.03)',line:{width:0}},{type:'rect',xref:'paper',yref:'y',x0:0,x1:1,y0:70,y1:100,fillcolor:'rgba(255,0,51,.03)',line:{width:0}}],font:{family:'Share Tech Mono,monospace'},dragmode:'pan'},{responsive:true,scrollZoom:false,displayModeBar:false});
 }
 
