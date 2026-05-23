@@ -836,6 +836,36 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     if not alerts_by_ticker:
         return
 
+    # Filtrar activos cerrados en fin de semana y alertas caducadas (>1h)
+    _WEEKEND_24H = {"BTC-USD"}
+    _MAX_AGE_S   = 3600
+    _now_utc     = datetime.now(ZoneInfo("UTC"))
+    _wd          = _now_utc.weekday()
+    _is_weekend  = _wd >= 5
+
+    def _alert_ok(ticker: str, alert: dict) -> bool:
+        if _is_weekend and ticker.upper() not in _WEEKEND_24H:
+            return False
+        ts = alert.get("ts_utc_iso", "")
+        if ts:
+            try:
+                dt = datetime.fromisoformat(ts)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+                if (_now_utc - dt).total_seconds() > _MAX_AGE_S:
+                    return False
+            except Exception:
+                pass
+        return True
+
+    alerts_by_ticker = {
+        t: [a for a in al if _alert_ok(t, a)]
+        for t, al in alerts_by_ticker.items()
+    }
+    alerts_by_ticker = {t: al for t, al in alerts_by_ticker.items() if al}
+    if not alerts_by_ticker:
+        return
+
     now_str          = datetime.now(ZoneInfo('Europe/Madrid')).strftime("%d/%m/%Y %H:%M")
     all_alertas_flat = [a for al in alerts_by_ticker.values() for a in al]
 

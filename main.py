@@ -51,6 +51,32 @@ WATCH_TICKERS = [
 _sent_cache: dict = {}
 _DEDUP_SECONDS = 4 * 3600
 
+# Activos que operan 24/7 incluso en fin de semana
+_WEEKEND_TICKERS = {"BTC-USD"}
+_ALERT_MAX_AGE_SECONDS = 3600  # anular alertas con más de 1h de antigüedad
+
+
+def _is_tradeable(ticker: str) -> bool:
+    """Devuelve False en sábado/domingo para activos que no operan el fin de semana."""
+    if ticker.upper() in _WEEKEND_TICKERS:
+        return True
+    wd = pd.Timestamp.now(tz="UTC").weekday()
+    return wd < 5  # 5=sábado, 6=domingo
+
+
+def _is_stale(ts_utc_iso: str, max_seconds: int = _ALERT_MAX_AGE_SECONDS) -> bool:
+    """Devuelve True si la alerta tiene más de max_seconds de antigüedad."""
+    if not ts_utc_iso:
+        return False
+    try:
+        ts = pd.Timestamp(ts_utc_iso)
+        if ts.tzinfo is None:
+            ts = ts.tz_localize("UTC")
+        age = (pd.Timestamp.now(tz="UTC") - ts).total_seconds()
+        return age > max_seconds
+    except Exception:
+        return False
+
 _row_cache: dict = {}
 _ROW_TTL = 300
 _yf_lock = asyncio.Lock()
@@ -1311,6 +1337,8 @@ async def _check_tickers(tickers: list, num_candles: int = 1, label: str = "",
     now = time.time()
     alerts_by_ticker: dict = {}
     for t in tickers:
+        if not _is_tradeable(t):
+            continue
         try:
             cfg = get_cfg(t)
             df = await async_download(
@@ -1495,6 +1523,8 @@ async def _rsi_realtime_check():
     alertas_rsi: dict = {}
 
     for ticker, info in list(_rsi_watchlist.items()):
+        if not _is_tradeable(ticker):
+            continue
         try:
             df = await async_download(ticker, period="5d", interval="15m", progress=False)
             if df.empty:
@@ -1655,6 +1685,8 @@ async def _pattern_realtime_check():
     alertas_pat: dict = {}
 
     for ticker in WATCH_TICKERS:
+        if not _is_tradeable(ticker):
+            continue
         try:
             cfg = get_cfg(ticker)
             df = await async_download(ticker, period="6mo", interval="4h", progress=False)
