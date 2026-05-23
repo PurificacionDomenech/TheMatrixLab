@@ -1689,6 +1689,74 @@ async def _pattern_realtime_check():
                                    if shape == "M"
                                    else "Segundo valle de W (doble suelo) formándose")
 
+            # ── Aleta de tiburón: check independiente del patrón ──────────────
+            shark = calc_shark_fin(df, lookback=30)
+            if shark.get("alert_immediate") and shark.get("phase") in ("exceeded", "crossed"):
+                s_tipo  = shark["shark_tipo"]
+                s_phase = shark["phase"]
+                shark_key = f"SHARK_{ticker}_{s_tipo}_{s_phase}"
+                if now - _sent_cache.get(shark_key, 0) >= _PATTERN_DEDUP_SECONDS:
+                    # Necesitamos las confluencias para validar ≥1 extra alineada
+                    opens_s = calc_opens(df)
+                    comp_s  = None
+                    if ticker in INDEX_COMPONENTS:
+                        try:
+                            comp_s = await get_index_components_context(ticker)
+                        except Exception:
+                            pass
+                    res_s = evaluate_confluencias(df, ticker=ticker, cfg=cfg,
+                                                  opens=opens_s, components_ctx=comp_s)
+                    if res_s:
+                        extras_s = sum(
+                            1 for c in res_s.get("confluencias", [])
+                            if c.get("ok") and not c.get("descartada")
+                            and not c.get("conflicto")
+                            and c.get("tipo") == s_tipo
+                            and c.get("id") != 7   # no contar la propia ⑦ de la aleta
+                        )
+                        if extras_s >= 1:
+                            # Enriquecer confluencia ⑦ en el resultado para el mensaje
+                            for c in res_s.get("confluencias", []):
+                                if c["id"] == 7 and c.get("shark"):
+                                    c["alert_immediate"] = True
+                            puntos_s = sum(
+                                1 + c.get("pts_extra", 0)
+                                for c in res_s["confluencias"]
+                                if c.get("ok") and not c.get("descartada")
+                                and not c.get("conflicto")
+                                and c.get("tipo") not in ("neutral", "info")
+                            ) + sum(
+                                1 for c in res_s["confluencias"]
+                                if c.get("ok") and not c.get("descartada")
+                                and not c.get("conflicto")
+                                and c.get("tipo") == "neutral"
+                            )
+                            res_s["puntos"] = puntos_s
+                            res_s["estado"] = "FAVORABLE" if puntos_s >= 4 else "INTERESANTE"
+                            res_s["nivel"]  = s_tipo
+                            res_s["alert"]  = True
+                            res_s["shark_realtime"] = True
+
+                            s_emoji = "⚡🦈" if s_phase == "exceeded" else "🦈"
+                            s_dir   = "bajista" if s_tipo == "bearish" else "alcista"
+                            ts_now  = pd.Timestamp.now(tz="UTC")
+                            alertas_pat.setdefault(ticker, []).append({
+                                "nivel": s_tipo,
+                                "msg": f"[{ticker}] {s_emoji} Aleta tiburón {s_dir} "
+                                       f"{'EXTREMA' if s_phase == 'exceeded' else 'confirmada'} "
+                                       f"+ {extras_s} confluencia(s) alineada(s)",
+                                "hora": ts_now.strftime("%d/%m %H:%M"),
+                                "ts_utc_iso": ts_now.isoformat(),
+                                "dia_num": ts_now.weekday(),
+                                "dia_name": ts_now.strftime("%A"),
+                                "resultado": res_s,
+                                "components_ctx": comp_s,
+                            })
+                            _sent_cache[shark_key] = now
+                            print(f"[shark-rt] {s_emoji} {ticker} — {s_phase} "
+                                  f"RSI={shark['shark_rsi_peak']:.1f} "
+                                  f"+{extras_s} confluencias → ALERTA INMEDIATA")
+
             if not shape:
                 continue
 
