@@ -1495,7 +1495,62 @@ async def _update_rsi_watchlist():
             rsi_ya_extremo = (direction == "bullish" and rsi <= 30) or \
                              (direction == "bearish" and rsi >= 70)
 
-            if puntos_sin_rsi >= 3 and not rsi_ya_extremo:
+            if puntos_sin_rsi >= 3 and rsi_ya_extremo:
+                # RSI ya está en zona extrema cuando corre el check de 30 min
+                # → alerta inmediata (misma lógica que el check de 2 min)
+                if not _is_tradeable(t.upper()):
+                    pass
+                else:
+                    dedup_key = f"RSI_RT_{t.upper()}_{direction}"
+                    now_ts = time.time()
+                    if now_ts - _sent_cache.get(dedup_key, 0) >= _DEDUP_SECONDS:
+                        # Forzar RSI en confluencia ①
+                        for c in resultado.get("confluencias", []):
+                            if c["id"] == 1:
+                                c["ok"] = True
+                                c["tipo"] = direction
+                                c["texto"] = (f"⚡ RSI en zona ({rsi:.1f}) → "
+                                              f"{'COMPRA' if direction == 'bullish' else 'VENTA'}")
+                                c.pop("descartada", None)
+                                c.pop("conflicto", None)
+                        puntos = sum(
+                            1 + c.get("pts_extra", 0)
+                            for c in resultado["confluencias"]
+                            if c.get("ok") and not c.get("descartada")
+                            and not c.get("conflicto")
+                            and c.get("tipo") not in ("neutral", "info")
+                        ) + sum(
+                            1 for c in resultado["confluencias"]
+                            if c.get("ok") and not c.get("descartada")
+                            and not c.get("conflicto")
+                            and c.get("tipo") == "neutral"
+                        )
+                        resultado["puntos"] = puntos
+                        resultado["estado"] = "FAVORABLE" if puntos >= 4 else "INTERESANTE"
+                        resultado["nivel"] = direction
+                        resultado["alert"] = puntos >= 4
+                        resultado["rsi_realtime"] = True
+
+                        if resultado["alert"]:
+                            ts_now = pd.Timestamp.now(tz="UTC")
+                            alerta = {
+                                t.upper(): [{
+                                    "nivel": direction,
+                                    "msg": f"[{t.upper()}] ⚡ RSI EN ZONA — {resultado['estado']}",
+                                    "hora": ts_now.strftime("%d/%m %H:%M"),
+                                    "ts_utc_iso": ts_now.isoformat(),
+                                    "dia_num": ts_now.weekday(),
+                                    "dia_name": ts_now.strftime("%A"),
+                                    "resultado": resultado,
+                                    "components_ctx": components_ctx,
+                                }]
+                            }
+                            await notify_users_with_alerts(alerta)
+                            _sent_cache[dedup_key] = now_ts
+                            print(f"[rsi-watch] ⚡ {t.upper()} RSI={rsi:.1f} ya en zona "
+                                  f"({direction}) → ALERTA INMEDIATA (check 30m)")
+
+            elif puntos_sin_rsi >= 3 and not rsi_ya_extremo:
                 new_watchlist[t.upper()] = {
                     "direction": direction,
                     "puntos_sin_rsi": puntos_sin_rsi,
