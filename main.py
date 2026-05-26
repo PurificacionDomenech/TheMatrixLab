@@ -326,8 +326,12 @@ def calc_indicators(df, es=200, el=800):
     df[f"EMA{es}"] = close.ewm(span=es, adjust=False).mean()
     df[f"EMA{el}"] = close.ewm(span=el, adjust=False).mean()
     d = close.diff()
-    losses = (-d.where(d < 0, 0)).rolling(14).mean().replace(0, np.nan)
-    df["RSI"] = 100 - (100 / (1 + d.where(d > 0, 0).rolling(14).mean() / losses))
+    gains  = d.where(d > 0, 0.0)
+    losses = (-d.where(d < 0, 0.0))
+    # Wilder's smoothing (alpha=1/14) — igual que TradingView y la mayoría de plataformas
+    avg_gain = gains.ewm(alpha=1 / 14, adjust=False).mean()
+    avg_loss = losses.ewm(alpha=1 / 14, adjust=False).mean().replace(0, np.nan)
+    df["RSI"] = 100 - (100 / (1 + avg_gain / avg_loss))
     return df
 
 
@@ -1532,9 +1536,12 @@ async def _rsi_realtime_check():
             df = clean_df(df)
 
             if "RSI" not in df.columns:
-                d = df["Close"].diff()
-                losses = (-d.where(d < 0, 0)).rolling(14).mean().replace(0, np.nan)
-                df["RSI"] = 100 - (100 / (1 + d.where(d > 0, 0).rolling(14).mean() / losses))
+                d      = df["Close"].diff()
+                _g     = d.where(d > 0, 0.0)
+                _l     = (-d.where(d < 0, 0.0))
+                _ag    = _g.ewm(alpha=1 / 14, adjust=False).mean()
+                _al    = _l.ewm(alpha=1 / 14, adjust=False).mean().replace(0, np.nan)
+                df["RSI"] = 100 - (100 / (1 + _ag / _al))
 
             rsi_series = df["RSI"].dropna()
             if rsi_series.empty:
