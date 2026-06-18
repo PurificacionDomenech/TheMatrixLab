@@ -846,8 +846,10 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
     def _alert_ok(ticker: str, alert: dict) -> bool:
         if _is_weekend and ticker.upper() not in _WEEKEND_24H:
             return False
-        ts = alert.get("ts_utc_iso", "")
-        if ts:
+        # Usar generated_at (momento de creación de la alerta) si existe,
+        # ts_utc_iso es el timestamp de la vela (puede ser horas anterior)
+        ts = alert.get("generated_at") or alert.get("ts_utc_iso", "")
+        if ts and alert.get("generated_at"):
             try:
                 dt = datetime.fromisoformat(ts)
                 if dt.tzinfo is None:
