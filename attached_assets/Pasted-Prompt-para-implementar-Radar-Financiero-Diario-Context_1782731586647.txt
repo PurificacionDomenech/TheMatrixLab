@@ -1,0 +1,102 @@
+Prompt para implementar Radar Financiero Diario
+Contexto
+Mi app es un scanner financiero en Python/FastAPI que usa yfinance para datos. Necesito añadir un Radar Financiero Diario que envíe un resumen de noticias + datos del epicentro del mercado a los usuarios VIP una vez al día (después de las 8am hora Madrid).
+
+Requisitos del Radar Financiero
+1. Epicentro del Mercado (datos que se obtienen UNA sola vez por ciclo)
+Obtener precio y variación diaria de estos índices con yfinance:
+
+^VIX (VIX) — con icono 🌡️, flecha invertida: 📉 si sube, 📈 si baja
+^GSPC (S&P 500) — con icono 📊
+^DJI (Dow Jones) — con icono 📊
+^IXIC (Nasdaq) — con icono 📊
+^RUT (Russell 2000) — con icono 📊
+Para cada índice: precio de cierre del último día y cambio porcentual vs. día anterior. Usar Ticker(sym).history(period="2d").
+
+2. Noticias por ticker de la watchlist
+Para cada ticker en la watchlist del usuario, obtener noticias con yf.Ticker(ticker).news, máximo 3 por ticker. Traducir títulos del inglés al español con deep_translator.GoogleTranslator(source='en', target='es'). Extraer URL de content.clickThroughUrl.url o content.canonicalUrl.url.
+
+Caché compartida: guardar resultados en un dict para no repetir llamadas si varios usuarios tienen el mismo ticker.
+
+3. Envío: Telegram + Email (formato dual)
+Telegram (texto HTML):
+
+Un solo mensaje con el Epicentro: "📡 Radar Financiero Diario"
+Luego un mensaje por ticker con noticias (título traducido + enlace clickeable en HTML)
+Formato Telegram con <b> para negritas
+Email (HTML completo):
+
+Un solo correo con todo: cabecera + tabla del Epicentro + sección por ticker con enlaces
+Estilo oscuro (#060810 fondo, #e8c96d dorado, #e8e4d9 texto)
+Incluir fecha/hora de Madrid
+4. Control de envío: una vez al día por usuario
+MUY IMPORTANTE — deduplicación atómica:
+
+Usar una tabla radar_daily_log(user_id TEXT PRIMARY KEY, sent_date DATE DEFAULT CURRENT_DATE) en PostgreSQL.
+
+La función de envío DEBE ser atómica (una sola operación que marca y comprueba a la vez):
+
+def try_mark_radar_sent(user_id):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO radar_daily_log (user_id) VALUES (%s) ON CONFLICT DO NOTHING RETURNING 1",
+                    (user_id,)
+                )
+                inserted = cur.fetchone() is not None
+            conn.commit()
+            return inserted  # True = esta instancia debe enviar
+    except Exception:
+        return False
+
+En el loop de usuarios:
+
+for uid, ... in users:
+    if not try_mark_radar_sent(uid):
+        continue  # ya enviado hoy
+    # ... obtener noticias y enviar ...
+
+Esto evita duplicados cuando hay múltiples instancias (autoscale).
+
+5. Zona horaria y frecuencia
+Zona horaria: Europe/Madrid (respeta DST)
+Enviar solo si la hora actual en Madrid es >= 8
+Ejecutar en el mismo loop del scanner (cada 30 minutos)
+No enviar en fin de semana (si así se decide), o enviar siempre
+6. Estructura de la tabla necesaria
+CREATE TABLE IF NOT EXISTS radar_daily_log (
+    user_id TEXT PRIMARY KEY,
+    sent_date DATE DEFAULT CURRENT_DATE
+);
+
+7. Funciones a implementar (esqueleto)
+def get_epicentro_data_sync():
+    """Obtiene precio y cambio de VIX, S&P500, Dow, Nasdaq, Russell."""
+    
+def format_epicentro_telegram(data):
+    """Formatea epicentro para Telegram HTML."""
+    
+def format_epicentro_html(data):
+    """Formatea epicentro como tabla HTML para email."""
+def get_ticker_news_sync(ticker):
+    """Devuelve lista de {title_es, url} max 3 noticias. Traduce títulos."""
+async def send_daily_radar():
+    """Función principal:
+    1. Obtener usuarios VIP con watchlist
+    2. Para cada usuario: try_mark_radar_sent(uid) → si True, enviar
+    3. Obtener epicentro (una vez)
+    4. Obtener noticias de tickers (con caché)
+    5. Enviar Telegram (epicentro + ticker×ticker) y/o Email (HTML único)
+    """
+
+8. Dependencias
+yfinance (ya instalada)
+deep_translator (para traducir títulos de noticias)
+psycopg2 (conexión a PostgreSQL)
+httpx (envío de Telegram)
+9. Consideraciones adicionales
+Todas las llamadas a yfinance y deep_translator deben ejecutarse en thread executor (run_in_executor o asyncio.to_thread) para no bloquear el event loop.
+Si un ticker no tiene noticias, saltarlo sin mensaje.
+Límite de 10 tickers por usuario en el radar (evitar spam).
+Si el envío de Telegram falla (rate limit, etc.), loggear el error pero continuar con otros usuarios.

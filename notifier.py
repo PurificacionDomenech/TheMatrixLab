@@ -34,6 +34,11 @@ MAIL_PASSWORD  = os.getenv("MAIL_PASSWORD", "")
 MAIL_SMTP      = os.getenv("MAIL_SMTP", "smtp.gmail.com")
 MAIL_PORT      = int(os.getenv("MAIL_PORT", "587"))
 
+# ── Caché de noticias por ticker ──────────────────────────────
+import time as _time
+_news_cache: dict[str, tuple[float, list]] = {}
+_NEWS_CACHE_TTL = 3600  # 1 hora
+
 NIVEL_EMOJI    = {"bullish": "🟢", "bearish": "🔴", "info": "🔵"}
 NIVEL_LABEL    = {"bullish": "Favorable",  "bearish": "Atención",  "info": "Interesante"}
 NIVEL_LABEL_EN = {"bullish": "Bullish",    "bearish": "Bearish",   "info": "Watch"}
@@ -273,7 +278,8 @@ def _build_tg_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") ->
         blocks.append("<i>Análisis técnico automatizado · No es asesoría financiera</i>")
     return "\n".join(blocks)
 
-def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") -> str:
+def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es",
+                        news_by_ticker: dict | None = None) -> str:
     color_map = {"bullish": "#00cc33", "bearish": "#ff3333", "info": "#4da6ff"}
     labels = NIVEL_LABEL_EN if lang == "en" else NIVEL_LABEL
     disclaimer = "Automated technical analysis · Not financial advice" if lang == "en" else "Análisis técnico automatizado · No es asesoría financiera"
@@ -295,6 +301,18 @@ def _build_html_grouped(alerts_by_ticker: dict, now_str: str, lang: str = "es") 
             rows += (f'<tr><td style="padding:3px 10px 3px 20px;border-bottom:1px solid #1a2a1a;'
                      f'color:{c};font-family:monospace;font-size:13px">'
                      f'{e} {lbl} · {msg}</td></tr>')
+        # Noticias recientes del ticker
+        ticker_news = (news_by_ticker or {}).get(ticker, [])
+        if ticker_news:
+            news_label = "Recent news:" if lang == "en" else "Noticias recientes:"
+            rows += (f'<tr><td style="padding:4px 10px 8px 20px;">'
+                     f'<span style="font-family:monospace;font-size:11px;color:#888;">📰 {news_label}</span>')
+            for n in ticker_news:
+                title = html.escape(n.get("title_es", ""))
+                url   = n.get("url", "")
+                rows += (f'<br><a href="{url}" style="font-family:monospace;font-size:11px;'
+                         f'color:#e8c96d;text-decoration:none;">• {title}</a>')
+            rows += '</td></tr>'
     risk_row = (
         '<tr><td style="padding:10px;font-family:monospace;font-size:11px;'
         'color:#ffaa00;border-top:1px solid #2a2000;background:rgba(255,170,0,0.05);">'
@@ -825,6 +843,54 @@ def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es",
     return _build_tg_grouped(alerts_by_ticker, now_str, lang=lang)
 
 
+# ── Noticias por ticker (yfinance + deep_translator) ─────────
+
+def _get_ticker_news_sync(ticker: str) -> list[dict]:
+    """Obtiene hasta 3 noticias recientes de un ticker. Traduce al español."""
+    try:
+        import yfinance as yf
+        from deep_translator import GoogleTranslator
+        items = yf.Ticker(ticker).news or []
+        translator = GoogleTranslator(source="en", target="es")
+        result = []
+        for item in items[:7]:
+            try:
+                content = item.get("content", {})
+                url = (
+                    content.get("clickThroughUrl", {}).get("url")
+                    or content.get("canonicalUrl", {}).get("url")
+                    or item.get("link", "")
+                )
+                title_en = content.get("title") or item.get("title", "")
+                if not url or not title_en:
+                    continue
+                try:
+                    title_es = translator.translate(title_en) or title_en
+                except Exception:
+                    title_es = title_en
+                result.append({"title_es": title_es, "url": url})
+                if len(result) >= 3:
+                    break
+            except Exception:
+                continue
+        return result
+    except Exception as e:
+        print(f"[news] Error obteniendo noticias de {ticker}: {e}")
+        return []
+
+
+async def _get_ticker_news(ticker: str) -> list[dict]:
+    """Wrapper async con caché de 1 hora para _get_ticker_news_sync."""
+    now = _time.time()
+    cached = _news_cache.get(ticker)
+    if cached and (now - cached[0]) < _NEWS_CACHE_TTL:
+        return cached[1]
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(None, _get_ticker_news_sync, ticker)
+    _news_cache[ticker] = (now, data)
+    return data
+
+
 # ── Función principal — por usuario ─────────────────────────
 
 async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
@@ -870,6 +936,17 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
 
     now_str          = datetime.now(ZoneInfo('Europe/Madrid')).strftime("%d/%m/%Y %H:%M")
     all_alertas_flat = [a for al in alerts_by_ticker.values() for a in al]
+
+    # Fetch noticias para todos los tickers alertados (paralelo, con caché 1h)
+    _tickers_alertados = list(alerts_by_ticker.keys())
+    _news_results = await asyncio.gather(
+        *[_get_ticker_news(t) for t in _tickers_alertados],
+        return_exceptions=True
+    )
+    news_by_ticker: dict = {}
+    for _t, _nr in zip(_tickers_alertados, _news_results):
+        if isinstance(_nr, list):
+            news_by_ticker[_t] = _nr
 
     # Obtener prefs completas, subs básicas, y mapa timezone para subs básicos en paralelo
     all_prefs, basic_chat_ids, extra_prefs_raw = await asyncio.gather(
@@ -924,14 +1001,20 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
                 for tkr, tkr_alertas in user_by_ticker.items():
                     if tkr_alertas:
                         texto_tg = _build_tg_for_user({tkr: tkr_alertas}, now_str, lang=lang, timezone=timezone)
+                        tkr_news = news_by_ticker.get(tkr, [])
+                        if tkr_news:
+                            news_label = "Recent news:" if lang == "en" else "Noticias:"
+                            texto_tg += f"\n\n📰 <b>{news_label}</b>"
+                            for n in tkr_news:
+                                texto_tg += f'\n• <a href="{n["url"]}">{html.escape(n["title_es"])}</a>'
                         await send_telegram_to(cid, texto_tg, ticker=tkr)
                         await asyncio.sleep(0.3)
 
             if prefs.get("email_enabled") and prefs.get("email_address"):
-                html = _build_html_grouped(user_by_ticker, now_str, lang=lang)
+                html_body = _build_html_grouped(user_by_ticker, now_str, lang=lang, news_by_ticker=news_by_ticker)
                 await loop.run_in_executor(
                     None, _smtp_send, prefs["email_address"],
-                    f"⬡ Matrix Lab · {now_str}", html
+                    f"⬡ Matrix Lab · {now_str}", html_body
                 )
 
     # 2 — Suscriptores básicos de Telegram (/start) sin preferencias configuradas
@@ -951,6 +1034,11 @@ async def notify_users_with_alerts(alerts_by_ticker: dict) -> None:
                             {tkr: tkr_alertas}, now_str,
                             lang=user_lang, timezone=user_tz
                         )
+                        tkr_news = news_by_ticker.get(tkr, [])
+                        if tkr_news:
+                            texto_base += "\n\n📰 <b>Noticias:</b>"
+                            for n in tkr_news:
+                                texto_base += f'\n• <a href="{n["url"]}">{html.escape(n["title_es"])}</a>'
                         await send_telegram_to(cid_int, texto_base, ticker=tkr)
                         await asyncio.sleep(0.3)
                 nuevos += 1
