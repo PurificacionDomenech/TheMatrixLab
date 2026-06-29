@@ -845,6 +845,30 @@ def _build_tg_for_user(alerts_by_ticker: dict, now_str: str, lang: str = "es",
 
 # ── Noticias por ticker (yfinance + deep_translator) ─────────
 
+# Palabras clave para filtrar relevancia de noticias por ticker
+_TICKER_KEYWORDS: dict[str, list[str]] = {
+    "AUDUSD=X": ["aud", "australian", "australia", "rba", "reserve bank of australia"],
+    "EURUSD=X": ["eur", "euro", "ecb", "european central", "eurozone", "eurozone"],
+    "GBPJPY=X": ["gbp", "pound", "sterling", "bank of england", "boe", "jpy", "yen", "japan", "boj", "bank of japan"],
+    "USDJPY=X": ["jpy", "yen", "japan", "boj", "bank of japan", "federal reserve", "fed rate", "usd", "dollar"],
+    "GC=F":     ["gold", "oro", "xau", "bullion", "precious metal"],
+    "SI=F":     ["silver", "plata", "xag", "precious metal"],
+    "CL=F":     ["oil", "crude", "petróleo", "petroleum", "wti", "brent", "opec", "barrel", "energy"],
+    "^DJI":     ["dow", "dji", "djia", "dow jones", "wall street", "s&p", "stocks", "equities", "market"],
+    "^NDX":     ["nasdaq", "ndx", "tech", "technology", "semiconductor", "ai", "artificial intelligence"],
+    "BTC-USD":  ["bitcoin", "btc", "crypto", "cryptocurrency", "blockchain", "coinbase", "binance"],
+}
+
+
+def _news_is_relevant(title_en: str, ticker: str) -> bool:
+    """True si el título contiene al menos una palabra clave del ticker."""
+    keywords = _TICKER_KEYWORDS.get(ticker.upper())
+    if not keywords:
+        return True
+    title_lower = title_en.lower()
+    return any(kw in title_lower for kw in keywords)
+
+
 def _get_ticker_news_sync(ticker: str) -> list[dict]:
     """Obtiene hasta 3 noticias recientes de un ticker. Traduce al español."""
     try:
@@ -853,7 +877,7 @@ def _get_ticker_news_sync(ticker: str) -> list[dict]:
         items = yf.Ticker(ticker).news or []
         translator = GoogleTranslator(source="en", target="es")
         result = []
-        for item in items[:7]:
+        for item in items[:15]:  # revisar más candidatos para compensar el filtro
             try:
                 content = item.get("content", {})
                 url = (
@@ -863,6 +887,9 @@ def _get_ticker_news_sync(ticker: str) -> list[dict]:
                 )
                 title_en = content.get("title") or item.get("title", "")
                 if not url or not title_en:
+                    continue
+                # Filtro de relevancia: descartar noticias que no mencionan el activo
+                if not _news_is_relevant(title_en, ticker):
                     continue
                 try:
                     title_es = translator.translate(title_en) or title_en
