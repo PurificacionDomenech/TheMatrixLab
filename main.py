@@ -1627,7 +1627,7 @@ async def _rsi_realtime_check():
             resultado = evaluate_confluencias(df_4h, ticker=ticker, cfg=cfg,
                                               opens=opens_data, components_ctx=components_ctx)
 
-            if not resultado:
+            if not resultado or resultado.get("contradiccion"):
                 continue
 
             resultado["rsi"] = rsi_now
@@ -1801,7 +1801,7 @@ async def _pattern_realtime_check():
                             pass
                     res_s = evaluate_confluencias(df, ticker=ticker, cfg=cfg,
                                                   opens=opens_s, components_ctx=comp_s)
-                    if res_s:
+                    if res_s and not res_s.get("contradiccion"):
                         extras_s = sum(
                             1 for c in res_s.get("confluencias", [])
                             if c.get("ok") and not c.get("descartada")
@@ -1873,7 +1873,7 @@ async def _pattern_realtime_check():
             resultado = evaluate_confluencias(df, ticker=ticker, cfg=cfg,
                                               opens=opens_data,
                                               components_ctx=components_ctx)
-            if not resultado:
+            if not resultado or resultado.get("contradiccion"):
                 continue
 
             extras = sum(
