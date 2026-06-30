@@ -85,7 +85,9 @@ _rsi_watchlist: dict = {}
 _RSI_WATCH_INTERVAL_MIN = 2
 
 _PATTERN_WATCH_INTERVAL_MIN = 5
-_PATTERN_RECENT_BARS = 3  # 2º pico/valle/hombro debe estar en las últimas N velas 4H
+_PATTERN_RECENT_BARS   = 3   # 2º pico/valle/hombro debe estar en las últimas N velas 4H
+_SHARK_VALLEY_MAX_AGE  = 8   # pico/valle RSI de la aleta: máximo 8 velas de antigüedad (32h en 4H)
+_SHARK_CROSS_BARS      = 3   # para fase "crossed": el RSI debe haber estado en zona en las últimas N velas
 _PATTERN_MIN_EXTRA_CONFLUENCIAS = 2
 _PATTERN_DEDUP_SECONDS = 12 * 3600  # no reenviar el mismo patrón en 12h
 
@@ -454,17 +456,26 @@ def calc_shark_fin(df, lookback=30):
                        and float(recent.iloc[i]) >= float(recent.iloc[i + 1])]
         if shark_peaks:
             peak_i, peak_rsi = shark_peaks[-1]
-            rsi_now = float(rsi.iloc[-1])
-            result.update({"shark_bear": True, "shark_tipo": "bearish",
-                           "shark_rsi_peak": peak_rsi, "shark_div_r1": r1_rsi})
-            exceeds = peak_rsi > r1_rsi
-            result["shark_exceeds_div"] = exceeds
-            if exceeds:
-                result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
-            elif rsi_now < 70 and peak_i < len(recent) - 1:
-                result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
-            else:
-                result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+            bars_since_peak = len(recent) - 1 - peak_i
+            if bars_since_peak <= _SHARK_VALLEY_MAX_AGE:
+                rsi_now = float(rsi.iloc[-1])
+                result.update({"shark_bear": True, "shark_tipo": "bearish",
+                               "shark_rsi_peak": peak_rsi, "shark_div_r1": r1_rsi})
+                exceeds = peak_rsi > r1_rsi
+                result["shark_exceeds_div"] = exceeds
+                if exceeds:
+                    result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
+                elif rsi_now < 70 and peak_i < len(recent) - 1:
+                    # Verificar que el cruce fue reciente: RSI debe haber estado >70 en las
+                    # últimas _SHARK_CROSS_BARS velas (excluida la actual)
+                    cross_window = recent.iloc[max(0, len(recent) - _SHARK_CROSS_BARS - 1):-1]
+                    recently_above_70 = any(float(v) > 70 for v in cross_window)
+                    if recently_above_70:
+                        result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
+                    else:
+                        result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+                else:
+                    result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
 
     # ── ALETA ALCISTA ──────────────────────────────────────
     elif div["bull_div"] and pts and pts["tipo"] == "bullish":
@@ -478,17 +489,26 @@ def calc_shark_fin(df, lookback=30):
                          and float(recent.iloc[i]) <= float(recent.iloc[i + 1])]
         if shark_valleys:
             valley_i, valley_rsi = shark_valleys[-1]
-            rsi_now = float(rsi.iloc[-1])
-            result.update({"shark_bull": True, "shark_tipo": "bullish",
-                           "shark_rsi_peak": valley_rsi, "shark_div_r1": s1_rsi})
-            exceeds = valley_rsi < s1_rsi
-            result["shark_exceeds_div"] = exceeds
-            if exceeds:
-                result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
-            elif rsi_now > 30 and valley_i < len(recent) - 1:
-                result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
-            else:
-                result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+            bars_since_valley = len(recent) - 1 - valley_i
+            if bars_since_valley <= _SHARK_VALLEY_MAX_AGE:
+                rsi_now = float(rsi.iloc[-1])
+                result.update({"shark_bull": True, "shark_tipo": "bullish",
+                               "shark_rsi_peak": valley_rsi, "shark_div_r1": s1_rsi})
+                exceeds = valley_rsi < s1_rsi
+                result["shark_exceeds_div"] = exceeds
+                if exceeds:
+                    result.update({"phase": "exceeded", "alert_immediate": True, "shark_pts": 4})
+                elif rsi_now > 30 and valley_i < len(recent) - 1:
+                    # Verificar que el cruce fue reciente: RSI debe haber estado <30 en las
+                    # últimas _SHARK_CROSS_BARS velas (excluida la actual)
+                    cross_window = recent.iloc[max(0, len(recent) - _SHARK_CROSS_BARS - 1):-1]
+                    recently_below_30 = any(float(v) < 30 for v in cross_window)
+                    if recently_below_30:
+                        result.update({"phase": "crossed", "alert_immediate": True, "shark_pts": 2})
+                    else:
+                        result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
+                else:
+                    result.update({"phase": "forming", "alert_immediate": False, "shark_pts": 1})
 
     return result
 
